@@ -107,66 +107,66 @@ alter table public.market_reports enable row level security;
 
 -- Public browsing is allowed for published listings. Sellers and moderators can inspect their own/reviewed records.
 drop policy if exists market_listings_read on public.market_listings;
-create policy market_listings_read on public.market_listings for select to anon, authenticated
+create policy market_listings_read on public.market_listings for select to "anon", "authenticated"
 using ((status in ('published','sold') and public.site_setting_enabled('market_enabled',true)) or seller_id=auth.uid() or public.is_moderator());
 drop policy if exists market_listings_insert on public.market_listings;
-create policy market_listings_insert on public.market_listings for insert to authenticated
+create policy market_listings_insert on public.market_listings for insert to "authenticated"
 with check (seller_id=auth.uid() and public.user_is_active(auth.uid()) and public.site_setting_enabled('market_enabled',true));
 drop policy if exists market_listings_update on public.market_listings;
-create policy market_listings_update on public.market_listings for update to authenticated
+create policy market_listings_update on public.market_listings for update to "authenticated"
 using (seller_id=auth.uid() or public.is_moderator())
 with check ((seller_id=auth.uid() and public.user_is_active(auth.uid())) or public.is_moderator());
 drop policy if exists market_listings_delete on public.market_listings;
-create policy market_listings_delete on public.market_listings for delete to authenticated
+create policy market_listings_delete on public.market_listings for delete to "authenticated"
 using (seller_id=auth.uid() or public.is_moderator());
 
 drop policy if exists market_media_read on public.market_listing_media;
-create policy market_media_read on public.market_listing_media for select to anon, authenticated
+create policy market_media_read on public.market_listing_media for select to "anon", "authenticated"
 using (exists(select 1 from public.market_listings l where l.id=listing_id and ((l.status in ('published','sold') and public.site_setting_enabled('market_enabled',true)) or l.seller_id=auth.uid() or public.is_moderator())));
 drop policy if exists market_media_insert on public.market_listing_media;
-create policy market_media_insert on public.market_listing_media for insert to authenticated
+create policy market_media_insert on public.market_listing_media for insert to "authenticated"
 with check (seller_id=auth.uid() and split_part(storage_path,'/',1)=auth.uid()::text and exists(select 1 from public.market_listings l where l.id=listing_id and l.seller_id=auth.uid()));
 drop policy if exists market_media_delete on public.market_listing_media;
-create policy market_media_delete on public.market_listing_media for delete to authenticated
+create policy market_media_delete on public.market_listing_media for delete to "authenticated"
 using (seller_id=auth.uid() or public.is_moderator());
 
 drop policy if exists market_saved_read on public.market_saved_listings;
-create policy market_saved_read on public.market_saved_listings for select to authenticated using(user_id=auth.uid());
+create policy market_saved_read on public.market_saved_listings for select to "authenticated" using(user_id=auth.uid());
 drop policy if exists market_saved_insert on public.market_saved_listings;
-create policy market_saved_insert on public.market_saved_listings for insert to authenticated
+create policy market_saved_insert on public.market_saved_listings for insert to "authenticated"
 with check(user_id=auth.uid() and public.user_is_active(auth.uid()));
 drop policy if exists market_saved_delete on public.market_saved_listings;
-create policy market_saved_delete on public.market_saved_listings for delete to authenticated using(user_id=auth.uid());
+create policy market_saved_delete on public.market_saved_listings for delete to "authenticated" using(user_id=auth.uid());
 
 drop policy if exists market_inquiries_read on public.market_inquiries;
-create policy market_inquiries_read on public.market_inquiries for select to authenticated
+create policy market_inquiries_read on public.market_inquiries for select to "authenticated"
 using (buyer_id=auth.uid() or seller_id=auth.uid() or public.is_moderator());
 drop policy if exists market_inquiries_insert on public.market_inquiries;
-create policy market_inquiries_insert on public.market_inquiries for insert to authenticated
+create policy market_inquiries_insert on public.market_inquiries for insert to "authenticated"
 with check (buyer_id=auth.uid() and buyer_id<>seller_id and public.user_is_active(auth.uid()) and exists(select 1 from public.market_listings l where l.id=market_inquiries.listing_id and l.seller_id=market_inquiries.seller_id and l.status='published'));
 drop policy if exists market_inquiries_update on public.market_inquiries;
-create policy market_inquiries_update on public.market_inquiries for update to authenticated
+create policy market_inquiries_update on public.market_inquiries for update to "authenticated"
 using (seller_id=auth.uid() or buyer_id=auth.uid() or public.is_moderator())
 with check ((seller_id=auth.uid() and status in ('accepted','declined','closed')) or (buyer_id=auth.uid() and status='closed') or public.is_moderator());
 
 drop policy if exists market_boosts_read on public.market_boosts;
-create policy market_boosts_read on public.market_boosts for select to authenticated
+create policy market_boosts_read on public.market_boosts for select to "authenticated"
 using (payer_id=auth.uid() or exists(select 1 from public.market_listings l where l.id=listing_id and l.seller_id=auth.uid()) or public.is_moderator());
 drop policy if exists market_boosts_insert on public.market_boosts;
-create policy market_boosts_insert on public.market_boosts for insert to authenticated
+create policy market_boosts_insert on public.market_boosts for insert to "authenticated"
 with check (payer_id=auth.uid() and public.user_is_active(auth.uid()) and public.site_setting_enabled('market_boosts_enabled',true) and status='pending_review' and exists(select 1 from public.market_listings l where l.id=listing_id and l.status='published'));
 drop policy if exists market_boosts_update on public.market_boosts;
-create policy market_boosts_update on public.market_boosts for update to authenticated
+create policy market_boosts_update on public.market_boosts for update to "authenticated"
 using (public.is_moderator()) with check (public.is_moderator());
 
 drop policy if exists market_reports_read on public.market_reports;
-create policy market_reports_read on public.market_reports for select to authenticated
+create policy market_reports_read on public.market_reports for select to "authenticated"
 using (reporter_id=auth.uid() or public.is_moderator());
 drop policy if exists market_reports_insert on public.market_reports;
-create policy market_reports_insert on public.market_reports for insert to authenticated
+create policy market_reports_insert on public.market_reports for insert to "authenticated"
 with check (reporter_id=auth.uid() and public.user_is_active(auth.uid()));
 drop policy if exists market_reports_update on public.market_reports;
-create policy market_reports_update on public.market_reports for update to authenticated
+create policy market_reports_update on public.market_reports for update to "authenticated"
 using (public.is_moderator()) with check (public.is_moderator());
 
 -- Keep updated_at maintained by the database.
@@ -271,7 +271,7 @@ begin
 end;
 $market_view$;
 revoke all on function public.frnxup_market_increment_view(uuid) from public;
-grant execute on function public.frnxup_market_increment_view(uuid) to anon, authenticated;
+grant execute on function public.frnxup_market_increment_view(uuid) to "anon", "authenticated";
 
 -- Add central administrator switches without changing unrelated site settings.
 insert into public.site_settings(key,value) values
@@ -282,7 +282,7 @@ on conflict(key) do nothing;
 -- Existing private bucket policies remain intact. This additional SELECT policy allows only media
 -- attached to a public/sold listing (or to a listing its seller/admin can access).
 drop policy if exists frnxup_market_media_read on storage.objects;
-create policy frnxup_market_media_read on storage.objects for select to anon, authenticated
+create policy frnxup_market_media_read on storage.objects for select to "anon", "authenticated"
 using (
   bucket_id='frnxup-media' and exists(
     select 1 from public.market_listing_media mm
@@ -295,12 +295,12 @@ using (
 );
 
 -- Grants for browser-side marketplace operations; RLS remains the authorization boundary.
-grant select, insert, update, delete on public.market_listings to authenticated;
-grant select on public.market_listings to anon;
-grant select, insert, delete on public.market_listing_media to authenticated;
-grant select on public.market_listing_media to anon;
-grant select, insert, delete on public.market_saved_listings to authenticated;
-grant select, insert, update on public.market_inquiries to authenticated;
-grant select, insert on public.market_boosts to authenticated;
-grant select, insert on public.market_reports to authenticated;
-grant execute on function public.frnxup_market_increment_view(uuid) to anon, authenticated;
+grant select, insert, update, delete on public.market_listings to "authenticated";
+grant select on public.market_listings to "anon";
+grant select, insert, delete on public.market_listing_media to "authenticated";
+grant select on public.market_listing_media to "anon";
+grant select, insert, delete on public.market_saved_listings to "authenticated";
+grant select, insert, update on public.market_inquiries to "authenticated";
+grant select, insert on public.market_boosts to "authenticated";
+grant select, insert on public.market_reports to "authenticated";
+grant execute on function public.frnxup_market_increment_view(uuid) to "anon", "authenticated";
