@@ -3,16 +3,21 @@
   const configured = !!(cfg.SUPABASE_URL && !cfg.SUPABASE_URL.includes('YOUR-PROJECT') && cfg.SUPABASE_ANON_KEY && !cfg.SUPABASE_ANON_KEY.includes('YOUR_'));
   const client = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
 
-  // Only private account areas require an authenticated session. Public pages remain browseable.
+  // The member-facing Frnxup site is private. Only authentication flows and
+  // the separately protected administrator area are exempt from the member gate.
   function requiresAccountSession(pathname) {
-    const rawPath = String(pathname || '/');
-    const path = rawPath.endsWith('/') && rawPath !== '/' ? `${rawPath}index.html` : (['/Dashboard', '/Friends', '/Messages', '/Notifications', '/Rooms'].includes(rawPath) ? `${rawPath}/index.html` : rawPath);
-    if (path === '/Dashboard/profile.html' || path === '/Posts/view.html') return false;
-    if (path === '/Posts/saved.html') return true;
-    return ['/Dashboard/', '/Friends/', '/Messages/', '/Notifications/', '/Rooms/'].some(prefix => path.startsWith(prefix));
+    const path = String(pathname || '/').replace(/\\/g, '/');
+    const isAuthRoute = path === '/Auth' || path.startsWith('/Auth/');
+    const isAdminRoute = path === '/Admin' || path.startsWith('/Admin/');
+    return !isAuthRoute && !isAdminRoute;
   }
   function safeNextPath() {
-    return location.pathname + location.search + location.hash;
+    const path = location.pathname === '/' ? '/index.html' : location.pathname;
+    return path + location.search + location.hash;
+  }
+  function redirectToMemberLogin() {
+    const next = encodeURIComponent(safeNextPath());
+    location.replace(`/Auth/index.html?next=${next}`);
   }
   const FX = {
     client, configured, user: null, profile: null, settings: {},
@@ -54,7 +59,6 @@
         if (!sessionUser) {
           this.user = null;
           this.profile = null;
-          await this.loadSettings();
           return null;
         }
 
@@ -172,6 +176,10 @@
         FX.sessionPresent = false;
         FX._loadUserResolved = true;
         FX._loadUserPromise = null;
+        if (requiresAccountSession(location.pathname)) {
+          document.documentElement.classList.remove('fx-auth-ready');
+          redirectToMemberLogin();
+        }
       } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         FX.user = session?.user || null;
         FX.profile = null;
@@ -183,36 +191,49 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
-    if (!client) {
-      document.documentElement.dataset.backend = 'unconfigured';
+    const memberPage = requiresAccountSession(location.pathname);
+
+    // Auth confirmation/reset and the separately protected admin pages remain
+    // reachable without a member session. Reveal them immediately.
+    if (!memberPage) {
+      document.documentElement.classList.add('fx-auth-ready');
+      document.documentElement.dataset.backend = client ? 'connected' : 'unconfigured';
       return;
     }
+
+    // Fail closed: no Supabase client means no member area access.
+    if (!client) {
+      document.documentElement.dataset.backend = 'unconfigured';
+      redirectToMemberLogin();
+      return;
+    }
+
     document.documentElement.dataset.backend = 'connected';
     try {
       await FX.loadUser();
     } catch (_) {
-      // A transient auth/network error must not trigger a redirect loop.
+      // A transient auth/network error must not turn an absent session into access.
       document.documentElement.dataset.backend = 'degraded';
     }
 
-    // Log signed-in page visits centrally. Query strings are deliberately omitted.
-    if (FX.user) {
-      FX.trackActivity('page_view', 'page', location.pathname, {
-        title: String(document.title || '').slice(0, 120)
-      });
+    if (!FX.user) {
+      redirectToMemberLogin();
+      return;
     }
+
+    // Reveal protected content only after a persisted Supabase session is found.
+    document.documentElement.classList.add('fx-auth-ready');
+
+    // Log signed-in page visits centrally. Query strings are deliberately omitted.
+    FX.trackActivity('page_view', 'page', location.pathname, {
+      title: String(document.title || '').slice(0, 120)
+    });
 
     if (FX.settings.maintenance_mode === true && !['owner', 'admin'].includes(FX.profile?.role)) {
       const banner = document.createElement('div');
       banner.className = 'maintenance-banner';
       banner.textContent = 'Frnxup is temporarily in maintenance mode. Some features may be unavailable.';
       document.body.prepend(banner);
-    }
-
-    if (!requiresAccountSession(location.pathname)) return;
-    if (!FX.user) {
-      FX.showAuthNotice('Sign in to access this account area.');
-      return;
     }
   });
 })();

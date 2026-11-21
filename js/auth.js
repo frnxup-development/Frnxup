@@ -2,7 +2,12 @@
   const $ = FX.qs;
   const nextPath = () => {
     const raw = new URLSearchParams(location.search).get('next') || '/index.html';
-    return raw.startsWith('/') && !raw.startsWith('//') ? raw : '/index.html';
+    try {
+      const target = new URL(raw, location.origin);
+      if (target.origin !== location.origin || !target.pathname.startsWith('/')) return '/index.html';
+      if (target.pathname === '/Auth/index.html' || target.pathname.startsWith('/Auth/')) return '/index.html';
+      return target.pathname + target.search + target.hash;
+    } catch (_) { return '/index.html'; }
   };
 
   function show(tab) {
