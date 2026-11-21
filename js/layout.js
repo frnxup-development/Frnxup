@@ -38,6 +38,7 @@
         <a href="/Posts/saved.html">Saved posts</a>
         <a href="/Dashboard/index.html">Your dashboard</a>
         <a href="/Pages/index.html">Your Pages</a>
+        <a href="/Market/index.html">Frnxup-Market</a>
         <a href="/Dashboard/privacy.html">Privacy &amp; security</a>
         <a href="/help.html">Help and support</a>
         <button type="button" data-theme-toggle aria-pressed="false">Switch appearance</button>

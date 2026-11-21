@@ -141,12 +141,13 @@
       if (!this.enabled('uploads_enabled')) throw new Error('Media uploads are temporarily disabled by Frnxup administrators.');
       if (!client || !this.user) throw new Error('Please sign in first.');
       if (!file) return null;
-      const limits = { avatars: 5 * 1024 * 1024, covers: 12 * 1024 * 1024, 'pages-avatar': 5 * 1024 * 1024, 'pages-cover': 12 * 1024 * 1024, messages: 30 * 1024 * 1024, statuses: 60 * 1024 * 1024, posts: 100 * 1024 * 1024, verification: 10 * 1024 * 1024 };
+      const limits = { avatars: 5 * 1024 * 1024, covers: 12 * 1024 * 1024, 'pages-avatar': 5 * 1024 * 1024, 'pages-cover': 12 * 1024 * 1024, messages: 30 * 1024 * 1024, statuses: 60 * 1024 * 1024, posts: 100 * 1024 * 1024, market: 15 * 1024 * 1024, verification: 10 * 1024 * 1024 };
       const max = limits[folder] || 30 * 1024 * 1024;
       if (file.size > max) throw new Error(`File is too large. The limit for ${folder} is ${Math.round(max / 1024 / 1024)} MB.`);
       const type = file.type || '';
       if (['avatars', 'covers', 'pages-avatar', 'pages-cover'].includes(folder) && !type.startsWith('image/')) throw new Error('Please select an image file.');
       if (['posts', 'statuses'].includes(folder) && !(type.startsWith('image/') || type.startsWith('video/'))) throw new Error('Please select an image or video file.');
+      if (folder === 'market' && !type.startsWith('image/')) throw new Error('Marketplace listing photographs must be image files.');
       if (folder === 'messages' && !(type.startsWith('image/') || type.startsWith('video/') || type.startsWith('audio/'))) throw new Error('Unsupported message attachment.');
       const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
       const path = `${this.user.id}/${folder}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
