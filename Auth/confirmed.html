@@ -13,11 +13,22 @@
       <div class="auth-badge" style="margin:0 auto 15px">✓</div>
       <h1>Email verified</h1>
       <p class="muted">Your email address has been confirmed. You can now sign in to Frnxup.</p>
-      <a class="button primary full" href="/Auth/index.html">Continue to sign in</a>
+      <a id="continue-login" class="button primary full" href="/Auth/index.html">Continue to sign in</a>
       <p class="muted" style="font-size:12px;margin-top:14px"><a href="/index.html">Return to the homepage</a></p>
     </div>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script>
+<script>
+    (() => {
+      const next = new URLSearchParams(location.search).get('next');
+      const link = document.getElementById('continue-login');
+      if (next && link) {
+        const target = new URL('/Auth/index.html', location.origin);
+        target.searchParams.set('next', next);
+        link.href = target.pathname + target.search;
+      }
+    })();
+  </script>
 </body>
 </html>
