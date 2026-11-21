@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="../js/theme.js"></script>
+<meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07523f">
+  <title>Your dashboard · Frnxup</title>
+  <link rel="stylesheet" href="../Css/app.css">
+  <link rel="stylesheet" href="../Css/dashboard.css">
+</head>
+<body class="user-dashboard">
+  <div data-frnxup-shell aria-hidden="true"></div>
+
+  <div class="fx-dashboard-app">
+    <aside class="fx-sidebar" id="fx-sidebar" aria-label="Dashboard navigation">
+      <a class="fx-sidebar-brand" href="/index.html"><img src="/Asset/frnxup-mark.svg" alt=""><span>Frnxup</span></a>
+      <nav class="fx-side-nav">
+        <a class="is-active" href="/Dashboard/index.html"><span class="nav-ico">⌂</span>Dashboard</a>
+        <a href="/Dashboard/profile.html"><span class="nav-ico">♙</span>Profile</a>
+        <a href="/Friends/index.html"><span class="nav-ico">♧</span>Friends</a>
+        <a href="/Messages/index.html"><span class="nav-ico">✉</span>Messages <b class="nav-count" id="fx-side-messages">0</b></a>
+        <a href="/Notifications/index.html"><span class="nav-ico">♧</span>Notifications <b class="nav-count" id="fx-side-notifications">0</b></a>
+        <a href="/Rooms/index.html"><span class="nav-ico">▦</span>Groups</a>
+        <a href="/Pages/index.html"><span class="nav-ico">▣</span>Your Pages</a>
+        <a href="/Posts/saved.html"><span class="nav-ico">▣</span>Saved Posts</a>
+        <a href="/Dashboard/profile-settings.html"><span class="nav-ico">⚙</span>Settings</a>
+      </nav>
+      <div id="fx-page-mode-card" class="fx-page-mode-card" hidden></div>
+      <div class="fx-sidebar-spacer"></div>
+      <div class="fx-grow-card">
+        <div class="fx-grow-icon">♧</div>
+        <h3>Grow Your Network</h3>
+        <p>Connect · Share · Grow</p>
+        <a href="/Friends/suggestions.html">＋ Invite Friends</a>
+      </div>
+      <button class="fx-logout" id="logout" type="button"><span>⇥</span> Log Out</button>
+    </aside>
+
+    <div class="fx-main-shell">
+      <header class="fx-topbar">
+        <button class="fx-mobile-menu" id="fx-mobile-menu" type="button" aria-label="Open navigation">☰</button>
+        <form class="fx-search" id="fx-search-form" role="search">
+          <span aria-hidden="true">⌕</span>
+          <input id="fx-search-input" type="search" placeholder="Search Frnxup..." aria-label="Search Frnxup">
+          <button type="submit">Search</button>
+        </form>
+        <div class="fx-top-actions">
+          <button class="fx-top-icon fx-theme-switch" type="button" data-theme-toggle aria-label="Switch appearance" title="Switch appearance">◐</button>
+          <a class="fx-top-icon" href="/Notifications/index.html" aria-label="Notifications" title="Notifications">♧<b id="fx-top-notifications">0</b></a>
+          <a class="fx-top-icon" href="/Messages/index.html" aria-label="Messages" title="Messages">✉<b id="fx-top-messages">0</b></a>
+          <a class="fx-top-user" href="/Dashboard/profile.html" aria-label="View your profile"><span class="avatar" id="fx-top-avatar">F</span><span class="fx-online-dot"></span></a>
+        </div>
+      </header>
+
+      <main class="fx-dashboard-content">
+        <section class="fx-profile-hero card" aria-label="Your profile overview">
+          <div class="fx-cover" id="fx-cover">
+            <div class="fx-cover-shade"></div>
+            <button class="fx-cover-change" id="fx-change-cover" type="button">📷 <span>Change Cover</span></button>
+            <input type="file" id="fx-cover-file" accept="image/*" hidden>
+          </div>
+          <div class="fx-profile-bar">
+            <div class="fx-avatar-holder">
+              <div class="fx-profile-avatar avatar lg" id="dash-avatar">F</div>
+              <button class="fx-avatar-camera" id="fx-change-avatar" type="button" aria-label="Change profile photo" title="Change profile photo">📷</button>
+              <input type="file" id="fx-avatar-file" accept="image/*" hidden>
+            </div>
+            <div class="fx-profile-copy">
+              <h1><span id="dash-name">Your profile</span><span class="fx-verified" id="fx-verified" hidden title="Verified account">✓</span></h1>
+              <p id="dash-handle">@username</p>
+              <div class="fx-bio" id="fx-bio">Connect · Share · Grow Together</div>
+            </div>
+            <a class="fx-edit-profile" href="/Dashboard/profile-settings.html">✎ <span>Edit Profile</span></a>
+          </div>
+        </section>
+
+        <section class="fx-stats card" aria-label="Your Frnxup statistics">
+          <a href="/Friends/index.html" class="fx-stat"><span class="fx-stat-icon blue">♧</span><span><b id="fx-stat-friends">—</b><small>Friends</small></span></a>
+          <a href="/index.html" class="fx-stat"><span class="fx-stat-icon purple">▣</span><span><b id="fx-stat-posts">—</b><small>Posts</small></span></a>
+          <a href="/Rooms/index.html" class="fx-stat"><span class="fx-stat-icon violet">♟</span><span><b id="fx-stat-groups">—</b><small>Groups</small></span></a>
+          <a href="/Notifications/index.html" class="fx-stat"><span class="fx-stat-icon green">●</span><span><b id="fx-stat-unread">—</b><small>Unread Alerts</small></span></a>
+          <div class="fx-account-state"><span></span><b id="fx-account-status">Active Account</b><span class="fx-state-caret">⌄</span></div>
+        </section>
+
+        <div class="fx-dashboard-grid">
+          <section class="fx-primary-column">
+            <section class="fx-quick-actions" aria-label="Quick actions">
+              <a class="fx-action-card action-purple" href="#create-post" id="fx-open-composer"><span>✎</span><b>Create Post</b></a>
+              <a class="fx-action-card action-blue" href="/Rooms/index.html"><span>♟</span><b>Join Group</b></a>
+              <a class="fx-action-card action-green" href="/Friends/suggestions.html"><span>♧</span><b>Find Friends</b></a>
+              <a class="fx-action-card action-orange" href="/index.html#feed-list"><span>▶</span><b>Watch Videos</b></a>
+              <a class="fx-action-card action-pink" href="/Posts/saved.html"><span>▣</span><b>Saved Posts</b></a>
+            </section>
+
+            <section class="fx-composer card" id="create-post">
+              <div class="fx-composer-head"><span class="avatar" id="fx-composer-avatar">F</span><button type="button" id="fx-compose-text">What's on your mind?</button></div>
+              <div class="fx-composer-tools">
+                <button type="button" id="fx-compose-photo">▧ <span>Photo</span></button>
+                <button type="button" id="fx-compose-video">▶ <span>Video</span></button>
+                <button type="button" id="fx-compose-feeling">☺ <span>Feeling</span></button>
+                <button type="button" class="fx-post-button" id="fx-compose-submit">Post</button>
+              </div>
+            </section>
+
+            <section class="fx-content-card card">
+              <div class="fx-section-heading"><div><h2>Recent Activity</h2><p>Updates from your Frnxup community</p></div><a href="/Notifications/index.html">View All →</a></div>
+              <div id="fx-activity-list" class="fx-activity-list"><div class="fx-loading">Your recent activity will appear here.</div></div>
+            </section>
+
+            <section class="fx-content-card card">
+              <div class="fx-section-heading"><div><h2>Your Latest Posts</h2><p>Your recent moments and updates</p></div><a href="/index.html">Open Feed →</a></div>
+              <div id="fx-own-posts" class="fx-own-posts"><div class="fx-loading">Your recent posts will appear here.</div></div>
+            </section>
+          </section>
+
+          <aside class="fx-right-column">
+            <section class="fx-widget card fx-completion-widget">
+              <h2>Your Profile Completion</h2>
+              <div class="fx-completion-content"><div class="fx-progress-ring" id="fx-progress-ring"><div><b id="fx-progress-number">0%</b></div></div><div><p>Complete your profile to get more connections!</p><a class="fx-complete-button" href="/Dashboard/profile-settings.html">Complete Now</a></div></div>
+            </section>
+
+            <section class="fx-widget card">
+              <div class="fx-widget-heading"><h2>🔥 Trending Topics</h2><a href="/Rooms/index.html">See All →</a></div>
+              <div id="fx-trending" class="fx-trending"><span class="fx-topic">#Frnxup</span><span class="fx-topic">#Technology</span><span class="fx-topic">#Education</span><span class="fx-topic">#Business</span></div>
+            </section>
+
+            <section class="fx-widget card">
+              <div class="fx-widget-heading"><h2>Quick Links</h2></div>
+              <div class="fx-quick-links">
+                <a href="/Rooms/index.html"><span>♟</span>View Your Groups <b>›</b></a>
+                <a href="/Dashboard/privacy.html"><span>♢</span>Manage Privacy <b>›</b></a>
+                <a href="/Notifications/index.html"><span>♧</span>Notification Settings <b>›</b></a>
+                <a href="/help.html"><span>?</span>Help &amp; Support <b>›</b></a>
+              </div>
+            </section>
+
+            <section class="fx-widget fx-quote-widget">
+              <div class="fx-quote-mark">“</div><p>Connect with people. Share your moments. Grow together.</p><b>That's the Frnxup way.</b>
+            </section>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="fx-modal-backdrop" id="fx-post-modal" aria-hidden="true">
+    <form class="fx-post-modal card" id="fx-post-form">
+      <div class="fx-modal-heading"><div><h2>Create a post</h2><p>Share something with your Frnxup community.</p></div><button type="button" id="fx-close-modal" aria-label="Close">×</button></div>
+      <textarea id="fx-post-body" maxlength="5000" placeholder="What's on your mind?" rows="5"></textarea>
+      <div class="fx-modal-fields"><label class="fx-file-label">Add photo or video<input type="file" id="fx-post-file" accept="image/*,video/*" multiple></label><select id="fx-post-visibility" aria-label="Post audience"><option value="public">Public</option><option value="friends">Friends</option><option value="only_me">Only me</option></select></div>
+      <p id="fx-post-message" class="fx-post-message" aria-live="polite"></p>
+      <button class="fx-complete-button fx-publish-button" type="submit" id="fx-publish-post">Publish Post</button>
+    </form>
+  </div>
+
+  <div id="fx-toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/core.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/media-tools.js"></script>
+  <script src="../js/user-dashboard.js"></script>
+</body>
+</html>
