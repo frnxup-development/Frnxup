@@ -1,0 +1,8 @@
+[functions.username-login]
+verify_jwt = false
+
+[functions.admin-control]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
