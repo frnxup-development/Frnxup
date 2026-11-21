@@ -145,7 +145,7 @@ end $$;
 -- Keep group membership and room invitations subject to the owner feature switches.
 create or replace function public.manage_group_member(p_conversation_id uuid,p_user_id uuid,p_action text)
 returns void language plpgsql security definer set search_path=public
-as $$ declare c public.conversations; actor_role text;
+as $$ declare c public.conversations%rowtype; actor_role text;
 begin
  if not public.user_is_active(auth.uid()) then raise exception 'Active account required'; end if;
  if not public.site_setting_enabled('groups_enabled',true) then raise exception 'Group chats are temporarily disabled'; end if;
