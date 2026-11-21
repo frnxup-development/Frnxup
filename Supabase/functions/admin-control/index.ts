@@ -17,10 +17,10 @@ Deno.serve(async(req)=>{
   let result:any={};
   switch(action){
    case 'dashboard_summary':{
-    const [members,posts,open_reports,rooms,activity,pages]=await Promise.all([count('profiles'),count('posts',[['status','eq','published']]),count('reports',[['status','in','(open,reviewing)']]),count('rooms',[['status','eq','active']]),count('site_activity_logs'),count('frnxup_pages',[['status','eq','active']])]);
+    const [members,posts,open_reports,rooms,activity,pages,market_listings,market_boost_requests]=await Promise.all([count('profiles'),count('posts',[['status','eq','published']]),count('reports',[['status','in','(open,reviewing)']]),count('rooms',[['status','eq','active']]),count('site_activity_logs'),count('frnxup_pages',[['status','eq','active']]),count('market_listings',[['status','eq','published']]),count('market_boosts',[['status','eq','pending_review']])]);
     const {data:recent_members}=await admin.from('profiles').select('id,username,display_name,role,account_status,created_at').order('created_at',{ascending:false}).limit(7);
     const {data:recent_reports}=await admin.from('reports').select('id,target_type,reason,status,created_at').order('created_at',{ascending:false}).limit(7);
-    const {data:settings}=await admin.from('site_settings').select('key,value');const map=Object.fromEntries((settings||[]).map(x=>[x.key,x.value]));const {data:recent_activity}=await admin.from('site_activity_logs').select('id,actor_id,action,entity_type,entity_id,details,created_at,profile:profiles!site_activity_logs_actor_id_fkey(username,display_name)').order('created_at',{ascending:false}).limit(8);result={members,posts,open_reports,rooms,activity,pages,recent_members,recent_reports,recent_activity,settings:map};break;
+    const {data:settings}=await admin.from('site_settings').select('key,value');const map=Object.fromEntries((settings||[]).map(x=>[x.key,x.value]));const {data:recent_activity}=await admin.from('site_activity_logs').select('id,actor_id,action,entity_type,entity_id,details,created_at,profile:profiles!site_activity_logs_actor_id_fkey(username,display_name)').order('created_at',{ascending:false}).limit(8);result={members,posts,open_reports,rooms,activity,pages,market_listings,market_boost_requests,recent_members,recent_reports,recent_activity,settings:map};break;
    }
    case 'list_members':{
     if(!canManage)throw new Error('Member account management is restricted to admins and the owner.');
@@ -84,7 +84,57 @@ Deno.serve(async(req)=>{
    case 'list_admins':{if(!owner)throw new Error('Only the platform owner can view administrator role management.');const {data,error}=await admin.from('profiles').select('id,username,display_name,role,account_status,created_at').in('role',['owner','admin','moderator']).order('created_at',{ascending:true});if(error)throw error;result={items:data||[]};break}
    case 'promote_admin':{if(!owner)throw new Error('Only the owner can promote administrators.');const username=String(body.username||'').replace(/^@/,'').trim().toLowerCase();if(!/^[a-z0-9_]{3,24}$/.test(username))throw new Error('Enter a valid Frnxup username.');const {data:p,error:pe}=await admin.from('profiles').select('id,account_status,role').eq('username',username).single();if(pe||!p)throw new Error('Username not found.');if(p.account_status!=='active')throw new Error('Reactivate the account before granting administrator access.');if(p.role==='owner')throw new Error('The owner account cannot be changed.');const {error}=await admin.from('profiles').update({role:'admin'}).eq('id',p.id);if(error)throw error;await log('promote_admin','profile',p.id);result={ok:true};break}
    case 'get_settings':{if(!canManage)throw new Error('Site settings are restricted to admins and the owner.');const {data,error}=await admin.from('site_settings').select('key,value');if(error)throw error;result={settings:Object.fromEntries((data||[]).map(x=>[x.key,x.value]))};break}
-   case 'set_setting':{if(!owner)throw new Error('Only the platform owner can change global site switches.');const allowed=['registration_enabled','posting_enabled','comments_enabled','reactions_enabled','polls_enabled','statuses_enabled','friend_requests_enabled','messaging_enabled','groups_enabled','rooms_enabled','uploads_enabled','maintenance_mode'];if(!allowed.includes(body.key))throw new Error('Unknown site setting.');if(typeof body.value!=='boolean')throw new Error('Site switch values must be true or false.');const {error}=await admin.from('site_settings').upsert({key:body.key,value:body.value,updated_by:actor,updated_at:new Date().toISOString()});if(error)throw error;await log('set_setting','site_setting',null,{key:body.key,value:body.value});result={ok:true};break}
+   case 'set_setting':{if(!owner)throw new Error('Only the platform owner can change global site switches.');const allowed=['registration_enabled','posting_enabled','comments_enabled','reactions_enabled','polls_enabled','statuses_enabled','friend_requests_enabled','messaging_enabled','groups_enabled','rooms_enabled','uploads_enabled','market_enabled','market_boosts_enabled','maintenance_mode'];if(!allowed.includes(body.key))throw new Error('Unknown site setting.');if(typeof body.value!=='boolean')throw new Error('Site switch values must be true or false.');const {error}=await admin.from('site_settings').upsert({key:body.key,value:body.value,updated_by:actor,updated_at:new Date().toISOString()});if(error)throw error;await log('set_setting','site_setting',null,{key:body.key,value:body.value});result={ok:true};break}
+   case 'list_market_listings':{
+    if(!['owner','admin','moderator'].includes(actorProfile.role))throw new Error('Moderator role required to manage Marketplace listings.');
+    let q=admin.from('market_listings').select('id,seller_id,title,category,price,condition,location_name,status,featured_until,created_at,view_count').order('created_at',{ascending:false}).limit(200);
+    if(body.q){const term=String(body.q).replace(/[(),.%]/g,' ').slice(0,70);if(term)q=q.or(`title.ilike.%${term}%,category.ilike.%${term}%,location_name.ilike.%${term}%`);}
+    const {data,error}=await q;if(error)throw error;
+    const items=[];for(const listing of data||[]){const {data:seller}=await admin.from('profiles').select('username,display_name').eq('id',listing.seller_id).maybeSingle();items.push({...listing,seller});}
+    result={items};break;
+   }
+   case 'set_market_listing_status':{
+    if(!['owner','admin','moderator'].includes(actorProfile.role))throw new Error('Moderator role required.');
+    if(!['published','sold','hidden','removed'].includes(body.status))throw new Error('Invalid Marketplace listing status.');
+    const {error}=await admin.from('market_listings').update({status:body.status}).eq('id',body.listing_id);if(error)throw error;
+    await log('set_market_listing_status','market_listing',body.listing_id,{status:body.status});result={ok:true};break;
+   }
+   case 'list_market_boosts':{
+    if(!['owner','admin','moderator'].includes(actorProfile.role))throw new Error('Moderator role required.');
+    let q=admin.from('market_boosts').select('*').order('created_at',{ascending:false}).limit(200);
+    if(body.q){const term=String(body.q).replace(/[(),.%]/g,' ').slice(0,70);if(term)q=q.ilike('payment_reference',`%${term}%`);}
+    const {data,error}=await q;if(error)throw error;const items=[];
+    for(const boost of data||[]){const [{data:listing},{data:payer}]=await Promise.all([admin.from('market_listings').select('id,title,seller_id,status').eq('id',boost.listing_id).maybeSingle(),admin.from('profiles').select('id,username,display_name').eq('id',boost.payer_id).maybeSingle()]);items.push({...boost,listing,payer});}
+    result={items};break;
+   }
+   case 'review_market_boost':{
+    if(!['owner','admin','moderator'].includes(actorProfile.role))throw new Error('Moderator role required.');
+    if(!['active','rejected'].includes(body.status))throw new Error('Invalid boost review status.');
+    const {data:boost,error:be}=await admin.from('market_boosts').select('id,listing_id,payer_id,duration_weeks,status').eq('id',body.boost_id).single();if(be||!boost)throw new Error('Boost request not found.');
+    if(boost.status!=='pending_review')throw new Error('This boost request has already been reviewed.');
+    const reviewNote=String(body.review_note||'').slice(0,500);
+    if(body.status==='active'){
+      const {data:listing,error:le}=await admin.from('market_listings').select('id,status,featured_until').eq('id',boost.listing_id).single();if(le||!listing||listing.status!=='published')throw new Error('Only a published listing can be boosted.');
+      const now=new Date();const currentEnd=listing.featured_until?new Date(listing.featured_until):now;const start=currentEnd>now?currentEnd:now;const end=new Date(start.getTime()+boost.duration_weeks*7*24*60*60*1000);
+      const {error}=await admin.from('market_boosts').update({status:'active',starts_at:start.toISOString(),ends_at:end.toISOString(),reviewed_by:actor,review_note:reviewNote}).eq('id',boost.id);if(error)throw error;
+      const {error:listingError}=await admin.from('market_listings').update({featured_until:end.toISOString()}).eq('id',boost.listing_id);if(listingError)throw listingError;
+    }else{const {error}=await admin.from('market_boosts').update({status:'rejected',reviewed_by:actor,review_note:reviewNote}).eq('id',boost.id);if(error)throw error;}
+    await log('review_market_boost','market_boost',boost.id,{status:body.status,listing_id:boost.listing_id,duration_weeks:boost.duration_weeks});result={ok:true};break;
+   }
+   case 'list_market_reports':{
+    if(!['owner','admin','moderator'].includes(actorProfile.role))throw new Error('Moderator role required.');
+    let q=admin.from('market_reports').select('*').order('created_at',{ascending:false}).limit(200);
+    if(body.q){const term=String(body.q).replace(/[(),.%]/g,' ').slice(0,70);if(term)q=q.ilike('reason',`%${term}%`);}
+    const {data,error}=await q;if(error)throw error;const items=[];
+    for(const report of data||[]){const [{data:listing},{data:reporter}]=await Promise.all([admin.from('market_listings').select('id,title').eq('id',report.listing_id).maybeSingle(),admin.from('profiles').select('id,username,display_name').eq('id',report.reporter_id).maybeSingle()]);items.push({...report,listing,reporter});}
+    result={items};break;
+   }
+   case 'review_market_report':{
+    if(!['owner','admin','moderator'].includes(actorProfile.role))throw new Error('Moderator role required.');
+    if(!['resolved','dismissed'].includes(body.status))throw new Error('Invalid report resolution.');
+    const {error}=await admin.from('market_reports').update({status:body.status,reviewed_by:actor,resolution_note:String(body.resolution_note||'').slice(0,1000)}).eq('id',body.report_id);if(error)throw error;
+    await log('review_market_report','market_report',body.report_id,{status:body.status});result={ok:true};break;
+   }
    case 'list_site_activity':{
     if(!['owner','admin','moderator'].includes(actorProfile.role))throw new Error('Moderator role is required to inspect site activity.');
     let q=admin.from('site_activity_logs').select('id,actor_id,action,entity_type,entity_id,details,created_at,profile:profiles!site_activity_logs_actor_id_fkey(username,display_name)').order('created_at',{ascending:false}).limit(250);
