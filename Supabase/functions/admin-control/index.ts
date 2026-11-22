@@ -236,8 +236,15 @@ Deno.serve(async(req)=>{
     const items=[];for(const p of data||[]){const {data:u}=await admin.auth.admin.getUserById(p.id);items.push({...p,email:u?.user?.email||null,phone:u?.user?.phone||null})}result={items};break;
    }
    case 'set_member_status':{
-    if(!canManage)throw new Error('Only admins and owners can suspend accounts.');const {data:target}=await admin.from('profiles').select('role').eq('id',body.user_id).single();if(!target||target.role==='owner'||(!owner&&target.role!=='member'))throw new Error('You do not have permission to change this account.');if(!['active','suspended'].includes(body.status))throw new Error('Invalid account status');
-    const {error}=await admin.from('profiles').update({account_status:body.status}).eq('id',body.user_id);if(error)throw error;await log('set_member_status','profile',body.user_id,{status:body.status});result={ok:true};break;
+    if(!canManage)throw new Error('Only admins and owners can suspend accounts.');
+    const {data:target,error:targetError}=await admin.from('profiles').select('id,role,account_status').eq('id',body.user_id).maybeSingle();
+    if(targetError)throw targetError;
+    if(!target||target.role==='owner'||(!owner&&target.role!=='member'))throw new Error('You do not have permission to change this account.');
+    if(!['active','suspended'].includes(body.status))throw new Error('Invalid account status');
+    const {error:updateError}=await admin.from('profiles').update({account_status:body.status}).eq('id',body.user_id);
+    if(updateError)throw updateError;
+    await log('set_member_status','profile',body.user_id,{status:body.status});
+    result={ok:true,status:body.status};break;
    }
    case 'set_member_role':{
     if(!owner)throw new Error('Only the platform owner can change member roles.');
@@ -248,7 +255,15 @@ Deno.serve(async(req)=>{
     await log('set_member_role','profile',body.user_id,{role:'member'});result={ok:true};break;
    }
    case 'delete_member':{
-    if(!canManage)throw new Error('Only admins and owners can delete member accounts.');if(body.user_id===actor)throw new Error('You cannot delete the currently signed-in account.');const {data:target}=await admin.from('profiles').select('role').eq('id',body.user_id).single();if(!target||target.role==='owner'||(!owner&&target.role!=='member'))throw new Error('You do not have permission to delete this account. Only the owner can remove privileged accounts.');const {error}=await admin.auth.admin.deleteUser(body.user_id);if(error)throw error;await log('delete_member','profile',body.user_id);result={ok:true};break;
+    if(!canManage)throw new Error('Only admins and owners can delete member accounts.');
+    if(body.user_id===actor)throw new Error('You cannot delete the currently signed-in account.');
+    const {data:target,error:targetError}=await admin.from('profiles').select('id,username,role,account_status').eq('id',body.user_id).maybeSingle();
+    if(targetError)throw targetError;
+    if(!target||target.role==='owner'||(!owner&&target.role!=='member'))throw new Error('You do not have permission to delete this account. Only the owner can remove privileged accounts.')
+    const {error:deleteError}=await admin.auth.admin.deleteUser(body.user_id);
+    if(deleteError)throw deleteError;
+    await log('delete_member','profile',body.user_id,{username:target.username});
+    result={ok:true};break;
    }
    case 'list_posts':{let q=admin.from('posts').select('id,user_id,body,visibility,status,created_at,profiles!posts_user_id_fkey(username,display_name)').order('created_at',{ascending:false}).limit(100);if(!canModerate)q=q.eq('visibility','public').eq('status','published');if(body.q)q=q.ilike('body',`%${String(body.q).slice(0,80)}%`);const {data,error}=await q;if(error)throw error;result={items:data||[]};break}
    case 'moderate_post':{if(!canModerate)throw new Error('Moderator role is required.');if(!['hidden','deleted','published'].includes(body.status))throw new Error('Invalid moderation status');if(body.status==='deleted'&&!canManage)throw new Error('Only admins and the owner can permanently delete posts.');const {error}=await admin.from('posts').update({status:body.status}).eq('id',body.post_id);if(error)throw error;await log('moderate_post','post',body.post_id,{status:body.status});result={ok:true};break}
