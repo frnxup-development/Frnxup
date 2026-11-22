@@ -17,14 +17,12 @@
       <span class="auth-brand-name">Frnxup</span>
       <span class="auth-brand-tagline">CONNECT. EXPRESS. RISE.</span>
     </a>
-
     <div class="card auth-card">
       <div class="auth-heading">
         <span class="auth-eyebrow">WELCOME BACK</span>
         <h1>Log in to Frnxup</h1>
         <p>Sign in with your registered email address or username.</p>
       </div>
-
       <form id="login-form" novalidate>
         <div class="field">
           <label for="identity">Email or username</label>
@@ -37,8 +35,7 @@
         <button class="button primary full auth-submit" id="login" type="submit">Log in securely</button>
         <p id="login-msg" class="status-line" aria-live="polite"></p>
       </form>
-
-      <a class="plain-link auth-forgot" href="/Auth/reset-password.html">Forgot password?</a>
+      <a class="plain-link auth-forgot" href="/Auth/forgot-password.html">Forgot password?</a>
       <div class="auth-switch">
         <span>Don't have a Frnxup account?</span>
         <a id="switch-to-signup" href="signup.html">Create an account</a>
@@ -48,15 +45,18 @@
         Only members with a valid sign-in session can enter Frnxup.
       </div>
     </div>
-
     <footer class="auth-footer">© <span id="auth-year">2026</span> Frnxup. Connect. Express. Rise.</footer>
   </main>
-
   <div class="toast" id="fx-toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script>
   <script src="../js/core.js"></script>
   <script src="../js/auth.js"></script>
-  <script>document.getElementById('auth-year').textContent = new Date().getFullYear();</script>
+  <script>
+    document.getElementById('auth-year').textContent = new Date().getFullYear();
+    if (new URLSearchParams(location.search).get('passwordUpdated') === '1' && window.FX?.setMessage) {
+      FX.setMessage('#login-msg', 'Your password has been changed. Sign in with your new password.', 'success');
+    }
+  </script>
 </body>
 </html>
