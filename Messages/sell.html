@@ -1,0 +1,75 @@
+<!doctype html><html lang="en"><head>
+<script>
+(() => {
+  const path = location.pathname;
+  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
+  if (publicEntry) return;
+
+  const html = document.documentElement;
+  html.classList.add('fx-auth-pending');
+  const style = document.createElement('style');
+  style.textContent = `
+    html.fx-auth-pending, html.fx-auth-pending body { background: #f7fbfc !important; }
+    html.fx-auth-pending body { visibility: hidden !important; }
+    html.fx-auth-pending::before {
+      content: ''; position: fixed; inset: 0; z-index: 2147483646;
+      background: #f7fbfc url('/Asset/frnxup-mark.svg') center calc(50% - 25px) / 76px 76px no-repeat;
+    }
+    html.fx-auth-pending::after {
+      content: 'Loading'; position: fixed; z-index: 2147483647;
+      top: calc(50% + 34px); left: 50%; transform: translateX(-50%);
+      color: #31555d; font: 600 14px system-ui, sans-serif; letter-spacing: .04em;
+      animation: frnxup-loading-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes frnxup-loading-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+  `;
+  document.head.appendChild(style);
+
+  // Never leave a visitor on an endless loader if a script or auth request fails.
+  window.__frnxupAuthGateTimer = window.setTimeout(() => {
+    if (!html.classList.contains('fx-auth-pending')) return;
+    const next = location.pathname + location.search + location.hash;
+    const login = new URL('/Auth/index.html', location.origin);
+    login.searchParams.set('next', next || '/');
+    login.searchParams.set('sessionCheck', 'timeout');
+    location.replace(login.toString());
+  }, 12000);
+})();
+</script>
+
+<script src="/js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07523f"><title>Sell an item · Frnxup-Market</title>
+<link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Market/css/market.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+</head><body data-market-page="sell"><div data-frnxup-shell></div>
+<main class="market-page market-sell-page"><a class="market-back-link" href="/Market/index.html">← Back to Marketplace</a>
+<header class="market-header market-header-compact"><div><span class="market-eyebrow">SELL ON FRNXUP</span><h1>List an item</h1><p>Add clear photos and accurate details to help buyers decide.</p></div></header>
+<form id="market-sell-form" class="market-sell-layout">
+<section class="market-form-card">
+<div class="market-form-heading"><h2>Item details</h2><span>All fields marked * are required</span></div>
+<label class="market-field">Item title *<input id="listing-title" maxlength="120" required placeholder="e.g. iPhone XR 128GB"></label>
+<label class="market-field">Category *<select id="listing-category" required><option value="">Choose a category</option></select></label>
+<label class="market-field">Description *<textarea id="listing-description" rows="5" maxlength="5000" required placeholder="Describe the item, features, age, included accessories and any defects…"></textarea></label>
+<div class="market-form-two"><label class="market-field">Price (NGN) *<div class="market-price-input"><span>₦</span><input id="listing-price" type="number" min="1" step="1" required placeholder="150000"></div></label>
+<label class="market-field">Item condition *<select id="listing-condition" required><option value="">Choose condition</option></select></label></div>
+</section>
+<section class="market-form-card">
+<div class="market-form-heading"><h2>Item photographs</h2><span>Minimum 2 · Maximum 10</span></div>
+<label class="market-photo-drop" for="listing-photos"><span class="market-photo-icon">▧</span><b>Add at least 2 wide, clear photographs</b><small>Show the front, back and important details. JPG, PNG or WEBP · Up to 15 MB each.</small><input id="listing-photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required></label>
+<div id="listing-photo-preview" class="market-upload-preview"><span>Your photo previews will appear here before publishing.</span></div>
+</section>
+<section class="market-form-card market-location-card">
+<div class="market-form-heading"><h2>Item location</h2><span>Choose the pin on the map</span></div>
+<label class="market-field">Search for a place<input id="market-map-search" placeholder="Enter town, city or landmark"></label>
+<div class="market-map-tools"><button type="button" class="market-btn market-btn-secondary" id="market-map-find">Find on map</button><button type="button" class="market-btn market-btn-secondary" id="market-map-current">Use my location</button></div>
+<div id="market-location-map" class="market-map" role="application" aria-label="Choose the item location by placing a map pin"></div>
+<label class="market-field">Selected location *<input id="listing-location" required maxlength="180" placeholder="Tap the map to select the item location"></label>
+<input id="listing-latitude" type="hidden"><input id="listing-longitude" type="hidden">
+<small class="market-map-help">Tap or click the map to place the pin. Only the item's approximate location is shown to buyers; do not enter a home address if you prefer a nearby public landmark.</small>
+</section>
+<section class="market-form-card market-publish-card">
+<div><h2>Ready to publish?</h2><p>Your listing will appear in search after you publish it. Buyers can send you a message or purchase request.</p></div>
+<p id="market-sell-message" class="market-form-message" aria-live="polite"></p><button class="market-btn market-btn-primary market-publish-btn" id="market-publish" type="submit">Publish listing</button>
+</section>
+</form><div id="market-toast" class="market-toast" role="status" aria-live="polite"></div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script><script src="/Market/js/market.js"></script></body></html>

@@ -39,56 +39,41 @@
 })();
 </script>
 
-<script src="../js/theme.js"></script>
-<meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#242526">
-  <title>Messages · Frnxup</title>
-  <link rel="stylesheet" href="../Css/app.css">
+  <script src="/js/theme.js"></script>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07523f"><title>Frnxup-Market · Buy and sell locally</title>
+  <link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Market/css/market.css">
 </head>
-<body class="messages-page">
+<body data-market-page="browse">
   <div data-frnxup-shell></div>
-  <main class="messages-screen">
-    <div class="messages-titlebar">
-      <a class="messages-back" href="/index.html" aria-label="Back to home">‹</a>
-      <h1>Messages</h1>
-      <div class="messages-tools">
-        <button id="new-chat" class="messages-icon-button" type="button" title="New message" aria-label="New message"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button>
-        <a class="messages-icon-button" href="/Dashboard/privacy.html" title="Message settings" aria-label="Message settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.5 2.6-1.7-.6a8 8 0 0 1-1.5.9l-.3 1.9h-3l-.3-1.9a8 8 0 0 1-1.5-.9l-1.7.6-1.5-2.6 1.4-1.1a8 8 0 0 1 0-1.8l-1.4-1.1 1.5-2.6 1.7.6a8 8 0 0 1 1.5-.9l.3-1.9h3l.3 1.9a8 8 0 0 1 1.5.9l1.7-.6 1.5 2.6-1.4 1.1a8 8 0 0 1 0 1.8Z"/></svg></a>
-        <button id="toggle-chat-search" class="messages-icon-button" type="button" title="Search messages" aria-label="Search messages"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="7.2"/><path d="m16 16 5 5"/></svg></button>
-      </div>
-    </div>
-    <div id="chat-search-wrap" class="messages-search-wrap" hidden>
-      <input id="chat-search" type="search" placeholder="Search conversations" autocomplete="off" aria-label="Search conversations">
-    </div>
-    <section id="conversation-list" class="messages-list" aria-label="Your conversations">
-      <div class="empty">Sign in to see your conversations.</div>
-    </section>
-    <a class="room-chat-link" href="/Rooms/index.html"><span class="room-chat-icon">#</span><span><b>Room chat</b><small>Join conversations with members of your communities.</small></span><span class="room-chat-arrow">›</span></a>
-  </main>
+  <main class="market-page">
+    <header class="market-header">
+      <div><span class="market-eyebrow">Marketplace</span><h1>FRNXUP-MARKET</h1><p>Discover items for sale and connect with sellers around you.</p></div>
+      <div class="market-head-actions"><a class="market-btn market-btn-secondary" href="/Market/index.html?mine=1">My listings</a><a class="market-btn market-btn-secondary" href="/Market/index.html?inbox=1">Inbox</a><a class="market-btn market-btn-primary" href="/Market/sell.html">＋ Sell an item</a></div>
+    </header>
 
-  <div class="modal-backdrop" id="chat-modal">
-    <div class="modal chat-start-modal">
-      <div class="modal-head"><h2>Start a conversation</h2><button class="close" id="close-chat-modal" type="button" aria-label="Close">×</button></div>
-      <div class="chat-mode-picker">
-        <button type="button" class="chat-mode-option active" data-chat-kind="dm"><span class="chat-mode-icon">↗</span><span><b>One-to-one message</b><small>Private conversation with one friend.</small></span></button>
-        <button type="button" class="chat-mode-option" data-chat-kind="group"><span class="chat-mode-icon">G</span><span><b>Group chat</b><small>Private group conversation with selected friends.</small></span></button>
-      </div>
-      <div class="field" id="group-name-wrap" hidden><label for="group-name">Group name</label><input id="group-name" maxlength="80" placeholder="Name your group"></div>
-      <div class="field"><label for="chat-friend-search">Find friends</label><input id="chat-friend-search" type="search" placeholder="Search by name or username" autocomplete="off"></div>
-      <div id="selected-friends" class="selected-friends" aria-live="polite"></div>
-      <div id="chat-friend-results" class="chat-friend-results"><div class="empty">Your friends will appear here.</div></div>
-      <div class="chat-start-actions">
-        <button class="button primary full" id="start-dm" type="button">Start private message</button>
-        <button class="button primary full" id="start-group" type="button" hidden>Create group chat</button>
-      </div>
-    </div>
-  </div>
-  <div id="fx-toast" class="toast"></div>
+    <nav class="market-shortcuts" aria-label="Marketplace shortcuts">
+      <a class="active" href="/Market/index.html">⌂ <span>Browse</span></a><a href="/Market/index.html?mine=1">▤ <span>My listings</span></a><a href="/Market/index.html?saved=1">♡ <span>Saved</span></a><a href="/Market/index.html?inbox=1">✉ <span>Inbox</span></a><a href="/Market/sell.html">＋ <span>Sell</span></a>
+    </nav>
+
+    <section class="market-search-panel">
+      <form id="market-filter-form" class="market-filters">
+        <label class="market-search-main">⌕ <input id="market-q" type="search" placeholder="Search phones, appliances, cars…"></label>
+        <label><span>Category</span><select id="market-category"><option value="">All categories</option></select></label>
+        <label><span>Location</span><input id="market-location" type="search" placeholder="Town, city or state"></label>
+        <label><span>Condition</span><select id="market-condition"><option value="">Any condition</option></select></label>
+        <button class="market-btn market-btn-primary" type="submit">Search</button>
+      </form>
+      <div class="market-feature-note"><b>Buy close. Sell with confidence.</b><span>Check item details and contact the seller before arranging a purchase.</span></div>
+    </section>
+
+    <section id="market-main-results" class="market-results-section">
+      <div class="market-section-heading"><div><h2 id="market-section-title">Today's picks</h2><p id="market-result-count">Loading local listings…</p></div><select id="market-sort" aria-label="Sort listings"><option value="recent">Most recent</option><option value="price_asc">Price: low to high</option><option value="price_desc">Price: high to low</option></select></div>
+      <div id="market-listing-grid" class="market-grid"><div class="market-empty">Loading Frnxup-Market…</div></div>
+    </section>
+    <section id="market-inbox-panel" class="market-results-section" hidden><div class="market-section-heading"><div><h2>Marketplace inbox</h2><p>Purchase requests and messages about your listings.</p></div></div><div id="market-inbox-list" class="market-inbox-list"><div class="market-empty">Sign in to view your marketplace inbox.</div></div></section>
+    <div id="market-toast" class="market-toast" role="status" aria-live="polite"></div>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/config.js"></script>
-  <script src="../js/core.js"></script>
-  <script src="../js/layout.js"></script>
-  <script src="../js/chat.js"></script>
-</body>
-</html>
+  <script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script><script src="/Market/js/market.js"></script>
+</body></html>
