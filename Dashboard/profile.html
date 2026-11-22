@@ -4,10 +4,36 @@
   const path = location.pathname;
   const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
   if (publicEntry) return;
-  document.documentElement.classList.add('fx-auth-pending');
+
+  const html = document.documentElement;
+  html.classList.add('fx-auth-pending');
   const style = document.createElement('style');
-  style.textContent = `html.fx-auth-pending,html.fx-auth-pending body{background:#f7fbfc!important}html.fx-auth-pending body{visibility:hidden!important}html.fx-auth-pending::before{content:'Checking your Frnxup session…';position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#f7fbfc;color:#42616c;font:600 14px system-ui,sans-serif}`;
+  style.textContent = `
+    html.fx-auth-pending, html.fx-auth-pending body { background: #f7fbfc !important; }
+    html.fx-auth-pending body { visibility: hidden !important; }
+    html.fx-auth-pending::before {
+      content: ''; position: fixed; inset: 0; z-index: 2147483646;
+      background: #f7fbfc url('/Asset/frnxup-mark.svg') center calc(50% - 25px) / 76px 76px no-repeat;
+    }
+    html.fx-auth-pending::after {
+      content: 'Loading'; position: fixed; z-index: 2147483647;
+      top: calc(50% + 34px); left: 50%; transform: translateX(-50%);
+      color: #31555d; font: 600 14px system-ui, sans-serif; letter-spacing: .04em;
+      animation: frnxup-loading-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes frnxup-loading-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+  `;
   document.head.appendChild(style);
+
+  // Never leave a visitor on an endless loader if a script or auth request fails.
+  window.__frnxupAuthGateTimer = window.setTimeout(() => {
+    if (!html.classList.contains('fx-auth-pending')) return;
+    const next = location.pathname + location.search + location.hash;
+    const login = new URL('/Auth/index.html', location.origin);
+    login.searchParams.set('next', next || '/');
+    login.searchParams.set('sessionCheck', 'timeout');
+    location.replace(login.toString());
+  }, 12000);
 })();
 </script>
 
