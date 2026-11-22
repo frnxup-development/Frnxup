@@ -25,18 +25,18 @@
         <p>Set up your Frnxup account to connect, express and rise.</p>
       </div>
 
-      <form id="signup-form" novalidate>
+      <form id="signup-form" method="post" action="/Auth/signup.html" novalidate autocomplete="on">
         <div class="field">
           <label for="username">Username</label>
-          <input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="letters, numbers and underscore" maxlength="24" required>
+          <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="next" placeholder="letters, numbers and underscore" maxlength="24" required>
         </div>
         <div class="field">
           <label for="signup-email">Email address</label>
-          <input id="signup-email" name="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" required>
+          <input id="signup-email" name="email" type="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" enterkeyhint="next" maxlength="254" placeholder="you@example.com" required>
         </div>
         <div class="field">
           <label for="new-password">Password</label>
-          <input type="password" id="new-password" name="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" required>
+          <input type="password" id="new-password" name="password" autocomplete="new-password" minlength="8" enterkeyhint="done" placeholder="At least 8 characters" required>
         </div>
         <small class="auth-hint">Use a unique password with at least 8 characters. Keep your login details private.</small>
         <div class="auth-remember">
@@ -46,8 +46,28 @@
           </label>
         </div>
         <button class="button primary full auth-submit" id="signup" type="submit">Create account</button>
-        <p id="signup-msg" class="status-line" aria-live="polite"></p>
+        <p id="signup-msg" class="status-line" role="status" aria-live="polite" aria-atomic="true"></p>
       </form>
+      <script>
+        // Stop a native form navigation if the signup application script failed
+        // to initialise. This keeps the entered values on screen and prevents
+        // the browser from putting form values into a URL.
+        (() => {
+          window.__FRNXUP_SIGNUP_HANDLER_READY = false;
+          const form = document.getElementById('signup-form');
+          if (!form) return;
+          form.addEventListener('submit', (event) => {
+            if (window.__FRNXUP_SIGNUP_HANDLER_READY) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            const message = document.getElementById('signup-msg');
+            if (message) {
+              message.textContent = 'Registration could not start. Your details are still here. Please reload this page and try again.';
+              message.dataset.kind = 'error';
+            }
+          }, true);
+        })();
+      </script>
 
       <div class="auth-switch">
         <span>Already have a Frnxup account?</span>
