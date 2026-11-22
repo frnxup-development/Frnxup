@@ -231,6 +231,7 @@
       return;
     }
     await FX.loadUser();
+    await FX.loadProfile();
     // core.js is the single source of truth for protected-route redirects.
     // Avoid a second redirect here, which can create a login bounce during a session refresh.
     if (!FX.user) return;

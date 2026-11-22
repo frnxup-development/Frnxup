@@ -1,15 +1,93 @@
 (() => {
   const cfg = window.FRNXUP_CONFIG || {};
   const configured = !!(cfg.SUPABASE_URL && !cfg.SUPABASE_URL.includes('YOUR-PROJECT') && cfg.SUPABASE_ANON_KEY && !cfg.SUPABASE_ANON_KEY.includes('YOUR_'));
-  const client = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
+  const REMEMBER_DEVICE_KEY = 'frnxup_remember_device';
 
-  // Only private account areas require an authenticated session. Public pages remain browseable.
+  // Supabase keeps only its session tokens in this adapter. Passwords are never stored.
+  // Remembered sessions use localStorage; ordinary sessions use sessionStorage.
+  const authStorage = {
+    getItem(key) {
+      try {
+        const choice = localStorage.getItem(REMEMBER_DEVICE_KEY);
+        if (choice === '1') return localStorage.getItem(key);
+        if (choice === '0') return sessionStorage.getItem(key);
+        // Preserve sessions created by earlier Frnxup versions until the member chooses otherwise.
+        const legacy = localStorage.getItem(key);
+        return legacy !== null ? legacy : sessionStorage.getItem(key);
+      } catch (_) { return null; }
+    },
+    setItem(key, value) {
+      try {
+        const remember = localStorage.getItem(REMEMBER_DEVICE_KEY) === '1';
+        const target = remember ? localStorage : sessionStorage;
+        const other = remember ? sessionStorage : localStorage;
+        target.setItem(key, value);
+        other.removeItem(key);
+      } catch (_) {}
+    },
+    removeItem(key) {
+      try { localStorage.removeItem(key); } catch (_) {}
+      try { sessionStorage.removeItem(key); } catch (_) {}
+    }
+  };
+
+  const client = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+    auth: { storage: authStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  }) : null;
+
+  // A member's saved session is read locally first so the app does not wait for
+  // profile/settings requests before opening the page. Supabase RLS still
+  // validates every protected data request on the server.
+  const authStorageKey = (() => {
+    try { return `sb-${new URL(cfg.SUPABASE_URL).hostname.split('.')[0]}-auth-token`; }
+    catch (_) { return null; }
+  })();
+
+  function readStoredSession() {
+    if (!authStorageKey) return null;
+    try {
+      const raw = authStorage.getItem(authStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && parsed.access_token && parsed.user ? parsed : null;
+    } catch (_) { return null; }
+  }
+
+  function tokenIsFresh(session, minimumSeconds = 15) {
+    const token = session?.access_token;
+    if (!token) return false;
+    try {
+      const payloadPart = token.split('.')[1];
+      if (!payloadPart) return false;
+      const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')));
+      const exp = Number(payload.exp || session.expires_at || 0);
+      return Number.isFinite(exp) && exp > (Date.now() / 1000) + minimumSeconds;
+    } catch (_) { return false; }
+  }
+
+  function withTimeout(task, milliseconds, fallback = null) {
+    return new Promise(resolve => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) { settled = true; resolve(fallback); }
+      }, milliseconds);
+      Promise.resolve(task).then(value => {
+        if (!settled) { settled = true; clearTimeout(timer); resolve(value); }
+      }).catch(() => {
+        if (!settled) { settled = true; clearTimeout(timer); resolve(fallback); }
+      });
+    });
+  }
+
+  // Every member-facing page is private. Authentication and administration pages remain public entry points.
   function requiresAccountSession(pathname) {
-    const rawPath = String(pathname || '/');
-    const path = rawPath.endsWith('/') && rawPath !== '/' ? `${rawPath}index.html` : (['/Dashboard', '/Friends', '/Messages', '/Notifications', '/Rooms'].includes(rawPath) ? `${rawPath}/index.html` : rawPath);
-    if (path === '/Dashboard/profile.html' || path === '/Posts/view.html') return false;
-    if (path === '/Posts/saved.html') return true;
-    return ['/Dashboard/', '/Friends/', '/Messages/', '/Notifications/', '/Rooms/'].some(prefix => path.startsWith(prefix));
+    const path = String(pathname || '/');
+    return !(path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/'));
+  }
+  function loginDestination() {
+    const next = location.pathname + location.search + location.hash;
+    return `/Auth/index.html?next=${encodeURIComponent(next || '/')}`;
   }
   function safeNextPath() {
     return location.pathname + location.search + location.hash;
@@ -29,61 +107,119 @@
     relative(value) { if (!value) return ''; const elapsed = Math.max(0, Date.now() - new Date(value).getTime()); const minutes = Math.floor(elapsed / 60000); if (minutes < 1) return 'just now'; if (minutes < 60) return `${minutes}m ago`; const hours = Math.floor(minutes / 60); if (hours < 24) return `${hours}h ago`; return `${Math.floor(hours / 24)}d ago`; },
     async loadSettings() {
       if (!client) return this.settings;
-      try {
-        const { data, error } = await client.from('site_settings').select('key,value');
-        if (!error) this.settings = Object.fromEntries((data || []).map(item => [item.key, item.value]));
-      } catch (_) {}
-      return this.settings;
+      if (this._settingsLoaded) return this.settings;
+      if (this._settingsPromise) return this._settingsPromise;
+      this._settingsPromise = (async () => {
+        const result = await withTimeout(client.from('site_settings').select('key,value'), 2500, null);
+        if (result && !result.error) {
+          this.settings = Object.fromEntries((result.data || []).map(item => [item.key, item.value]));
+          this._settingsLoaded = true;
+        }
+        return this.settings;
+      })();
+      try { return await this._settingsPromise; }
+      finally { this._settingsPromise = null; }
     },
     enabled(key) { return this.settings[key] !== false; },
     async session() { if (!client) return null; const { data, error } = await client.auth.getSession(); return error ? null : (data.session || null); },
+    getRememberDevice() {
+      try {
+        const choice = localStorage.getItem(REMEMBER_DEVICE_KEY);
+        if (choice === '1') return true;
+        if (choice === '0') return false;
+        const projectRef = new URL(cfg.SUPABASE_URL).hostname.split('.')[0];
+        return !!localStorage.getItem(`sb-${projectRef}-auth-token`);
+      } catch (_) { return false; }
+    },
+    setRememberDevice(remember) {
+      try { localStorage.setItem(REMEMBER_DEVICE_KEY, remember ? '1' : '0'); } catch (_) {}
+    },
+    async checkSessionFast() {
+      if (!client) return null;
+      if (this._fastSessionReady && this.user) return this.user;
+
+      // Most returning members are authenticated by a still-valid saved token.
+      // Reading it locally avoids a blocking network round-trip on mobile.
+      const cached = readStoredSession();
+      if (cached && tokenIsFresh(cached)) {
+        this.user = cached.user;
+        this.profile = null;
+        this.sessionPresent = true;
+        this._fastSessionReady = true;
+        // Let Supabase complete initialization/refresh in the background.
+        withTimeout(client.auth.getSession(), 5000, null).then(result => {
+          if (result?.data?.session?.user) {
+            this.user = result.data.session.user;
+            this.sessionPresent = true;
+          } else if (result && !result.data?.session) {
+            this.user = null;
+            this.profile = null;
+            this.sessionPresent = false;
+            if (requiresAccountSession(location.pathname)) location.replace(loginDestination());
+          }
+        });
+        return this.user;
+      }
+
+      // First-time visitors and near-expired sessions may need Supabase to
+      // initialize or refresh the session. Never leave the screen waiting forever.
+      const result = await withTimeout(client.auth.getSession(), 6500, null);
+      const session = result?.data?.session || null;
+      if (session?.user && tokenIsFresh(session, 5)) {
+        this.user = session.user;
+        this.profile = null;
+        this.sessionPresent = true;
+        this._fastSessionReady = true;
+        return this.user;
+      }
+      this.user = null;
+      this.profile = null;
+      this.sessionPresent = false;
+      return null;
+    },
     async loadUser() {
       if (!client) return null;
+      if (this.user && this._fastSessionReady) {
+        // Return the authenticated member immediately. Profile/settings hydrate
+        // in the background so mobile users can start using the page sooner.
+        this.loadProfile().catch(() => {});
+        return this.user;
+      }
       if (this._loadUserPromise) return this._loadUserPromise;
-      if (this._loadUserResolved) return this.user;
 
       this._loadUserPromise = (async () => {
-        let sessionData = null;
-        try {
-          const result = await client.auth.getSession();
-          sessionData = result?.data || null;
-        } catch (_) {}
+        const user = await this.checkSessionFast();
+        if (user) this.loadProfile().catch(() => {});
+        return user;
+      })();
+      try { return await this._loadUserPromise; }
+      finally { this._loadUserPromise = null; }
+    },
+    async loadProfile() {
+      if (!client || !this.user) return null;
+      const userId = this.user.id;
+      if (this._profileLoadedUserId === userId) return this.profile;
+      if (this._profilePromise && this._profilePromiseUserId === userId) return this._profilePromise;
 
-        const sessionUser = sessionData?.session?.user || null;
-        this.sessionPresent = !!sessionUser;
-        if (!sessionUser) {
-          this.user = null;
-          this.profile = null;
-          await this.loadSettings();
-          return null;
+      this._profilePromiseUserId = userId;
+      this._profilePromise = (async () => {
+        const [result] = await Promise.all([
+          withTimeout(client.from('profiles').select('*').eq('id', userId).maybeSingle(), 2500, null),
+          this.loadSettings()
+        ]);
+        if (this.user?.id === userId) {
+          this.profile = result && !result.error ? (result.data || null) : null;
+          if (result) this._profileLoadedUserId = userId;
         }
-
-        // getSession() is the persisted local session snapshot. If the network
-        // call to getUser() fails temporarily, keep that snapshot rather than
-        // falsely treating the member as signed out and bouncing to login.
-        let resolvedUser = sessionUser;
-        try {
-          const result = await client.auth.getUser();
-          if (!result?.error && result?.data?.user) resolvedUser = result.data.user;
-        } catch (_) {}
-
-        this.user = resolvedUser;
-        try {
-          const { data: profile, error } = await client.from('profiles')
-            .select('*').eq('id', resolvedUser.id).maybeSingle();
-          this.profile = error ? null : (profile || null);
-        } catch (_) {
-          this.profile = null;
-        }
-        await this.loadSettings();
-        return this.user;
+        return this.profile;
       })();
 
-      try {
-        return await this._loadUserPromise;
-      } finally {
-        this._loadUserPromise = null;
-        this._loadUserResolved = true;
+      try { return await this._profilePromise; }
+      finally {
+        if (this._profilePromiseUserId === userId) {
+          this._profilePromise = null;
+          this._profilePromiseUserId = null;
+        }
       }
     },
     async requireAuth() {
@@ -182,47 +318,66 @@
         FX.sessionPresent = false;
         FX._loadUserResolved = true;
         FX._loadUserPromise = null;
+        FX._fastSessionReady = false;
+        FX._profileLoadedUserId = null;
+        FX.profile = null;
+        if (requiresAccountSession(location.pathname)) location.replace(loginDestination());
       } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         FX.user = session?.user || null;
         FX.profile = null;
         FX.sessionPresent = !!session?.user;
         FX._loadUserResolved = false;
         FX._loadUserPromise = null;
+        FX._fastSessionReady = !!session?.user;
+        FX._profileLoadedUserId = null;
+        FX._profilePromise = null;
+        FX._profilePromiseUserId = null;
       }
     });
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    const protectedPage = requiresAccountSession(location.pathname);
+    if (!protectedPage) {
+      document.documentElement.classList.remove('fx-auth-pending');
+      if (window.__frnxupAuthGateTimer) clearTimeout(window.__frnxupAuthGateTimer);
+      return;
+    }
+
     if (!client) {
       document.documentElement.dataset.backend = 'unconfigured';
+      location.replace(loginDestination());
       return;
     }
+
     document.documentElement.dataset.backend = 'connected';
-    try {
-      await FX.loadUser();
-    } catch (_) {
-      // A transient auth/network error must not trigger a redirect loop.
-      document.documentElement.dataset.backend = 'degraded';
-    }
+    let user = null;
+    try { user = await FX.checkSessionFast(); }
+    catch (_) { document.documentElement.dataset.backend = 'degraded'; }
 
-    // Log signed-in page visits centrally. Query strings are deliberately omitted.
-    if (FX.user) {
-      FX.trackActivity('page_view', 'page', location.pathname, {
-        title: String(document.title || '').slice(0, 120)
-      });
-    }
-
-    if (FX.settings.maintenance_mode === true && !['owner', 'admin'].includes(FX.profile?.role)) {
-      const banner = document.createElement('div');
-      banner.className = 'maintenance-banner';
-      banner.textContent = 'Frnxup is temporarily in maintenance mode. Some features may be unavailable.';
-      document.body.prepend(banner);
-    }
-
-    if (!requiresAccountSession(location.pathname)) return;
-    if (!FX.user) {
-      FX.showAuthNotice('Sign in to access this account area.');
+    if (!user) {
+      location.replace(loginDestination());
       return;
     }
+
+    // The session is present. Reveal the page immediately; profile, site settings,
+    // feed and other content requests continue asynchronously after this point.
+    if (window.__frnxupAuthGateTimer) clearTimeout(window.__frnxupAuthGateTimer);
+    document.documentElement.classList.remove('fx-auth-pending');
+    FX.trackActivity('page_view', 'page', location.pathname, {
+      title: String(document.title || '').slice(0, 120)
+    });
+
+    // Maintenance status is non-critical and must never delay first paint.
+    FX.loadProfile().then(() => {
+      if (FX.settings.maintenance_mode === true && !['owner', 'admin'].includes(FX.profile?.role)) {
+        if (!document.querySelector('.maintenance-banner')) {
+          const banner = document.createElement('div');
+          banner.className = 'maintenance-banner';
+          banner.textContent = 'Frnxup is temporarily in maintenance mode. Some features may be unavailable.';
+          document.body.prepend(banner);
+        }
+      }
+    });
   });
 })();

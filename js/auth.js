@@ -23,6 +23,16 @@
   carryNext($('#switch-to-signup'));
   carryNext($('#switch-to-login'));
 
+  const rememberDevice = $('#remember-device');
+  if (rememberDevice && typeof FX.getRememberDevice === 'function') {
+    rememberDevice.checked = FX.getRememberDevice();
+  }
+  const saveRememberChoice = () => {
+    if (typeof FX.setRememberDevice === 'function') {
+      FX.setRememberDevice(!!rememberDevice?.checked);
+    }
+  };
+
   // A member who is already signed in does not need to see the access forms.
   if ($('#login-form') || $('#signup-form')) {
     FX.loadUser().then(user => {
@@ -43,6 +53,7 @@
       const password = $('#password')?.value || '';
       if (!identity || !password) return FX.setMessage('#login-msg', 'Enter your email or username and password.', 'error');
       if (!FX.client) return FX.setMessage('#login-msg', 'Supabase is not configured. Check js/config.js.', 'error');
+      saveRememberChoice();
 
       const button = $('#login');
       button.disabled = true;
@@ -91,6 +102,7 @@
           return;
         }
 
+        saveRememberChoice();
         const username = ($('#username')?.value || '').trim().replace(/^@/, '');
         const email = ($('#signup-email')?.value || '').trim().toLowerCase();
         const password = $('#new-password')?.value || '';

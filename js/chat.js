@@ -290,6 +290,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     await FX.loadUser();
+    await FX.loadProfile();
     if (!FX.user) {
       const next = encodeURIComponent(location.pathname + location.search);
       const notice = `<div class="empty"><a href="/Auth/index.html?next=${next}">Sign in</a> to view conversations and send messages.</div>`;
