@@ -8,9 +8,17 @@ Deno.serve(async(req)=>{
   const url=Deno.env.get('SUPABASE_URL')!,service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const admin=createClient(url,service,{auth:{persistSession:false}});
   const {data:authData,error:authError}=await admin.auth.getUser(token);if(authError||!authData.user)return json({error:'Invalid session'},401);
-  const actor=authData.user.id;const {data:actorProfile,error:roleError}=await admin.from('profiles').select('role,account_status').eq('id',actor).single();
-  if(roleError||actorProfile.account_status!=='active'||!['owner','admin','moderator'].includes(actorProfile.role))return json({error:'Administrator permission required'},403);
-  const owner=actorProfile.role==='owner',adminRole=actorProfile.role==='admin';const canManage=owner||adminRole;
+  const actor=authData.user.id;
+  const {data:actorProfile,error:roleError}=await admin.from('profiles').select('id,role,account_status').eq('id',actor).maybeSingle();
+  if(roleError)return json({error:'The administrator profile lookup failed. Check that the deployed admin-control function uses the same Supabase project as the Frnxup website.',code:'ADMIN_PROFILE_LOOKUP_FAILED'},500);
+  if(!actorProfile)return json({error:'No Frnxup profile is linked to this signed-in Auth account. The platform owner must restore the owner profile in Supabase before using the control centre.',code:'ADMIN_PROFILE_NOT_FOUND'},403);
+  const actorRole=String(actorProfile.role||'').trim().toLowerCase();
+  const actorStatus=String(actorProfile.account_status||'').trim().toLowerCase();
+  if(actorStatus!=='active')return json({error:'This Frnxup account is not active. Reactivate it before granting administrator access.',code:'ADMIN_ACCOUNT_INACTIVE'},403);
+  if(!['owner','admin','moderator'].includes(actorRole))return json({error:`Administrator permission required. The signed-in profile currently has the “${actorRole||'not set'}” role. Only the platform owner can authorize administrator access.`,code:'ADMIN_ROLE_REQUIRED'},403);
+  // Normalize values once so every permission branch below uses the same role value.
+  actorProfile.role=actorRole;
+  const owner=actorRole==='owner',adminRole=actorRole==='admin';const canManage=owner||adminRole;
   const body=await req.json();const action=String(body.action||'');
   const log=async(a:string,t:string|null=null,id:string|null=null,details:any={})=>{await admin.from('admin_audit_logs').insert({actor_id:actor,action:a,target_type:t,target_id:id,details})};
   const count=async(table:string,filters?:[string,string,any][])=>{let q=admin.from(table).select('*',{count:'exact',head:true});for(const [c,op,v] of filters||[])q=q.filter(c,op,v);const {count}=await q;return count||0};
