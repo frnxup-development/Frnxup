@@ -1,3 +1,15 @@
 <!doctype html><html><head>
+<script>
+(() => {
+  const path = location.pathname;
+  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
+  if (publicEntry) return;
+  document.documentElement.classList.add('fx-auth-pending');
+  const style = document.createElement('style');
+  style.textContent = `html.fx-auth-pending,html.fx-auth-pending body{background:#f7fbfc!important}html.fx-auth-pending body{visibility:hidden!important}html.fx-auth-pending::before{content:'Checking your Frnxup session…';position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#f7fbfc;color:#42616c;font:600 14px system-ui,sans-serif}`;
+  document.head.appendChild(style);
+})();
+</script>
+
 <script src="../js/theme.js"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Notifications · Frnxup</title><link rel="stylesheet" href="../Css/app.css"></head><body><div data-frnxup-shell></div><main class="page" style="max-width:850px"><div class="page-heading"><div><span class="eyebrow">WHAT'S NEW</span><h1>Notifications</h1><p>Friend requests, post activity and community updates.</p></div><button class="button secondary" id="mark-all">Mark all as read</button></div><div id="notification-list" class="list"><div class="empty">Connect your account to see notifications.</div></div></main><div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script src="../js/notifications.js"></script></body></html>
