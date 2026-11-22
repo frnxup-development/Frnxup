@@ -127,7 +127,10 @@ Deno.serve(async(req)=>{
     return !error&&!!data;
   };
   const publicActions=new Set(['verify_access','staff_login','staff_logout','complete_staff_registration']);
-  if(!publicActions.has(action)){
+  // The platform owner is the bootstrap authority and is not enrolled in the
+  // appointed-staff credential flow. Only appointed admins/moderators require
+  // a separate staff session. This is enforced server-side for every action.
+  if(!owner&&!publicActions.has(action)){
     const valid=await checkStaffSession(String(body.staff_session_token||''));
     if(!valid)throw new Error('Your separate Frnxup staff session has expired. Sign in again with your 10-digit staff ID and staff password.');
   }
@@ -135,15 +138,19 @@ Deno.serve(async(req)=>{
   let result:any={};
   switch(action){
    case 'verify_access':{
-    const {data:staff,error:staffError}=await admin.from('admin_staff_accounts').select('staff_id,status,role').eq('user_id',actor).maybeSingle();if(staffError)throw staffError;
-    const staffSessionValid=await checkStaffSession(String(body.staff_session_token||''));
-    result={ok:true,project_ref:FRNXUP_PROJECT_REF,user_id:actor,role:actorRole,account_status:actorStatus,staff_id:staff?.staff_id||null,staff_status:staff?.status||'not_registered',staff_session_valid:!!staffSessionValid,staff_registration_required:!staff||staff.status!=='active'};break;
+    // Owner access is inherited from the verified Frnxup owner role. Do not
+    // create, require, or inspect a separate staff account for the owner.
+    let staff:any=null;
+    if(!owner){const {data,error}=await admin.from('admin_staff_accounts').select('staff_id,status,role').eq('user_id',actor).maybeSingle();if(error)throw error;staff=data;}
+    const staffSessionValid=owner?true:await checkStaffSession(String(body.staff_session_token||''));
+    result={ok:true,project_ref:FRNXUP_PROJECT_REF,user_id:actor,role:actorRole,account_status:actorStatus,staff_id:staff?.staff_id||null,staff_status:owner?'not_required':(staff?.status||'not_registered'),staff_session_valid:!!staffSessionValid,staff_registration_required:!owner&&(!staff||staff.status!=='active')};break;
    }
    case 'staff_logout':{
     const token=String(body.staff_session_token||'');if(token){const {error}=await admin.from('admin_staff_sessions').delete().eq('user_id',actor).eq('token_hash',await hashToken(token));if(error)throw error;}
     result={ok:true};break;
    }
    case 'staff_login':{
+    if(owner)throw new Error('The platform owner does not use appointed-staff credentials. Sign in with the verified Frnxup owner account.');
     const staffId=String(body.staff_id||'').trim();const password=String(body.staff_password||'');
     if(!/^\d{10}$/.test(staffId)||password.length<10)throw new Error('Enter your 10-digit staff ID and staff password.');
     const {data:attempt}=await admin.from('admin_staff_login_attempts').select('failed_attempts,locked_until').eq('user_id',actor).maybeSingle();
@@ -158,16 +165,13 @@ Deno.serve(async(req)=>{
     result={ok:true,role:staff.role,staff_id:staff.staff_id,...issued};break;
    }
    case 'complete_staff_registration':{
+    if(owner)throw new Error('The platform owner is exempt from appointed-staff registration. Only newly appointed administrators and moderators register a separate staff password.');
+    if(!['admin','moderator'].includes(actorRole))throw new Error('Only an appointed administrator or moderator can complete staff registration.');
     let staffId=String(body.staff_id||'').trim();const password=String(body.staff_password||'');
     if(staffId&&!/^\d{10}$/.test(staffId))throw new Error('Staff ID must contain exactly 10 digits.');
     if(password.length<10||!/[0-9]/.test(password)||!/[A-Za-z]/.test(password))throw new Error('Staff password must be at least 10 characters and contain both letters and numbers. Use a password different from your public Frnxup password.');
     const {data:existing,error:existingError}=await admin.from('admin_staff_accounts').select('*').eq('user_id',actor).maybeSingle();if(existingError)throw existingError;
-    let row=existing;
-    if(actorRole==='owner'&&!row){
-      const generated=await generateStaffId();staffId=generated;
-      const {data:created,error}=await admin.from('admin_staff_accounts').insert({user_id:actor,staff_id:generated,role:'owner',status:'pending',created_by:actor}).select('*').single();if(error)throw error;row=created;
-    }
-    if(actorRole==='owner'&&row&&!staffId)staffId=row.staff_id;
+    const row=existing;
     if(!row||row.staff_id!==staffId)throw new Error('This staff ID is not assigned to the signed-in Frnxup account. Ask the platform owner to assign your role.');
     if(row.role!==actorRole)throw new Error('Your Frnxup role and staff assignment do not match. Contact the platform owner.');
     if(row.status==='active'&&row.password_hash)throw new Error('Staff registration is already complete. Use the Admin sign-in page.');
