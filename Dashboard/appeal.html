@@ -1,3 +1,15 @@
 <!doctype html><html><head>
+<script>
+(() => {
+  const path = location.pathname;
+  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
+  if (publicEntry) return;
+  document.documentElement.classList.add('fx-auth-pending');
+  const style = document.createElement('style');
+  style.textContent = `html.fx-auth-pending,html.fx-auth-pending body{background:#f7fbfc!important}html.fx-auth-pending body{visibility:hidden!important}html.fx-auth-pending::before{content:'Checking your Frnxup session…';position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#f7fbfc;color:#42616c;font:600 14px system-ui,sans-serif}`;
+  document.head.appendChild(style);
+})();
+</script>
+
 <script src="../js/theme.js"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account appeal · Frnxup</title><link rel="stylesheet" href="../Css/app.css"></head><body><div data-frnxup-shell></div><main class="page" style="max-width:700px"><div class="page-heading"><div><h1>Account appeal</h1><p>Request a review if you believe an account restriction was applied in error.</p></div><a class="button subtle" href="index.html">Dashboard</a></div><form id="appeal-form" class="card" style="padding:20px"><div class="field"><label>Explain why you are appealing</label><textarea id="appeal-reason" maxlength="3000" required></textarea></div><button class="button primary">Submit appeal</button><p id="appeal-message" class="status-line"></p></form><div class="card" style="padding:17px;margin-top:14px"><h3>Your appeals</h3><div id="appeal-history" class="list"></div></div></main><div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script>document.addEventListener('DOMContentLoaded',async()=>{await FX.loadUser();if(!FX.user){FX.showAuthNotice('Sign in to submit or review an account appeal.');return;}async function load(){const {data,error}=await FX.client.from('account_appeals').select('id,reason,status,created_at').eq('user_id',FX.user.id).order('created_at',{ascending:false});document.querySelector('#appeal-history').innerHTML=error?FX.esc(error.message):(data||[]).map(a=>`<div class="row-card"><div class="grow"><b>${FX.esc(a.status)}</b><small>${FX.esc(a.reason)} · ${FX.time(a.created_at)}</small></div></div>`).join('')||'<div class="empty">No appeals submitted.</div>'}load();document.querySelector('#appeal-form').onsubmit=async e=>{e.preventDefault();const reason=document.querySelector('#appeal-reason').value.trim();const {error}=await FX.client.from('account_appeals').insert({user_id:FX.user.id,reason});FX.setMessage('#appeal-message',error?error.message:'Appeal submitted for review.');if(!error){e.target.reset();load()}}})</script></body></html>

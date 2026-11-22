@@ -1,3 +1,15 @@
 <!doctype html><html><head>
+<script>
+(() => {
+  const path = location.pathname;
+  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
+  if (publicEntry) return;
+  document.documentElement.classList.add('fx-auth-pending');
+  const style = document.createElement('style');
+  style.textContent = `html.fx-auth-pending,html.fx-auth-pending body{background:#f7fbfc!important}html.fx-auth-pending body{visibility:hidden!important}html.fx-auth-pending::before{content:'Checking your Frnxup session…';position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#f7fbfc;color:#42616c;font:600 14px system-ui,sans-serif}`;
+  document.head.appendChild(style);
+})();
+</script>
+
 <script src="../js/theme.js"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Edit profile · Frnxup</title><link rel="stylesheet" href="../Css/app.css"></head><body><div data-frnxup-shell></div><main class="page" style="max-width:780px"><div class="page-heading"><div><h1>Edit profile</h1><p>Choose what people see when they visit your profile.</p></div><a class="button subtle" href="index.html">Dashboard</a></div><form class="card" id="profile-form" style="padding:20px"><div class="field"><label>Profile picture</label><input id="avatar-file" type="file" accept="image/*"></div><div class="field"><label>Cover photo</label><input id="cover-file" type="file" accept="image/*"></div><div class="field"><label>Display name</label><input id="display-name" maxlength="60"></div><div class="field"><label>Username</label><input id="username" maxlength="24"></div><div class="field"><label>Bio</label><textarea id="bio" maxlength="300"></textarea></div><div class="field"><label>Date of birth (optional)</label><input id="birth-date" type="date"></div><div class="field"><label>Education (optional)</label><input id="education"></div><div class="field"><label>Occupation (optional)</label><input id="occupation"></div><button class="button primary" type="submit">Save profile</button><p id="profile-msg" class="status-line"></p></form></main><div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script src="../js/dashboard.js"></script><script src="/js/media-tools.js"></script></body></html>
