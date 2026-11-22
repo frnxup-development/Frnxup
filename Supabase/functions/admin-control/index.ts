@@ -38,6 +38,7 @@ function getProjectRef(value: string | null): string | null {
 Deno.serve(async(req)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});if(req.method!=='POST')return json({error:'Method not allowed'},405);
  const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)return json({error:'Authorization required'},401);
+ let actionName='unknown';
  try{
   const configuredUrl = Deno.env.get('SUPABASE_URL') || '';
   const configuredProjectRef = getProjectRef(configuredUrl);
@@ -91,7 +92,7 @@ Deno.serve(async(req)=>{
   // Normalize values once so every permission branch below uses the same role value.
   actorProfile.role=actorRole;
   const owner=actorRole==='owner',adminRole=actorRole==='admin';const canManage=owner||adminRole;const canModerate=canManage||actorRole==='moderator';
-  const body=await req.json();const action=String(body.action||'');
+  const body=await req.json();const action=String(body.action||'');actionName=action||'unknown';
   const log=async(a:string,t:string|null=null,id:string|null=null,details:any={})=>{await admin.from('admin_audit_logs').insert({actor_id:actor,action:a,target_type:t,target_id:id,details})};
   const count=async(table:string,filters?:[string,string,any][])=>{let q=admin.from(table).select('*',{count:'exact',head:true});for(const [c,op,v] of filters||[])q=q.filter(c,op,v);const {count}=await q;return count||0};
   let result:any={};
@@ -243,5 +244,16 @@ Deno.serve(async(req)=>{
    default:return json({error:'Unsupported administrator action'},400);
   }
   return json(result);
- }catch(e){return json({error:e instanceof Error?e.message:'Administrator request failed'},400)}
+ }catch(e){
+  // Supabase PostgREST errors are not guaranteed to be native Error instances.
+  // Preserve their safe message/code/details so the admin UI never masks them
+  // behind the generic "Administrator request failed" text.
+  const value=(e&&typeof e==='object')?e as Record<string,unknown>:{};
+  const message=typeof e==='string'?e:(typeof value.message==='string'?value.message:(typeof value.error==='string'?value.error:'The administrator action failed for an unspecified reason.'));
+  const code=typeof value.code==='string'?value.code:null;
+  const details=typeof value.details==='string'?value.details:null;
+  const hint=typeof value.hint==='string'?value.hint:null;
+  const status=typeof value.status==='number'&&value.status>=400&&value.status<600?value.status:400;
+  return json({error:message,code,details,hint,action:actionName},status);
+ }
 });
