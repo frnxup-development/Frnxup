@@ -16,24 +16,18 @@ button{width:100%;border:0;border-radius:11px;background:var(--green);color:#042
   const form = document.getElementById('admin-login');
   const msg = document.getElementById('message');
   const btn = document.getElementById('submit');
-  // Share the same authenticated client and session lifecycle as every other page.
   const client = window.FX?.client || null;
-
-  const allowed = ['owner', 'admin', 'moderator'];
   const nextParam = new URLSearchParams(location.search).get('next');
   const destination = nextParam && nextParam.startsWith('/Admin/') && !nextParam.includes('login.html')
     ? nextParam : '/Admin/index.html';
 
-  async function continueIfAdmin(user) {
-    const { data: profile, error } = await client.from('profiles')
-      .select('role,account_status').eq('id', user.id).maybeSingle();
-    if (error) throw new Error('Frnxup could not read your administrator profile. Check the profiles table permissions and try again.');
-    if (!profile) throw new Error('Your Auth account has no matching Frnxup profile. Use the owner-recovery SQL file included in this patch.');
-
-    const role = String(profile.role || '').trim().toLowerCase();
-    const status = String(profile.account_status || '').trim().toLowerCase();
-    if (status !== 'active') throw new Error('Your Frnxup account is not active. An owner must reactivate it before administrator access is available.');
-    if (!allowed.includes(role)) throw new Error(`Your Frnxup profile role is “${role || 'not set'}”. An owner must grant administrator access before you can enter the control centre.`);
+  async function continueIfAdmin() {
+    if (!window.FX?.admin) throw new Error('Frnxup authentication is not configured. Check js/config.js and js/core.js.');
+    // The Edge Function uses the same project secret and profile lookup as all admin actions.
+    const access = await window.FX.admin('verify_access');
+    if (!access?.ok || !['owner', 'admin', 'moderator'].includes(access.role) || access.account_status !== 'active') {
+      throw new Error('This account does not have active administrator permission.');
+    }
     location.replace(destination);
     return true;
   }
@@ -42,7 +36,8 @@ button{width:100%;border:0;border-radius:11px;background:var(--green);color:#042
     if (!client) return;
     const { data: { session }, error } = await client.auth.getSession();
     if (error || !session?.user) return;
-    try { await continueIfAdmin(session.user); } catch (error) { msg.textContent = error.message || 'Administrator access could not be verified.'; }
+    try { await continueIfAdmin(); }
+    catch (error) { msg.textContent = error.message || 'Administrator access could not be verified.'; }
   }
   verifyExisting();
 
@@ -55,11 +50,10 @@ button{width:100%;border:0;border-radius:11px;background:var(--green);color:#042
     try {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      if (data.user) { try { await client.rpc('frnxup_log_activity', {p_action:'sign_in',p_entity_type:'auth',p_entity_id:'/Admin/login.html',p_details:{method:'email',area:'admin'}}); } catch (_) {} }
-      if (!data.user) throw new Error('Sign-in completed but no user session was returned. Please try again.');
-      await continueIfAdmin(data.user);
+      try { await client.rpc('frnxup_log_activity', {p_action:'sign_in',p_entity_type:'auth',p_entity_id:'/Admin/login.html',p_details:{method:'email',area:'admin'}}); } catch (_) {}
+      await continueIfAdmin();
     } catch (error) {
       msg.textContent = error.message || 'Sign in failed. Please try again.';
       btn.disabled = false;
