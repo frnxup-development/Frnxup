@@ -32,6 +32,12 @@
           <label for="password">Password</label>
           <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Your password" required>
         </div>
+        <div class="auth-remember">
+          <label for="remember-device">
+            <input type="checkbox" id="remember-device" name="remember-device">
+            <span><strong>Remember this device</strong><small>Stay signed in on this browser. Your password is never saved.</small></span>
+          </label>
+        </div>
         <button class="button primary full auth-submit" id="login" type="submit">Log in securely</button>
         <p id="login-msg" class="status-line" aria-live="polite"></p>
       </form>
