@@ -1,3 +1,15 @@
 <!doctype html><html><head>
+<script>
+(() => {
+  const path = location.pathname;
+  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
+  if (publicEntry) return;
+  document.documentElement.classList.add('fx-auth-pending');
+  const style = document.createElement('style');
+  style.textContent = `html.fx-auth-pending,html.fx-auth-pending body{background:#f7fbfc!important}html.fx-auth-pending body{visibility:hidden!important}html.fx-auth-pending::before{content:'Checking your Frnxup session…';position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#f7fbfc;color:#42616c;font:600 14px system-ui,sans-serif}`;
+  document.head.appendChild(style);
+})();
+</script>
+
 <script src="../js/theme.js"></script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chat · Frnxup</title><link rel="stylesheet" href="../Css/app.css"></head><body class="messages-page"><div data-frnxup-shell></div><main class="page"><a href="index.html" class="small">← All messages</a><section class="card" style="margin-top:12px;overflow:hidden"><div style="padding:14px 17px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px"><div class="avatar" id="chat-avatar">F</div><div><b id="chat-title">Conversation</b><small id="chat-subtitle" class="muted" style="display:block;font-size:10px">Frnxup chat</small></div><button id="group-add-member" class="button secondary" hidden>Add member</button></div><div id="group-tools" hidden style="padding:10px 15px;border-bottom:1px solid var(--line)"><small class="muted">Group members</small><div id="group-members" class="row-wrap" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:7px"></div></div><div id="chat-messages" style="height:55vh;min-height:300px;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:9px"><div class="empty">Loading conversation…</div></div><div style="padding:13px;border-top:1px solid var(--line)"><div class="searchbar"><input id="message-input" placeholder="Write a message…"><input id="message-file" type="file" accept="image/*,video/*" style="max-width:115px;font-size:10px"><button class="button subtle" id="record-voice">🎙 Voice</button><button class="button primary" id="send-message">Send</button></div><small id="reply-context" class="muted"></small><small class="muted">Use messages respectfully. Block or report abusive accounts.</small></div></section></main><div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script src="../js/chat.js"></script><script src="/js/media-tools.js"></script></body></html>
