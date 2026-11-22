@@ -1,9 +1,18 @@
 <!doctype html><html lang="en"><head>
+<script>
+(() => {
+  const path = location.pathname;
+  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
+  if (publicEntry) return;
+  document.documentElement.classList.add('fx-auth-pending');
+  const style = document.createElement('style');
+  style.textContent = `html.fx-auth-pending,html.fx-auth-pending body{background:#f7fbfc!important}html.fx-auth-pending body{visibility:hidden!important}html.fx-auth-pending::before{content:'Checking your Frnxup session…';position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#f7fbfc;color:#42616c;font:600 14px system-ui,sans-serif}`;
+  document.head.appendChild(style);
+})();
+</script>
+
 <script src="js/theme.js"></script>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><title>Frnxup — Connect. Express. Rise.</title><link rel="icon" href="Asset/frnxup-mark.svg"><link rel="stylesheet" href="Css/app.css">
-<style>
-#fx-entry-check{position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#fff;color:#18352b;font:600 14px/1.5 Manrope,system-ui,sans-serif}#fx-entry-check img{width:48px;height:48px}#fx-entry-check .fx-entry-spinner{width:25px;height:25px;border:3px solid #dce9e3;border-top-color:#159768;border-radius:50%;animation:fx-entry-spin .8s linear infinite}@keyframes fx-entry-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#fx-entry-check .fx-entry-spinner{animation:none}}
-</style></head><body><div id="fx-entry-check" role="status" aria-live="polite"><img src="Asset/frnxup-mark.svg" alt=""><span class="fx-entry-spinner" aria-hidden="true"></span><span>Checking your Frnxup session…</span></div><div data-frnxup-shell></div>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><title>Frnxup — Connect. Express. Rise.</title><link rel="icon" href="Asset/frnxup-mark.svg"><link rel="stylesheet" href="Css/app.css"></head><body><div data-frnxup-shell></div>
 <main class="page"><div class="page-heading"><div><span class="eyebrow">YOUR PEOPLE. YOUR PLACE.</span><h1>Home feed</h1><p>Catch up with friends and communities.</p></div><a class="button secondary" href="/Rooms/index.html">Explore rooms ↗</a></div>
 <div class="two-col"><section class="feed-col">
 <div class="card composer fx-home-composer"><div class="composer-top"><div class="avatar" id="composer-avatar">F</div><button class="composer-open" id="open-post">What's on your mind?</button><button type="button" class="fx-composer-photo" id="post-photo-top" aria-label="Add a photo">▧<span>Photo</span></button></div><div class="composer-tools"><button id="post-photo">▧ Photo</button><button id="post-video">▶ Video</button><button id="post-poll">▤ Poll</button><button id="post-location">⌖ Location</button></div></div>
@@ -13,34 +22,4 @@
 <div class="card" style="padding:16px;margin-bottom:14px"><div style="display:flex;justify-content:space-between"><b style="font:700 14px Manrope">Popular rooms</b><a class="small" href="/Rooms/index.html">Explore</a></div><div id="popular-rooms" class="list" style="margin-top:12px"><div class="empty">Discover interest-based rooms.</div></div></div><div class="card" style="padding:16px"><b style="font:700 14px Manrope">Your Frnxup space</b><p class="muted" style="font-size:11px;line-height:1.6">Make friends, share moments and find conversations that matter.</p><a class="button primary full" href="/Dashboard/index.html">Open my dashboard</a></div></aside></div></main>
 <div class="modal-backdrop" id="post-modal"><div class="modal"><div class="modal-head"><h2>Create a post</h2><button class="close" data-close="post-modal">×</button></div><div class="field"><label for="post-content">What's on your mind?</label><textarea id="post-content" maxlength="5000" placeholder="Share an update with your community..."></textarea></div><div class="field"><label for="post-media">Add photo or video</label><input id="post-media" type="file" accept="image/*,video/*" multiple></div><div class="field"><label for="post-location-label">Location (optional)</label><input id="post-location-label" maxlength="120" placeholder="Add a city or place name"></div><div class="field"><label for="post-visibility">Who can see this?</label><select id="post-visibility"><option value="public">Public</option><option value="friends">Friends</option><option value="only_me">Only me</option></select></div><div id="poll-builder" class="poll-builder" hidden><div class="field"><label for="poll-question">Poll question</label><input id="poll-question" maxlength="240" placeholder="Ask your community a question"></div><div id="poll-options"><div class="field"><label>Poll options</label><input class="poll-option" maxlength="80" placeholder="Option 1"><input class="poll-option" maxlength="80" placeholder="Option 2"></div></div><button class="button subtle" type="button" id="add-poll-option">＋ Add option</button><div class="field"><label for="poll-duration">Poll duration</label><select id="poll-duration"><option value="1">1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option></select></div></div><div class="modal-actions"><small class="muted">Be respectful. Build community.</small><button class="button primary" id="publish-post">Publish post</button></div><p id="post-message" class="status-line"></p></div></div>
 <div class="modal-backdrop" id="status-modal"><div class="modal"><div class="modal-head"><h2>Share a status</h2><button class="close" data-close="status-modal">×</button></div><div class="field"><label for="status-text">Write a status (optional if adding media)</label><textarea id="status-text" maxlength="700" placeholder="What's happening? It disappears after 24 hours."></textarea></div><div class="field"><label for="status-media">Photo or short video</label><input id="status-media" type="file" accept="image/*,video/*"></div><div class="field"><label for="status-visibility">Audience</label><select id="status-visibility"><option value="friends">Friends</option><option value="public">Public</option></select></div><button class="button primary full" id="publish-status">Share status</button><p id="status-message" class="status-line"></p></div></div>
-<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js"></script><script src="js/core.js"></script>
-<script>
-(() => {
-  // The home page is the Frnxup entry point: guests go to login, while an
-  // existing Supabase browser session opens the feed without another login.
-  const isHomeEntry = location.pathname === '/' || location.pathname === '/index.html';
-  const gate = document.getElementById('fx-entry-check');
-  if (!isHomeEntry) { gate?.remove(); return; }
-
-  const sendToLogin = () => {
-    const next = location.pathname + location.search + location.hash;
-    const loginUrl = new URL('/Auth/index.html', location.origin);
-    loginUrl.searchParams.set('next', next || '/index.html');
-    location.replace(loginUrl.pathname + loginUrl.search + loginUrl.hash);
-  };
-
-  if (!window.FX || typeof FX.loadUser !== 'function') {
-    sendToLogin();
-    return;
-  }
-
-  FX.loadUser().then(user => {
-    if (!user) {
-      sendToLogin();
-      return;
-    }
-    gate?.remove();
-  }).catch(sendToLogin);
-})();
-</script>
-<script src="js/layout.js"></script><script src="js/media-tools.js"></script><script src="js/feed.js"></script><script src="js/post-actions.js"></script></body></html>
+<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js"></script><script src="js/core.js"></script><script src="js/layout.js"></script><script src="js/media-tools.js"></script><script src="js/feed.js"></script><script src="js/post-actions.js"></script></body></html>
