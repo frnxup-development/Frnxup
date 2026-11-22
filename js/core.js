@@ -168,19 +168,6 @@
   };
   window.FX = FX;
 
-  // Load the shared language selector/translation layer on every page that uses
-  // the Frnxup core, including the independent login and sign-up screens.
-  try {
-    if (!document.getElementById('fx-language-script')) {
-      const coreUrl = document.currentScript?.src || new URL('js/core.js', location.origin).href;
-      const languageScript = document.createElement('script');
-      languageScript.id = 'fx-language-script';
-      languageScript.src = new URL('language.js', coreUrl).href;
-      languageScript.defer = true;
-      document.head.appendChild(languageScript);
-    }
-  } catch (_) { /* Language selection must never block authentication or page loading. */ }
-
   if (client?.auth?.onAuthStateChange) {
     client.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
