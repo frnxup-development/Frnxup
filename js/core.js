@@ -170,7 +170,7 @@
     activePageId() { try { return localStorage.getItem('frnxup_active_page_id') || null; } catch (_) { return null; } },
     setActivePage(pageId) { try { if (pageId) localStorage.setItem('frnxup_active_page_id', String(pageId)); else localStorage.removeItem('frnxup_active_page_id'); } catch (_) {} },
     setMessage(element, message, kind = 'info') { if (typeof element === 'string') element = document.querySelector(element); if (element) { element.textContent = message; element.dataset.kind = kind; } },
-    async admin(action, params = {}) { return this.invoke('admin-control', { action, ...params }); }
+    async admin(action, params = {}) { let staffToken = null; try { staffToken = sessionStorage.getItem('frnxup_admin_staff_session'); } catch (_) {} return this.invoke('admin-control', { ...params, action, staff_session_token: staffToken }); }
   };
   window.FX = FX;
 
