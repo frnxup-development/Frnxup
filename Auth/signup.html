@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f7fbfc">
   <meta name="description" content="Create your Frnxup account.">
   <title>Sign up · Frnxup</title>
   <link rel="icon" href="../Asset/frnxup-mark.svg">
   <link rel="stylesheet" href="../Css/app.css">
   <link rel="stylesheet" href="../Css/auth.css">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
 </head>
 <body class="auth-screen">
   <main class="auth-layout">
@@ -45,11 +47,10 @@
             <span><strong>Remember this device</strong><small>Stay signed in on this browser. Your password is never saved.</small></span>
           </label>
         </div>
-        <button class="button primary full auth-submit" id="signup" type="submit" disabled aria-busy="true">Preparing secure registration…</button>
+        <button class="button primary full auth-submit" id="signup" type="submit" disabled aria-busy="true">Preparing registration…</button>
         <p id="signup-msg" class="status-line" role="status" aria-live="polite" aria-atomic="true">Preparing secure registration…</p>
         <button class="button secondary full" id="signup-retry" type="button" hidden>Retry loading registration</button>
       </form>
-
 
       <div class="auth-switch">
         <span>Already have a Frnxup account?</span>
@@ -67,129 +68,364 @@
   <div class="toast" id="fx-toast"></div>
   <script>
     (() => {
-      const button = document.getElementById('signup');
-      const status = document.getElementById('signup-msg');
-      const retry = document.getElementById('signup-retry');
-      const form = document.getElementById('signup-form');
-      const year = document.getElementById('auth-year');
+      'use strict';
+
+      const $ = (selector) => document.querySelector(selector);
+      const form = $('#signup-form');
+      const button = $('#signup');
+      const status = $('#signup-msg');
+      const retryButton = $('#signup-retry');
+      const rememberCheckbox = $('#remember-device');
+      const year = $('#auth-year');
+      const ASSET_VERSION = 'frnxup-signup-20261122-r7';
+      const REMEMBER_DEVICE_KEY = 'frnxup_remember_device';
+      const loaded = Object.create(null);
+      let signupClient = null;
+      let initializing = false;
+      let handlerReady = false;
+      let pendingSignupRequest = null;
+
       if (year) year.textContent = new Date().getFullYear();
 
-      // The submit guard remains in place, but the submit control is disabled
-      // until auth.js has attached the real registration handler.
-      window.__FRNXUP_SIGNUP_HANDLER_READY = false;
-      window.__FRNXUP_SIGNUP_LOADED = window.__FRNXUP_SIGNUP_LOADED || {};
-      let initializing = false;
-
-      const show = (message, kind = 'info') => {
+      const setMessage = (message, kind = 'info') => {
         if (!status) return;
         status.textContent = message;
         status.dataset.kind = kind;
       };
 
-      if (form) {
-        form.addEventListener('submit', (event) => {
-          if (window.__FRNXUP_SIGNUP_HANDLER_READY) return;
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          show('Secure registration is still preparing. Please wait or tap Retry. Your entries are safe.', 'error');
-        }, true);
-      }
+      const setRememberChoice = () => {
+        try {
+          localStorage.setItem(REMEMBER_DEVICE_KEY, rememberCheckbox?.checked ? '1' : '0');
+        } catch (_) {
+          // Session storage remains available as a fallback when local storage is blocked.
+        }
+      };
 
-      const loadScript = (src, key, timeoutMs = 18000) => {
-        if (window.__FRNXUP_SIGNUP_LOADED[key]) return Promise.resolve();
+      const getStore = (name) => {
+        try { return window[name] || null; } catch (_) { return null; }
+      };
+      const safeGet = (storage, key) => {
+        try { return storage ? storage.getItem(key) : null; } catch (_) { return null; }
+      };
+
+      // Match the storage adapter used by Frnxup's main Supabase client:
+      // remembered sessions live in localStorage; ordinary sessions in sessionStorage.
+      const authStorage = {
+        getItem(key) {
+          const local = getStore('localStorage');
+          const session = getStore('sessionStorage');
+          const choice = safeGet(local, REMEMBER_DEVICE_KEY);
+          if (choice === '1') return safeGet(local, key);
+          if (choice === '0') return safeGet(session, key);
+          const legacy = safeGet(local, key);
+          return legacy !== null ? legacy : safeGet(session, key);
+        },
+        setItem(key, value) {
+          const local = getStore('localStorage');
+          const session = getStore('sessionStorage');
+          const remember = safeGet(local, REMEMBER_DEVICE_KEY) === '1';
+          const target = remember ? local : session;
+          const other = remember ? session : local;
+          try { target?.setItem(key, value); } catch (_) {
+            try { session?.setItem(key, value); } catch (_) {}
+          }
+          try { other?.removeItem(key); } catch (_) {}
+        },
+        removeItem(key) {
+          try { getStore('localStorage')?.removeItem(key); } catch (_) {}
+          try { getStore('sessionStorage')?.removeItem(key); } catch (_) {}
+        }
+      };
+
+      const loadScript = (source, key, timeoutMs = 30000) => {
+        if (loaded[key]) return Promise.resolve();
         return new Promise((resolve, reject) => {
           const script = document.createElement('script');
           let settled = false;
-          const timer = setTimeout(() => finish(new Error('Script load timed out: ' + key)), timeoutMs);
-          function finish(error) {
+          const timer = window.setTimeout(() => finish(new Error('Timed out while loading ' + key + '.')), timeoutMs);
+          const finish = (error) => {
             if (settled) return;
             settled = true;
-            clearTimeout(timer);
+            window.clearTimeout(timer);
             script.onload = null;
             script.onerror = null;
             if (error) {
               script.remove();
               reject(error);
             } else {
-              window.__FRNXUP_SIGNUP_LOADED[key] = true;
+              loaded[key] = true;
               resolve();
             }
-          }
-          script.async = true;
-          script.src = src;
+          };
+          script.async = false;
+          script.src = source;
           script.onload = () => finish();
-          script.onerror = () => finish(new Error('Could not load ' + key));
+          script.onerror = () => finish(new Error('Could not download ' + key + '.'));
           document.head.appendChild(script);
         });
       };
 
       async function loadSupabaseSdk() {
         if (window.supabase && typeof window.supabase.createClient === 'function') return;
+        const cdnUrls = [
+          'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js',
+          'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'
+        ];
+        let lastError = null;
+        for (let i = 0; i < cdnUrls.length; i += 1) {
+          try {
+            const url = new URL(cdnUrls[i]);
+            url.searchParams.set('fxv', ASSET_VERSION);
+            await loadScript(url.toString(), 'supabase-sdk-' + i, 35000);
+            if (window.supabase && typeof window.supabase.createClient === 'function') return;
+            throw new Error('The Supabase browser library did not expose createClient.');
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error('The Supabase browser library could not be loaded.');
+      }
+
+      function makeNextPath() {
+        const requested = new URLSearchParams(location.search).get('next');
+        const raw = requested || '/index.html';
         try {
-          await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', 'supabase-jsdelivr', 20000);
-        } catch (firstError) {
-          // Try the secondary CDN when the primary CDN cannot be reached.
+          const target = new URL(raw, location.origin);
+          if (target.origin !== location.origin || !target.pathname.startsWith('/')) return '/index.html';
+          if (target.pathname === '/Auth/index.html' || target.pathname.startsWith('/Auth/')) return '/index.html';
+          if (target.pathname.startsWith('/Admin/')) return '/index.html';
+          return target.pathname + target.search + target.hash;
+        } catch (_) { return '/index.html'; }
+      }
+
+      function carryNextToLogin() {
+        const requested = new URLSearchParams(location.search).get('next');
+        const link = $('#switch-to-login');
+        if (!requested || !link) return;
+        try {
+          const target = new URL(link.getAttribute('href'), location.href);
+          target.searchParams.set('next', requested);
+          link.href = target.pathname + target.search + target.hash;
+        } catch (_) {}
+      }
+
+      function readableSignupError(error) {
+        const message = String(error?.message || error || '').trim();
+        const lower = `${error?.code || ''} ${message}`.toLowerCase();
+        if (lower.includes('frnxup registration is temporarily disabled') || lower.includes('registration is temporarily disabled')) {
+          return 'New account registration is temporarily disabled by Frnxup administrators.';
         }
-        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-          await loadScript('https://unpkg.com/@supabase/supabase-js@2', 'supabase-unpkg', 20000);
+        if (lower.includes('user already registered') || lower.includes('already been registered') || lower.includes('email_exists')) {
+          return 'This email may already have a Frnxup account. Try logging in or use Forgot password.';
         }
-        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-          throw new Error('Supabase browser library did not initialize');
+        if (lower.includes('username') && (lower.includes('duplicate') || lower.includes('already') || lower.includes('unique'))) {
+          return 'That username may already be taken. Please choose another username.';
         }
+        if (lower.includes('password') && (lower.includes('weak') || lower.includes('short') || lower.includes('at least'))) {
+          return 'Please choose a stronger password that meets the password requirements.';
+        }
+        if (lower.includes('invalid email') || lower.includes('email address')) {
+          return 'Please check that your email address is valid.';
+        }
+        if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('email_send_rate_limit')) {
+          return 'Too many registration or confirmation emails were requested. Please wait a little and try again.';
+        }
+        if (lower.includes('failed to fetch') || lower.includes('network') || lower.includes('load failed') || lower.includes('connection')) {
+          return 'A network problem interrupted registration. Your entries are still here. Check your connection and try again.';
+        }
+        if (lower.includes('database error saving new user') || lower.includes('error creating user') || lower.includes('trigger')) {
+          return 'Frnxup could not finish creating your member profile. Please try again later. If this continues, contact Frnxup support.';
+        }
+        return message ? message.slice(0, 240) : 'Unable to create your account. Your entries are still here; please try again.';
+      }
+
+      function attachSignupHandler() {
+        if (handlerReady || !form || !signupClient?.auth?.signUp) return;
+        handlerReady = true;
+        window.__FRNXUP_SIGNUP_HANDLER_READY = true;
+
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (pendingSignupRequest) {
+            setMessage('Your previous registration is still processing. Please check your email or try logging in before submitting again.', 'info');
+            return;
+          }
+
+          const usernameField = $('#username');
+          const emailField = $('#signup-email');
+          const passwordField = $('#new-password');
+          const username = (usernameField?.value || '').trim().replace(/^@/, '').toLowerCase();
+          const email = (emailField?.value || '').trim().toLowerCase();
+          const password = passwordField?.value || '';
+
+          if (!/^[a-z0-9_]{3,24}$/.test(username)) {
+            setMessage('Username must be 3–24 characters using letters, numbers or underscore.', 'error');
+            usernameField?.focus();
+            return;
+          }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 254) {
+            setMessage('Enter a valid email address.', 'error');
+            emailField?.focus();
+            return;
+          }
+          if (password.length < 8) {
+            setMessage('Password must contain at least 8 characters.', 'error');
+            passwordField?.focus();
+            return;
+          }
+          if (navigator.onLine === false) {
+            setMessage('Your device appears to be offline. Connect to the internet and try again. Your entries will remain here.', 'error');
+            return;
+          }
+
+          setRememberChoice();
+          const originalLabel = button?.textContent || 'Create account';
+          if (button) {
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.textContent = 'Creating account…';
+          }
+          setMessage('Creating your Frnxup account…', 'info');
+
+          let timeoutId = null;
+          try {
+            const confirmationUrl = new URL('/Auth/confirmed.html', location.origin);
+            confirmationUrl.searchParams.set('next', makeNextPath());
+            const request = signupClient.auth.signUp({
+              email,
+              password,
+              options: {
+                emailRedirectTo: confirmationUrl.toString(),
+                data: { username }
+              }
+            });
+            pendingSignupRequest = request;
+            request.then(() => {
+              if (pendingSignupRequest === request) pendingSignupRequest = null;
+            }, () => {
+              if (pendingSignupRequest === request) pendingSignupRequest = null;
+            });
+
+            const outcome = await Promise.race([
+              request.then(value => ({ value }), error => ({ error })),
+              new Promise(resolve => { timeoutId = window.setTimeout(() => resolve({ timedOut: true }), 30000); })
+            ]);
+            if (outcome.timedOut) {
+              throw new Error('Frnxup has not received a response yet. Your details are still here. Check your email or try logging in before submitting again.');
+            }
+            if (outcome.error) throw outcome.error;
+            const { data, error } = outcome.value || {};
+            if (error) throw error;
+            if (!data?.user) throw new Error('Frnxup did not return a new account record. Please try again.');
+            if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+              setMessage('This email may already have a Frnxup account. Try logging in or use Forgot password.', 'error');
+              return;
+            }
+            if (data.session) {
+              setMessage('Your account is ready. Opening Frnxup…', 'success');
+              location.replace(makeNextPath());
+              return;
+            }
+            setMessage(`Account created. Check ${email} for the confirmation email, then return here to log in.`, 'success');
+          } catch (error) {
+            setMessage(readableSignupError(error), 'error');
+          } finally {
+            if (timeoutId) window.clearTimeout(timeoutId);
+            if (button) {
+              button.disabled = false;
+              button.removeAttribute('aria-busy');
+              button.textContent = originalLabel;
+            }
+          }
+        });
+
+        if (button) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          button.textContent = 'Create account';
+        }
+        setMessage('Secure registration is ready.', 'success');
+        window.setTimeout(() => {
+          if (status?.textContent === 'Secure registration is ready.') setMessage('');
+        }, 1800);
       }
 
       async function initializeRegistration() {
-        if (initializing || window.__FRNXUP_SIGNUP_HANDLER_READY) return;
+        if (initializing || handlerReady) return;
         initializing = true;
         if (button) {
           button.disabled = true;
           button.setAttribute('aria-busy', 'true');
-          button.textContent = 'Preparing secure registration…';
+          button.textContent = 'Preparing registration…';
         }
-        if (retry) retry.hidden = true;
-        show('Preparing secure registration…');
+        if (retryButton) retryButton.hidden = true;
+        setMessage('Connecting to Frnxup account services…', 'info');
+
         try {
           await loadSupabaseSdk();
-          await loadScript('../js/config.js', 'frnxup-config', 12000);
-          if (!window.FRNXUP_CONFIG || !window.FRNXUP_CONFIG.SUPABASE_URL || !window.FRNXUP_CONFIG.SUPABASE_ANON_KEY) {
-            throw new Error('Frnxup public configuration is missing');
+
+          if (!window.FRNXUP_CONFIG) {
+            const configUrl = new URL('../js/config.js', document.baseURI);
+            configUrl.searchParams.set('v', ASSET_VERSION);
+            await loadScript(configUrl.toString(), 'frnxup-config', 20000);
           }
-          await loadScript('../js/core.js', 'frnxup-core', 12000);
-          if (!window.FX || !window.FX.client) {
-            throw new Error('Frnxup Supabase client did not initialize');
+          const config = window.FRNXUP_CONFIG || {};
+          if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
+            throw new Error('Frnxup public configuration is missing or incomplete.');
           }
-          await loadScript('../js/auth.js', 'frnxup-auth', 12000);
-          if (!window.__FRNXUP_SIGNUP_HANDLER_READY) {
-            throw new Error('Signup handler did not attach');
+
+          if (!signupClient) {
+            signupClient = window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, {
+              auth: {
+                storage: authStorage,
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true
+              }
+            });
           }
+          if (!signupClient?.auth?.signUp) throw new Error('The account service did not initialize correctly.');
+
+          // Keep the user's remember-device selection in sync with the main app.
+          const savedChoice = safeGet(getStore('localStorage'), REMEMBER_DEVICE_KEY);
+          if (rememberCheckbox && savedChoice !== null) rememberCheckbox.checked = savedChoice === '1';
+          carryNextToLogin();
+          attachSignupHandler();
+
+          // Already-authenticated users should go straight into the site.
+          signupClient.auth.getSession().then(({ data, error }) => {
+            if (!error && data?.session?.user) location.replace(makeNextPath());
+          }).catch(() => {});
+        } catch (error) {
+          console.error('[Frnxup registration initialization]', error);
+          setMessage('Frnxup account services could not connect. Please check your internet connection and tap Retry. Your entries are safe.', 'error');
           if (button) {
-            button.disabled = false;
+            button.disabled = true;
             button.removeAttribute('aria-busy');
             button.textContent = 'Create account';
           }
-          show('Secure registration is ready.', 'success');
-          // Clear the ready hint after a short time without affecting the fields.
-          setTimeout(() => {
-            if (status && status.textContent === 'Secure registration is ready.') status.textContent = '';
-          }, 2200);
-        } catch (error) {
-          console.error('[Frnxup signup initialization]', error);
-          show('Secure registration could not load. Your details are still here. Check your connection and tap Retry.', 'error');
-          if (button) {
-            button.disabled = true;
-            button.setAttribute('aria-busy', 'true');
-            button.textContent = 'Registration unavailable';
-          }
-          if (retry) retry.hidden = false;
+          if (retryButton) retryButton.hidden = false;
         } finally {
           initializing = false;
         }
       }
 
-      if (retry) retry.addEventListener('click', initializeRegistration);
+      // Never allow the browser to submit the form and reload the page while
+      // the secure registration handler is still being initialized.
+      form?.addEventListener('submit', (event) => {
+        if (handlerReady) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setMessage('Registration is still connecting. Please wait a moment or tap Retry. Your entries are safe.', 'info');
+        initializeRegistration();
+      }, true);
+
+      retryButton?.addEventListener('click', initializeRegistration);
       window.addEventListener('online', () => {
-        if (!window.__FRNXUP_SIGNUP_HANDLER_READY) initializeRegistration();
+        if (!handlerReady) initializeRegistration();
       });
+      rememberCheckbox?.addEventListener('change', setRememberChoice);
+      carryNextToLogin();
       initializeRegistration();
     })();
   </script>
