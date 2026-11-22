@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<title>Admin Control Room · Frnxup</title>
+<script src="../js/theme.js"></script>
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body data-view="control-room">
+<aside class="admin-side">
+<a class="brand" href="index.html"><img src="../Asset/frnxup-mark.svg" alt="">Frnxup</a>
+<small>PLATFORM CONTROL CENTRE</small>
+<nav><a href="index.html">▦ Overview</a><a href="control-room.html">⌘ Action control room</a></nav>
+<div class="side-foot">FRNXUP ADMIN<br><span>Privileged actions are logged.</span></div>
+</aside>
+<main class="admin-main">
+<header><div><small>FRNXUP / CONTROL CENTRE</small><h1>Action control room</h1><p>One organized place to open every administrator workspace.</p></div><button id="admin-refresh" type="button">↻ Refresh</button></header>
+<div class="control-room-intro"><strong>Choose an action area</strong><span>Each shortcut opens its own dedicated page. Your permissions determine which controls are available.</span></div>
+<section class="control-room-grid">
+<section class="control-room-group"><div class="control-room-heading"><span class="control-icon">♙</span><div><h2>People & access</h2><p>Member accounts and staff roles</p></div></div><div class="control-shortcuts">
+<a href="members.html" data-admin-only><b>Members</b><span>Search accounts, suspend, reactivate or delete members.</span><em>Open member management →</em></a>
+<a href="admins.html" data-owner-only><b>Administrators & moderators</b><span>Add unlimited staff roles or remove administrator privileges.</span><em>Manage staff roles →</em></a>
+</div></section>
+<section class="control-room-group"><div class="control-room-heading"><span class="control-icon">⚑</span><div><h2>Moderation & safety</h2><p>Review content and member reports</p></div></div><div class="control-shortcuts">
+<a href="content.html"><b>Posts</b><span>Review, hide, restore or remove member posts.</span><em>Open post review →</em></a>
+<a href="comments.html"><b>Comments</b><span>Review, hide, restore or remove comments.</span><em>Open comment review →</em></a>
+<a href="reports.html"><b>Reports</b><span>Inspect reported posts, comments, profiles and community spaces.</span><em>Open reports →</em></a>
+<a href="verification.html" data-admin-only><b>Verification requests</b><span>Review identity badge requests and decisions.</span><em>Review verification →</em></a>
+<a href="appeals.html" data-admin-only><b>Member appeals</b><span>Review account suspensions and appeal outcomes.</span><em>Open appeals →</em></a>
+</div></section>
+<section class="control-room-group"><div class="control-room-heading"><span class="control-icon">◉</span><div><h2>Community spaces</h2><p>Groups, rooms and public Pages</p></div></div><div class="control-shortcuts">
+<a href="groups.html"><b>Groups & chats</b><span>Review group metadata and manage abusive group spaces.</span><em>Manage groups →</em></a>
+<a href="rooms.html"><b>Community rooms</b><span>Create, edit, suspend and reactivate rooms.</span><em>Manage rooms →</em></a>
+<a href="pages.html"><b>Frnxup Pages</b><span>Review Page owners, followers and Page status.</span><em>Manage Pages →</em></a>
+</div></section>
+<section class="control-room-group"><div class="control-room-heading"><span class="control-icon">🛍</span><div><h2>Market & finance</h2><p>Marketplace content and boost payments</p></div></div><div class="control-shortcuts">
+<a href="market.html"><b>Market listings</b><span>Review listings and seller information.</span><em>Open listings →</em></a>
+<a href="market-reports.html"><b>Market reports</b><span>Resolve buyer and seller reports about listings.</span><em>Review market reports →</em></a>
+<a href="market-boosts.html" data-admin-only><b>Market boost requests</b><span>Verify payment references and activate or reject boosts.</span><em>Review boost queue →</em></a>
+<a href="payments.html" data-admin-only><b>Payment ledger</b><span>View confirmed receipts, pending payments and payment references.</span><em>Open payment ledger →</em></a>
+</div></section>
+<section class="control-room-group"><div class="control-room-heading"><span class="control-icon">⚙</span><div><h2>Operations & settings</h2><p>Platform activity, audits and site switches</p></div></div><div class="control-shortcuts">
+<a href="activity.html"><b>Site activity</b><span>Monitor page visits and key member actions.</span><em>View site activity →</em></a>
+<a href="audit-logs.html" data-admin-only><b>Administrator audit logs</b><span>Review privileged actions performed by staff.</span><em>View audit records →</em></a>
+<a href="settings.html" data-owner-only><b>Site settings</b><span>Manage platform-wide feature availability switches.</span><em>Open site settings →</em></a>
+</div></section>
+</section>
+<div class="control-room-footer"><strong>Safety recommendation</strong><span>Use Suspend or Hide for reversible moderation. Reserve permanent deletion for clear policy violations, and verify marketplace payments independently before activating boosts.</span></div>
+</main>
+<div id="admin-toast" class="toast" role="status" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/config.js"></script><script src="../js/core.js"></script><script src="js/admin.js"></script>
+</body></html>
