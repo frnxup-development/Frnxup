@@ -94,11 +94,133 @@ Deno.serve(async(req)=>{
   const owner=actorRole==='owner',adminRole=actorRole==='admin';const canManage=owner||adminRole;const canModerate=canManage||actorRole==='moderator';
   const body=await req.json();const action=String(body.action||'');actionName=action||'unknown';
   const log=async(a:string,t:string|null=null,id:string|null=null,details:any={})=>{const {error}=await admin.from('admin_audit_logs').insert({actor_id:actor,action:a,target_type:t,target_id:id,details});if(error)throw error};
+  const toHex=(bytes:Uint8Array)=>Array.from(bytes).map(x=>x.toString(16).padStart(2,'0')).join('');
+  const fromHex=(hex:string)=>new Uint8Array((hex.match(/.{1,2}/g)||[]).map(x=>parseInt(x,16)));
+  const randomHex=(length:number)=>{const bytes=new Uint8Array(length);crypto.getRandomValues(bytes);return toHex(bytes)};
+  const hashPassword=async(password:string,saltHex:string)=>{
+    const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);
+    const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:fromHex(saltHex),iterations:310000,hash:'SHA-256'},key,256);
+    return toHex(new Uint8Array(bits));
+  };
+  const hashToken=async(token:string)=>toHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))));
+  const generateStaffId=async()=>{
+    for(let i=0;i<12;i++){
+      const bytes=new Uint32Array(1);crypto.getRandomValues(bytes);
+      const id=String(1000000000+(bytes[0]%9000000000)).padStart(10,'0');
+      const {data}=await admin.from('admin_staff_accounts').select('staff_id').eq('staff_id',id).maybeSingle();
+      if(!data)return id;
+    }
+    throw new Error('Could not generate a unique staff ID. Please try again.');
+  };
+  const issueStaffSession=async()=>{
+    const raw=randomHex(32),token=raw;
+    const tokenHash=await hashToken(token);
+    const expiresAt=new Date(Date.now()+8*60*60*1000).toISOString();
+    const {error}=await admin.from('admin_staff_sessions').insert({user_id:actor,token_hash:tokenHash,expires_at:expiresAt});
+    if(error)throw error;
+    return {staff_session_token:token,staff_session_expires_at:expiresAt};
+  };
+  const checkStaffSession=async(token:string)=>{
+    if(!token)return false;
+    const tokenHash=await hashToken(token);
+    const {data,error}=await admin.from('admin_staff_sessions').select('id,user_id,expires_at').eq('token_hash',tokenHash).eq('user_id',actor).gt('expires_at',new Date().toISOString()).maybeSingle();
+    return !error&&!!data;
+  };
+  const publicActions=new Set(['verify_access','staff_login','staff_logout','complete_staff_registration']);
+  if(!publicActions.has(action)){
+    const valid=await checkStaffSession(String(body.staff_session_token||''));
+    if(!valid)throw new Error('Your separate Frnxup staff session has expired. Sign in again with your 10-digit staff ID and staff password.');
+  }
   const count=async(table:string,filters?:[string,string,any][])=>{let q=admin.from(table).select('*',{count:'exact',head:true});for(const [c,op,v] of filters||[])q=q.filter(c,op,v);const {count}=await q;return count||0};
   let result:any={};
   switch(action){
    case 'verify_access':{
-    result={ok:true,project_ref:FRNXUP_PROJECT_REF,user_id:actor,role:actorRole,account_status:actorStatus};break;
+    const {data:staff,error:staffError}=await admin.from('admin_staff_accounts').select('staff_id,status,role').eq('user_id',actor).maybeSingle();if(staffError)throw staffError;
+    const staffSessionValid=await checkStaffSession(String(body.staff_session_token||''));
+    result={ok:true,project_ref:FRNXUP_PROJECT_REF,user_id:actor,role:actorRole,account_status:actorStatus,staff_id:staff?.staff_id||null,staff_status:staff?.status||'not_registered',staff_session_valid:!!staffSessionValid,staff_registration_required:!staff||staff.status!=='active'};break;
+   }
+   case 'staff_logout':{
+    const token=String(body.staff_session_token||'');if(token){const {error}=await admin.from('admin_staff_sessions').delete().eq('user_id',actor).eq('token_hash',await hashToken(token));if(error)throw error;}
+    result={ok:true};break;
+   }
+   case 'staff_login':{
+    const staffId=String(body.staff_id||'').trim();const password=String(body.staff_password||'');
+    if(!/^\d{10}$/.test(staffId)||password.length<10)throw new Error('Enter your 10-digit staff ID and staff password.');
+    const {data:attempt}=await admin.from('admin_staff_login_attempts').select('failed_attempts,locked_until').eq('user_id',actor).maybeSingle();
+    if(attempt?.locked_until&&new Date(attempt.locked_until).getTime()>Date.now())throw new Error('Staff sign-in is temporarily locked after repeated failed attempts. Try again after 15 minutes.');
+    const {data:staff,error}=await admin.from('admin_staff_accounts').select('staff_id,user_id,role,status,password_salt,password_hash').eq('staff_id',staffId).eq('user_id',actor).maybeSingle();
+    if(error)throw error;
+    let valid=false;if(staff&&staff.status==='active'&&staff.password_hash&&staff.password_salt){const supplied=await hashPassword(password,staff.password_salt);valid=supplied===staff.password_hash;}
+    if(!valid){const priorFailures=attempt?.locked_until&&new Date(attempt.locked_until).getTime()<=Date.now()?0:(attempt?.failed_attempts||0);const failures=priorFailures+1;const lockedUntil=failures>=5?new Date(Date.now()+15*60*1000).toISOString():null;const {error:attemptError}=await admin.from('admin_staff_login_attempts').upsert({user_id:actor,failed_attempts:failures,locked_until:lockedUntil,updated_at:new Date().toISOString()},{onConflict:'user_id'});if(attemptError)throw attemptError;throw new Error(failures>=5?'Too many failed staff sign-in attempts. Try again in 15 minutes.':'Staff ID or password is incorrect.');}
+    const {error:resetError}=await admin.from('admin_staff_login_attempts').delete().eq('user_id',actor);if(resetError)throw resetError;
+    const {error:cleanupError}=await admin.from('admin_staff_sessions').delete().eq('user_id',actor).lt('expires_at',new Date().toISOString());if(cleanupError)throw cleanupError;
+    const issued=await issueStaffSession();await log('staff_login','admin_staff_account',staff.staff_id,{role:staff.role});
+    result={ok:true,role:staff.role,staff_id:staff.staff_id,...issued};break;
+   }
+   case 'complete_staff_registration':{
+    let staffId=String(body.staff_id||'').trim();const password=String(body.staff_password||'');
+    if(staffId&&!/^\d{10}$/.test(staffId))throw new Error('Staff ID must contain exactly 10 digits.');
+    if(password.length<10||!/[0-9]/.test(password)||!/[A-Za-z]/.test(password))throw new Error('Staff password must be at least 10 characters and contain both letters and numbers. Use a password different from your public Frnxup password.');
+    const {data:existing,error:existingError}=await admin.from('admin_staff_accounts').select('*').eq('user_id',actor).maybeSingle();if(existingError)throw existingError;
+    let row=existing;
+    if(actorRole==='owner'&&!row){
+      const generated=await generateStaffId();staffId=generated;
+      const {data:created,error}=await admin.from('admin_staff_accounts').insert({user_id:actor,staff_id:generated,role:'owner',status:'pending',created_by:actor}).select('*').single();if(error)throw error;row=created;
+    }
+    if(actorRole==='owner'&&row&&!staffId)staffId=row.staff_id;
+    if(!row||row.staff_id!==staffId)throw new Error('This staff ID is not assigned to the signed-in Frnxup account. Ask the platform owner to assign your role.');
+    if(row.role!==actorRole)throw new Error('Your Frnxup role and staff assignment do not match. Contact the platform owner.');
+    if(row.status==='active'&&row.password_hash)throw new Error('Staff registration is already complete. Use the Admin sign-in page.');
+    const salt=randomHex(16);const passwordHash=await hashPassword(password,salt);
+    const {error:updateError}=await admin.from('admin_staff_accounts').update({password_salt:salt,password_hash:passwordHash,status:'active',registered_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('user_id',actor);if(updateError)throw updateError;
+    await log('complete_staff_registration','admin_staff_account',staffId,{role:row.role});
+    const issued=await issueStaffSession();result={ok:true,role:row.role,staff_id:staffId,...issued};break;
+   }
+   case 'lookup_staff_user':{
+    if(!owner)throw new Error('Only the platform owner can find staff candidates.');
+    const identity=String(body.identity||'').trim();if(identity.length<3||identity.length>254)throw new Error('Enter a registered Frnxup username or email address.');
+    let profile:any=null;
+    if(identity.includes('@')){
+      const email=identity.toLowerCase();let match:any=null;
+      for(let page=1;page<=20&&!match;page++){
+        const {data,error}=await admin.auth.admin.listUsers({page,perPage:1000});if(error)throw error;
+        match=(data?.users||[]).find((u:any)=>String(u.email||'').toLowerCase()===email)||null;
+        if(!data?.users||data.users.length<1000)break;
+      }
+      if(match){const {data,error}=await admin.from('profiles').select('id,username,display_name,role,account_status,created_at').eq('id',match.id).maybeSingle();if(error)throw error;profile=data?{...data,email:match.email}:null;}
+    }else{
+      const username=identity.replace(/^@/,'').trim().toLowerCase();if(!/^[a-z0-9_]{3,24}$/.test(username))throw new Error('Enter a valid Frnxup username (3–24 letters, numbers or underscores) or a registered email.');const {data,error}=await admin.from('profiles').select('id,username,display_name,role,account_status,created_at').eq('username',username).maybeSingle();if(error)throw error;
+      if(data){const {data:u,error:ue}=await admin.auth.admin.getUserById(data.id);if(ue)throw ue;profile={...data,email:u?.user?.email||null};}
+    }
+    if(!profile)throw new Error('No registered Frnxup user was found with that exact username or email.');
+    if(profile.role==='owner')throw new Error('The platform owner cannot be assigned as a new administrator or moderator.');
+    if(profile.account_status!=='active')throw new Error('This Frnxup account is not active. Reactivate it before assigning a staff role.');
+    result={user:profile};break;
+   }
+   case 'assign_staff_role':{
+    if(!owner)throw new Error('Only the platform owner can assign administrator or moderator roles.');
+    const userId=String(body.user_id||'');const staffRole=String(body.role||'').toLowerCase();if(!['admin','moderator'].includes(staffRole))throw new Error('Choose Administrator or Moderator.');
+    const {data:target,error:targetError}=await admin.from('profiles').select('id,username,display_name,role,account_status').eq('id',userId).maybeSingle();if(targetError)throw targetError;
+    if(!target)throw new Error('The selected Frnxup profile could not be found.');if(target.id===actor)throw new Error('You cannot assign a second staff role to your own owner account.');if(target.role==='owner')throw new Error('The owner account cannot be modified.');if(target.account_status!=='active')throw new Error('This Frnxup account is not active.');
+    const {data:existing,error:staffError}=await admin.from('admin_staff_accounts').select('staff_id,status,password_hash').eq('user_id',userId).maybeSingle();if(staffError)throw staffError;
+    const staffId=existing?.staff_id||await generateStaffId();
+    const {error:roleError}=await admin.from('profiles').update({role:staffRole}).eq('id',userId);if(roleError)throw roleError;
+    const staffPayload:any={user_id:userId,staff_id:staffId,role:staffRole,created_by:actor,updated_at:new Date().toISOString()};
+    if(!existing){staffPayload.status='pending';staffPayload.password_hash=null;staffPayload.password_salt=null;}
+    const {error:upsertError}=await admin.from('admin_staff_accounts').upsert(staffPayload,{onConflict:'user_id'});if(upsertError)throw upsertError;
+    let notificationSent=false;
+    if(!existing?.password_hash){const {error:notificationError}=await admin.from('notifications').insert({user_id:userId,actor_id:actor,type:'staff_invitation',title:'Frnxup staff role assigned',body:`You have been appointed as ${staffRole==='admin'?'an Administrator':'a Moderator'}. Your 10-digit staff ID is ${staffId}. Sign in to your Frnxup account and open /Admin/staff-registration.html to create a separate staff password.`});notificationSent=!notificationError;}
+    await log('assign_staff_role','profile',userId,{role:staffRole,username:target.username,staff_id:staffId,notification_sent:notificationSent});
+    result={ok:true,role:staffRole,staff_id:staffId,status:existing?.status||'pending',password_setup_required:!existing?.password_hash,notification_sent:notificationSent,user:{id:target.id,username:target.username,display_name:target.display_name}};break;
+   }
+   case 'remove_admin':{
+    if(!owner)throw new Error('Only the platform owner can remove administrator or moderator roles.');
+    const userId=String(body.user_id||'');if(!userId||userId===actor)throw new Error('You cannot remove your own owner access.');
+    const {data:target,error}=await admin.from('profiles').select('id,username,role').eq('id',userId).maybeSingle();if(error)throw error;if(!target||!['admin','moderator'].includes(target.role))throw new Error('Only an assigned administrator or moderator can be removed here.');
+    const {error:profileError}=await admin.from('profiles').update({role:'member'}).eq('id',userId);if(profileError)throw profileError;
+    const {error:sessionError}=await admin.from('admin_staff_sessions').delete().eq('user_id',userId);if(sessionError)throw sessionError;
+    const {error:staffError}=await admin.from('admin_staff_accounts').delete().eq('user_id',userId);if(staffError)throw staffError;
+    await log('remove_staff_role','profile',userId,{username:target.username,previous_role:target.role});result={ok:true};break;
    }
    case 'dashboard_summary':{
     const [members,posts,open_reports,rooms,activity,pages,market_listings,market_boost_requests]=await Promise.all([count('profiles'),count('posts',[['status','eq','published']]),count('reports',[['status','in','(open,reviewing)']]),count('rooms',[['status','eq','active']]),count('site_activity_logs'),count('frnxup_pages',[['status','eq','active']]),count('market_listings',[['status','eq','published']]),count('market_boosts',[['status','eq','pending_review']])]);
@@ -118,10 +240,12 @@ Deno.serve(async(req)=>{
     const {error}=await admin.from('profiles').update({account_status:body.status}).eq('id',body.user_id);if(error)throw error;await log('set_member_status','profile',body.user_id,{status:body.status});result={ok:true};break;
    }
    case 'set_member_role':{
-    if(!owner)throw new Error('Only the platform owner can change administrator and moderator roles.');const {data:target}=await admin.from('profiles').select('role').eq('id',body.user_id).single();if(!target)throw new Error('Member not found');
-    if(target.role==='owner')throw new Error('The owner account cannot be changed here.');
-    if((target.role==='admin'||body.role==='admin')&&!owner)throw new Error('Only the owner can grant or remove administrator roles.');
-    if(!['member','moderator','admin'].includes(body.role))throw new Error('Invalid role');const {error}=await admin.from('profiles').update({role:body.role}).eq('id',body.user_id);if(error)throw error;await log('set_member_role','profile',body.user_id,{role:body.role});result={ok:true};break;
+    if(!owner)throw new Error('Only the platform owner can change member roles.');
+    if(body.role!=='member')throw new Error('Use the owner-only Staff Management page to assign administrator or moderator roles and issue a staff ID.');
+    const {data:target}=await admin.from('profiles').select('role').eq('id',body.user_id).single();if(!target)throw new Error('Member not found');if(target.role==='owner')throw new Error('The owner account cannot be changed here.');
+    const {error}=await admin.from('profiles').update({role:'member'}).eq('id',body.user_id);if(error)throw error;
+    await admin.from('admin_staff_sessions').delete().eq('user_id',body.user_id);await admin.from('admin_staff_accounts').delete().eq('user_id',body.user_id);
+    await log('set_member_role','profile',body.user_id,{role:'member'});result={ok:true};break;
    }
    case 'delete_member':{
     if(!canManage)throw new Error('Only admins and owners can delete member accounts.');if(body.user_id===actor)throw new Error('You cannot delete the currently signed-in account.');const {data:target}=await admin.from('profiles').select('role').eq('id',body.user_id).single();if(!target||target.role==='owner'||(!owner&&target.role!=='member'))throw new Error('You do not have permission to delete this account. Only the owner can remove privileged accounts.');const {error}=await admin.auth.admin.deleteUser(body.user_id);if(error)throw error;await log('delete_member','profile',body.user_id);result={ok:true};break;
@@ -166,8 +290,13 @@ Deno.serve(async(req)=>{
    case 'update_verification':{if(!canManage)throw new Error('Admin role required.');if(!['approved','rejected'].includes(body.status))throw new Error('Invalid verification status.');const {error}=await admin.from('verification_requests').update({status:body.status,reviewed_by:actor,updated_at:new Date().toISOString()}).eq('id',body.verification_id);if(error)throw error;if(body.status==='approved'){const {data:v}=await admin.from('verification_requests').select('user_id').eq('id',body.verification_id).single();if(v)await admin.from('profiles').update({is_verified:true}).eq('id',v.user_id)}await log('update_verification','verification_request',body.verification_id,{status:body.status});result={ok:true};break}
    case 'list_appeals':{if(!canManage)throw new Error('Appeal records are restricted to admins and the owner.');const {data,error}=await admin.from('account_appeals').select('*').order('created_at',{ascending:false}).limit(100);if(error)throw error;result={items:data||[]};break}
    case 'update_appeal':{if(!canManage)throw new Error('Admin role required.');if(!['upheld','reinstated'].includes(body.status))throw new Error('Invalid appeal status.');const {data:a}=await admin.from('account_appeals').select('user_id').eq('id',body.appeal_id).single();const {error}=await admin.from('account_appeals').update({status:body.status,reviewed_by:actor,updated_at:new Date().toISOString()}).eq('id',body.appeal_id);if(error)throw error;if(body.status==='reinstated'&&a)await admin.from('profiles').update({account_status:'active'}).eq('id',a.user_id);await log('update_appeal','account_appeal',body.appeal_id,{status:body.status});result={ok:true};break}
-   case 'list_admins':{if(!owner)throw new Error('Only the platform owner can view administrator role management.');const {data,error}=await admin.from('profiles').select('id,username,display_name,role,account_status,created_at').in('role',['owner','admin','moderator']).order('created_at',{ascending:true});if(error)throw error;result={items:data||[]};break}
-   case 'promote_admin':{if(!owner)throw new Error('Only the owner can add administrators or moderators.');const username=String(body.username||'').replace(/^@/,'').trim().toLowerCase();const role=String(body.role||'admin').trim().toLowerCase();if(!/^[a-z0-9_]{3,24}$/.test(username))throw new Error('Enter a valid Frnxup username.');if(!['admin','moderator'].includes(role))throw new Error('Choose admin or moderator.');const {data:p,error:pe}=await admin.from('profiles').select('id,account_status,role').eq('username',username).single();if(pe||!p)throw new Error('Username not found.');if(p.account_status!=='active')throw new Error('Reactivate the account before granting administrator access.');if(p.role==='owner')throw new Error('The owner account cannot be changed.');const {error}=await admin.from('profiles').update({role}).eq('id',p.id);if(error)throw error;await log('assign_staff_role','profile',p.id,{role,username});result={ok:true,role};break}
+   case 'list_admins':{
+    if(!owner)throw new Error('Only the platform owner can view staff role management.');
+    const {data,error}=await admin.from('profiles').select('id,username,display_name,role,account_status,created_at').in('role',['owner','admin','moderator']).order('created_at',{ascending:true});if(error)throw error;
+    const items=[];for(const p of data||[]){const {data:staff}=await admin.from('admin_staff_accounts').select('staff_id,status,registered_at').eq('user_id',p.id).maybeSingle();items.push({...p,staff_id:staff?.staff_id||null,staff_status:staff?.status||'not enrolled',staff_registered_at:staff?.registered_at||null});}
+    result={items};break;
+   }
+   case 'promote_admin':{throw new Error('The old quick-promotion action is disabled. Use the separate Staff Management page to find a Frnxup user, assign a role and generate their staff ID.');}
    case 'get_settings':{if(!canManage)throw new Error('Site settings are restricted to admins and the owner.');const {data,error}=await admin.from('site_settings').select('key,value');if(error)throw error;result={settings:Object.fromEntries((data||[]).map(x=>[x.key,x.value]))};break}
    case 'set_setting':{if(!owner)throw new Error('Only the platform owner can change global site switches.');const allowed=['registration_enabled','posting_enabled','comments_enabled','reactions_enabled','polls_enabled','statuses_enabled','friend_requests_enabled','messaging_enabled','groups_enabled','rooms_enabled','uploads_enabled','market_enabled','market_boosts_enabled','maintenance_mode'];if(!allowed.includes(body.key))throw new Error('Unknown site setting.');if(typeof body.value!=='boolean')throw new Error('Site switch values must be true or false.');const {error}=await admin.from('site_settings').upsert({key:body.key,value:body.value,updated_by:actor,updated_at:new Date().toISOString()});if(error)throw error;await log('set_setting','site_setting',null,{key:body.key,value:body.value});result={ok:true};break}
    case 'list_market_listings':{
