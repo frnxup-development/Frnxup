@@ -155,9 +155,17 @@ Deno.serve(async(req)=>{
     if(!/^\d{10}$/.test(staffId)||password.length<10)throw new Error('Enter your 10-digit staff ID and staff password.');
     const {data:attempt}=await admin.from('admin_staff_login_attempts').select('failed_attempts,locked_until').eq('user_id',actor).maybeSingle();
     if(attempt?.locked_until&&new Date(attempt.locked_until).getTime()>Date.now())throw new Error('Staff sign-in is temporarily locked after repeated failed attempts. Try again after 15 minutes.');
-    const {data:staff,error}=await admin.from('admin_staff_accounts').select('staff_id,user_id,role,status,password_salt,password_hash').eq('staff_id',staffId).eq('user_id',actor).maybeSingle();
+    // First locate the staff row by the verified Auth user's UUID. Do not
+    // compare the 10-digit staff code in PostgREST: older databases may have
+    // the staff_id column typed as UUID, which causes PostgreSQL to reject a
+    // numeric code before the row can be checked. The repair migration makes
+    // staff_id VARCHAR(10); this account-scoped lookup is safe either way.
+    const {data:staff,error}=await admin.from('admin_staff_accounts').select('staff_id,user_id,role,status,password_salt,password_hash').eq('user_id',actor).maybeSingle();
     if(error)throw error;
-    let valid=false;if(staff&&staff.status==='active'&&staff.password_hash&&staff.password_salt){const supplied=await hashPassword(password,staff.password_salt);valid=supplied===staff.password_hash;}
+    const staffIdMatches=!!staff&&String(staff.staff_id||'').trim()===staffId;
+
+    if(error)throw error;
+    let valid=false;if(staffIdMatches&&staff&&staff.status==='active'&&staff.password_hash&&staff.password_salt){const supplied=await hashPassword(password,staff.password_salt);valid=supplied===staff.password_hash;}
     if(!valid){const priorFailures=attempt?.locked_until&&new Date(attempt.locked_until).getTime()<=Date.now()?0:(attempt?.failed_attempts||0);const failures=priorFailures+1;const lockedUntil=failures>=5?new Date(Date.now()+15*60*1000).toISOString():null;const {error:attemptError}=await admin.from('admin_staff_login_attempts').upsert({user_id:actor,failed_attempts:failures,locked_until:lockedUntil,updated_at:new Date().toISOString()},{onConflict:'user_id'});if(attemptError)throw attemptError;throw new Error(failures>=5?'Too many failed staff sign-in attempts. Try again in 15 minutes.':'Staff ID or password is incorrect.');}
     const {error:resetError}=await admin.from('admin_staff_login_attempts').delete().eq('user_id',actor);if(resetError)throw resetError;
     const {error:cleanupError}=await admin.from('admin_staff_sessions').delete().eq('user_id',actor).lt('expires_at',new Date().toISOString());if(cleanupError)throw cleanupError;
