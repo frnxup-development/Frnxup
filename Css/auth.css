@@ -50,3 +50,12 @@
 .auth-forgot{margin:10px auto 0}
 .auth-card form{margin:0}
 .auth-card .auth-submit:disabled{opacity:.65;cursor:wait;filter:saturate(.7)}
+
+
+/* Optional device-level session persistence (never stores the member's password). */
+.auth-remember{margin:12px 0 8px;padding:11px 12px;border:1px solid #e5eef0;border-radius:12px;background:#f8fbfc}
+.auth-remember label{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.auth-remember input[type="checkbox"]{width:18px;height:18px;min-height:18px;flex:0 0 18px;margin:1px 0 0;accent-color:#168b91}
+.auth-remember span{display:grid;gap:3px;color:#35535e;font-size:11px;line-height:1.35}
+.auth-remember strong{font-weight:800}
+.auth-remember small{color:#82959c;font-size:10px;line-height:1.45}
