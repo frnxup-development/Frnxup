@@ -1,17 +1,89 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// This function must run in the same Supabase project as js/config.js.
+const FRNXUP_PROJECT_REF = "jsjlcunuvkizbeeoewsk";
+const FRNXUP_PROJECT_URL = `https://${FRNXUP_PROJECT_REF}.supabase.co`;
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(body:any,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
+
+function readProjectSecret(): { key: string | null; source: string } {
+  // Current Supabase Edge Functions expose named secret keys as a JSON map.
+  // Keep legacy fallbacks for projects that have not migrated their key setup.
+  const rawMap = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (rawMap) {
+    try {
+      const parsed = JSON.parse(rawMap);
+      if (typeof parsed?.default === 'string' && parsed.default.trim()) {
+        return { key: parsed.default.trim(), source: 'SUPABASE_SECRET_KEYS.default' };
+      }
+    } catch (_) {
+      // A malformed map is diagnosed below if no legacy key is available.
+    }
+  }
+  const singular = Deno.env.get('SUPABASE_SECRET_KEY')?.trim();
+  if (singular) return { key: singular, source: 'SUPABASE_SECRET_KEY' };
+  const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
+  if (legacy) return { key: legacy, source: 'SUPABASE_SERVICE_ROLE_KEY' };
+  return { key: null, source: rawMap ? 'SUPABASE_SECRET_KEYS (missing default)' : 'not configured' };
+}
+
+function getProjectRef(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host.endsWith('.supabase.co') ? host.slice(0, -'.supabase.co'.length) : null;
+  } catch (_) { return null; }
+}
+
 Deno.serve(async(req)=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});if(req.method!=='POST')return json({error:'Method not allowed'},405);
  const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)return json({error:'Authorization required'},401);
  try{
-  const url=Deno.env.get('SUPABASE_URL')!,service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const admin=createClient(url,service,{auth:{persistSession:false}});
-  const {data:authData,error:authError}=await admin.auth.getUser(token);if(authError||!authData.user)return json({error:'Invalid session'},401);
+  const configuredUrl = Deno.env.get('SUPABASE_URL') || '';
+  const configuredProjectRef = getProjectRef(configuredUrl);
+  const deploymentId = Deno.env.get('DENO_DEPLOYMENT_ID') || '';
+  const deployedProjectRef = deploymentId ? deploymentId.split('_')[0] : null;
+  if (configuredProjectRef !== FRNXUP_PROJECT_REF || (deployedProjectRef && deployedProjectRef !== FRNXUP_PROJECT_REF)) {
+    return json({
+      error: 'The admin-control function is not running in the Frnxup Supabase project. Deploy it to project jsjlcunuvkizbeeoewsk.',
+      code: 'SUPABASE_PROJECT_MISMATCH',
+      expected_project_ref: FRNXUP_PROJECT_REF,
+      configured_project_ref: configuredProjectRef,
+      deployed_project_ref: deployedProjectRef
+    }, 500);
+  }
+
+  const secret = readProjectSecret();
+  if (!secret.key) {
+    return json({
+      error: 'The Frnxup Edge Function has no usable project secret key. Configure the project secret key named default, or retain the legacy service-role key.',
+      code: 'SUPABASE_SECRET_KEY_MISSING',
+      project_ref: FRNXUP_PROJECT_REF,
+      checked_key_source: secret.source
+    }, 500);
+  }
+
+  // Use the verified Frnxup URL rather than an unchecked environment URL.
+  const admin=createClient(FRNXUP_PROJECT_URL,secret.key,{auth:{persistSession:false,autoRefreshToken:false}});
+  const {data:authData,error:authError}=await admin.auth.getUser(token);
+  if(authError||!authData.user) {
+    return json({
+      error: 'The Frnxup session could not be verified by the admin-control function. Confirm the deployed project secret key belongs to jsjlcunuvkizbeeoewsk and sign in again.',
+      code: 'ADMIN_AUTH_VALIDATION_FAILED',
+      project_ref: FRNXUP_PROJECT_REF,
+      auth_error: authError?.message || 'No authenticated user was returned.'
+    }, 401);
+  }
   const actor=authData.user.id;
   const {data:actorProfile,error:roleError}=await admin.from('profiles').select('id,role,account_status').eq('id',actor).maybeSingle();
-  if(roleError)return json({error:'The administrator profile lookup failed. Check that the deployed admin-control function uses the same Supabase project as the Frnxup website.',code:'ADMIN_PROFILE_LOOKUP_FAILED'},500);
-  if(!actorProfile)return json({error:'No Frnxup profile is linked to this signed-in Auth account. The platform owner must restore the owner profile in Supabase before using the control centre.',code:'ADMIN_PROFILE_NOT_FOUND'},403);
+  if(roleError) return json({
+    error: 'The Frnxup Auth account was verified, but reading its public.profiles row failed. Check the database error details below.',
+    code: 'ADMIN_PROFILE_LOOKUP_FAILED',
+    project_ref: FRNXUP_PROJECT_REF,
+    auth_user_id: actor,
+    database_error: { code: roleError.code || null, message: roleError.message || null, details: roleError.details || null, hint: roleError.hint || null }
+  }, 502);
+  if(!actorProfile)return json({error:'No Frnxup profile is linked to this signed-in Auth account. The owner profile recovery SQL must be run in the same Supabase project.',code:'ADMIN_PROFILE_NOT_FOUND',project_ref:FRNXUP_PROJECT_REF,auth_user_id:actor},403);
   const actorRole=String(actorProfile.role||'').trim().toLowerCase();
   const actorStatus=String(actorProfile.account_status||'').trim().toLowerCase();
   if(actorStatus!=='active')return json({error:'This Frnxup account is not active. Reactivate it before granting administrator access.',code:'ADMIN_ACCOUNT_INACTIVE'},403);
@@ -24,6 +96,9 @@ Deno.serve(async(req)=>{
   const count=async(table:string,filters?:[string,string,any][])=>{let q=admin.from(table).select('*',{count:'exact',head:true});for(const [c,op,v] of filters||[])q=q.filter(c,op,v);const {count}=await q;return count||0};
   let result:any={};
   switch(action){
+   case 'verify_access':{
+    result={ok:true,project_ref:FRNXUP_PROJECT_REF,user_id:actor,role:actorRole,account_status:actorStatus};break;
+   }
    case 'dashboard_summary':{
     const [members,posts,open_reports,rooms,activity,pages,market_listings,market_boost_requests]=await Promise.all([count('profiles'),count('posts',[['status','eq','published']]),count('reports',[['status','in','(open,reviewing)']]),count('rooms',[['status','eq','active']]),count('site_activity_logs'),count('frnxup_pages',[['status','eq','active']]),count('market_listings',[['status','eq','published']]),count('market_boosts',[['status','eq','pending_review']])]);
     const {data:recent_members}=await admin.from('profiles').select('id,username,display_name,role,account_status,created_at').order('created_at',{ascending:false}).limit(7);
