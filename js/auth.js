@@ -224,6 +224,7 @@
 
     // This flag is set only after a working submit handler has been attached.
     window.__FRNXUP_SIGNUP_HANDLER_READY = true;
+    window.dispatchEvent(new Event('frnxup-signup-handler-ready'));
   }
 
   // A member who is already signed in does not need to see the access forms.
