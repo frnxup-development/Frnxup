@@ -2,8 +2,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-frnxup-appeal-ticket",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400"
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -159,7 +160,7 @@ Deno.serve(async (req) => {
       if (body?.action === "check_status") return await lookupAppealStatus(admin, body, req);
       if (body?.action === "recover_reference") return await recoverAppealReference(admin, body, req);
 
-      const ticket = req.headers.get("x-frnxup-appeal-ticket") || "";
+      const ticket = String(body?.appeal_ticket || "");
       if (!ticket) return json({ error: "This appeal page is locked. Return to Frnxup login and verify the restricted account first." }, 401);
       const { grant, profile } = await validateTicket(admin, ticket);
       if (body?.action !== "verify") return json({ error: "Unsupported appeal request." }, 400);
@@ -175,12 +176,13 @@ Deno.serve(async (req) => {
     }
 
     if (!contentType.includes("multipart/form-data")) return json({ error: "The appeal form was not submitted in the expected format." }, 400);
-    stage = "ticket-verification";
-    const ticket = req.headers.get("x-frnxup-appeal-ticket") || "";
-    if (!ticket) return json({ error: "This appeal page is locked. Return to Frnxup login and verify the restricted account first." }, 401);
-    const { grant, profile } = await validateTicket(admin, ticket);
     stage = "form-validation";
     const form = await req.formData();
+    const ticket = String(form.get("appeal_ticket") || "");
+    if (!ticket) return json({ error: "This appeal page is locked. Return to Frnxup login and verify the restricted account first." }, 401);
+    stage = "ticket-verification";
+    const { grant, profile } = await validateTicket(admin, ticket);
+    stage = "form-validation";
     const reason = String(form.get("reason") || "").trim();
     const idType = String(form.get("identity_type") || "");
     if (reason.length < 10 || reason.length > 3000) {
