@@ -9,6 +9,7 @@
   <link rel="icon" href="../Asset/frnxup-mark.svg">
   <link rel="stylesheet" href="../Css/app.css">
   <link rel="stylesheet" href="../Css/auth.css">
+  <link rel="stylesheet" href="../Css/content-states.css">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
 </head>
@@ -75,6 +76,13 @@
       const button = $('#signup');
       const status = $('#signup-msg');
       const retryButton = $('#signup-retry');
+      const stateHost = document.createElement('div');
+      stateHost.id = 'signup-animated-state';
+      stateHost.className = 'signup-animated-state';
+      stateHost.hidden = true;
+      stateHost.setAttribute('role', 'status');
+      stateHost.setAttribute('aria-live', 'polite');
+      status?.insertAdjacentElement('afterend', stateHost);
       const rememberCheckbox = $('#remember-device');
       const year = $('#auth-year');
       const ASSET_VERSION = 'frnxup-signup-20261122-r7';
@@ -91,6 +99,32 @@
         if (!status) return;
         status.textContent = message;
         status.dataset.kind = kind;
+        const lower = String(message || '').toLowerCase();
+        let state = '';
+        if (kind === 'success') state = 'success';
+        else if (kind === 'info' && /(connecting|creating your|preparing registration|still connecting)/.test(lower)) state = 'loading';
+        else if (kind === 'error' && /(offline|no internet)/.test(lower)) state = 'offline';
+        else if (kind === 'error' && /(timeout|taking too long|not received a response)/.test(lower)) state = 'slow';
+        else if (kind === 'error' && /(configuration|not configured|missing or incomplete)/.test(lower)) state = 'configuration';
+        else if (kind === 'error' && /(network|connection|could not connect|unavailable|failed to fetch|service could not connect)/.test(lower)) state = 'connection';
+        const types = { loading: ['loading.gif','Preparing your secure account connection'], offline: ['offline.gif','Your device is offline'], slow: ['slow.gif','The registration request timed out'], configuration: ['server.gif','Registration service configuration problem'], connection: ['connection.gif','A connection problem interrupted registration'], success: ['success.gif','Registration status'] };
+        const definition = types[state];
+        if (!definition || !stateHost) {
+          if (stateHost) { stateHost.hidden = true; stateHost.replaceChildren(); }
+          status.hidden = false;
+          return;
+        }
+        const reducedMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const image = document.createElement('img');
+        image.className = 'fx-state-gif';
+        image.width = 64; image.height = 64; image.alt = '';
+        image.src = `../Asset/States/${reducedMotion ? definition[0].replace('.gif','.png') : definition[0]}`;
+        const copy = document.createElement('div'); copy.className = 'fx-state-copy';
+        const title = document.createElement('b'); title.textContent = definition[1];
+        const detail = document.createElement('span'); detail.textContent = message;
+        copy.append(title, detail);
+        const card = document.createElement('section'); card.className = 'fx-state-card is-inline'; card.setAttribute('aria-live','polite'); card.append(image,copy);
+        stateHost.replaceChildren(card); stateHost.hidden = false; status.hidden = true;
       };
 
       const setRememberChoice = () => {
