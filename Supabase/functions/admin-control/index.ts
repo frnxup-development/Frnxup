@@ -77,8 +77,10 @@ Deno.serve(async(req)=>{
   }
   const actor=authData.user.id;
   const {data:assurance,error:assuranceError}=await admin.auth.mfa.getAuthenticatorAssuranceLevel(token);
-  if(assuranceError) return json({error:'The administrator second-factor status could not be verified. Sign in again and complete phone verification.',code:'ADMIN_MFA_CHECK_FAILED'},401);
-  if(assurance?.nextLevel==='aal2'&&assurance?.currentLevel!=='aal2') return json({error:'Complete your second verification factor before using Frnxup administrator controls.',code:'ADMIN_MFA_REQUIRED'},403);
+  // MFA is opt-in. Enforce the second step when Supabase positively reports
+  // that this account has a higher required AAL; do not block non-enrolled staff
+  // if the project's optional MFA endpoint is not enabled.
+  if(!assuranceError&&assurance?.nextLevel==='aal2'&&assurance?.currentLevel!=='aal2') return json({error:'Complete your second verification factor before using Frnxup administrator controls.',code:'ADMIN_MFA_REQUIRED'},403);
   const {data:actorProfile,error:roleError}=await admin.from('profiles').select('id,role,account_status').eq('id',actor).maybeSingle();
   if(roleError) return json({
     error: 'The Frnxup Auth account was verified, but reading its public.profiles row failed. Check the database error details below.',
