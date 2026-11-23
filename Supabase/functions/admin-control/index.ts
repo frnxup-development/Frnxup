@@ -278,11 +278,11 @@ Deno.serve(async(req)=>{
     if(body.status==='banned')await rememberBannedIdentities(target.id,target);
     const {error:updateError}=await admin.from('profiles').update({account_status:body.status,updated_at:new Date().toISOString()}).eq('id',body.user_id);
     if(updateError){if(body.status==='banned'&&target.account_status!=='banned'){try{await clearBannedIdentities(target.id)}catch(_){}}throw updateError;}
-    if(body.status==='active')await clearBannedIdentities(target.id);
+    if(body.status==='active'){await clearBannedIdentities(target.id);const {data:latestAppeal}=await admin.from('account_appeals').select('id,status').eq('user_id',target.id).order('created_at',{ascending:false}).limit(1).maybeSingle();if(latestAppeal&&latestAppeal.status!=='reactivated'){const {error:appealUpdateError}=await admin.from('account_appeals').update({status:'reactivated',reviewed_by:actor,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),review_note:latestAppeal.status==='approved'?'Account reactivated after appeal approval.':'Account reactivated by Frnxup administrators.'}).eq('id',latestAppeal.id);if(appealUpdateError)throw appealUpdateError;}}
     const notice=body.status==='banned'
-      ? 'Your Frnxup account has been permanently banned. This account cannot use Frnxup. Contact support at frnxup@gmail.com.'
+      ? 'Your Frnxup account has been permanently banned. When you try to sign in, Frnxup will show the account restriction page with appeal and support instructions.'
       : body.status==='suspended'
-        ? 'Your Frnxup account has been suspended by an administrator. You cannot use Frnxup while the suspension remains active. To appeal, return to the login page and enter the correct password for this suspended account. The secure appeal button will appear only after Frnxup verifies your credentials. You can also contact frnxup@gmail.com.'
+        ? 'Your Frnxup account has been suspended by an administrator. When you try to sign in with the correct password, Frnxup will show the account restriction page with appeal and support instructions.'
         : 'Your Frnxup account has been reactivated. You can sign in and use Frnxup again.';
     const notificationSent=await notifyMember(target.id,body.status==='banned'?'Frnxup account banned':body.status==='suspended'?'Frnxup account suspended':'Frnxup account reactivated',notice);
     await log('set_member_status','profile',body.user_id,{status:body.status,previous_status:target.account_status,notification_sent:notificationSent});
@@ -373,18 +373,21 @@ Deno.serve(async(req)=>{
    }
    case 'update_appeal':{
     if(!canManage)throw new Error('Admin role required.');
-    if(!['upheld','reinstated'].includes(body.status))throw new Error('Invalid appeal status.');
-    const {data:a,error:appealError}=await admin.from('account_appeals').select('user_id').eq('id',body.appeal_id).maybeSingle();if(appealError)throw appealError;if(!a)throw new Error('Appeal record not found.');
+    if(!['rejected','approved','reactivated'].includes(body.status))throw new Error('Invalid appeal status.');
+    const {data:a,error:appealError}=await admin.from('account_appeals').select('user_id,reference_number,status').eq('id',body.appeal_id).maybeSingle();if(appealError)throw appealError;if(!a)throw new Error('Appeal record not found.');
+    if(body.status==='reactivated'&&a.status!=='approved')throw new Error('Approve the appeal before reactivating the member account.');
     const reviewNote=String(body.review_note||'').slice(0,1000);
     const {error}=await admin.from('account_appeals').update({status:body.status,reviewed_by:actor,review_note:reviewNote,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',body.appeal_id);if(error)throw error;
-    if(body.status==='reinstated'){
+    if(body.status==='reactivated'){
       const {error:profileError}=await admin.from('profiles').update({account_status:'active',updated_at:new Date().toISOString()}).eq('id',a.user_id);if(profileError)throw profileError;
       await clearBannedIdentities(a.user_id);
-      await notifyMember(a.user_id,'Frnxup appeal approved','Your account appeal has been approved and your Frnxup account has been reactivated. You may now sign in again.');
+      await notifyMember(a.user_id,'Frnxup user reactivated','Your approved appeal has been completed. Your Frnxup account is now reactivated and you may sign in again.');
+    }else if(body.status==='approved'){
+      await notifyMember(a.user_id,'Frnxup appeal approved','Your appeal has been approved by Frnxup. Your account will remain restricted until an administrator completes the reactivation step.');
     }else{
-      await notifyMember(a.user_id,'Frnxup appeal reviewed','Your account appeal has been reviewed. The current account restriction remains in place. Contact frnxup@gmail.com if you need further assistance.');
+      await notifyMember(a.user_id,'Frnxup appeal rejected','Your appeal has been rejected. The current account restriction remains in place. Contact frnxup@gmail.com if you need further assistance.');
     }
-    await log('update_appeal','account_appeal',body.appeal_id,{status:body.status,review_note:reviewNote});result={ok:true};break;
+    await log('update_appeal','account_appeal',body.appeal_id,{status:body.status,reference_number:a.reference_number,review_note:reviewNote});result={ok:true};break;
    }
    case 'list_admins':{
     if(!owner)throw new Error('Only the platform owner can view staff role management.');
