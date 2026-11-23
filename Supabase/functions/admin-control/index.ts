@@ -103,6 +103,28 @@ Deno.serve(async(req)=>{
     return toHex(new Uint8Array(bits));
   };
   const hashToken=async(token:string)=>toHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))));
+  const hashIdentity=async(value:string)=>toHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))));
+  const rememberBannedIdentities=async(userId:string,profile:any)=>{
+    const {data,error}=await admin.auth.admin.getUserById(userId);if(error)throw error;
+    const authUser=data?.user;if(!authUser)throw new Error('The member Auth record could not be verified before retaining the ban identifiers.');
+    const values:[string,string][]=[];
+    const email=String(authUser.email||'').trim().toLowerCase();
+    const phone=String(authUser.phone||'').trim().replace(/[^0-9+]/g,'');
+    const username=String(profile?.username||'').trim().toLowerCase();
+    if(email)values.push(['email',email]);if(phone)values.push(['phone',phone]);if(username)values.push(['username',username]);
+    if(!values.length)throw new Error('No account identifiers were available to retain this permanent ban.');
+    const rows=[];for(const [identity_type,value] of values)rows.push({identity_type,identity_hash:await hashIdentity(value),source_user_id:userId});
+    const {error:saveError}=await admin.from('banned_account_identities').upsert(rows,{onConflict:'identity_type,identity_hash',ignoreDuplicates:true});
+    if(saveError)throw saveError;
+  };
+  const clearBannedIdentities=async(userId:string)=>{
+    const {error}=await admin.from('banned_account_identities').delete().eq('source_user_id',userId);
+    if(error)throw error;
+  };
+  const notifyMember=async(userId:string,title:string,bodyText:string)=>{
+    const {error}=await admin.from('notifications').insert({user_id:userId,actor_id:actor,type:'account_status',title,body:bodyText});
+    return !error;
+  };
   const generateStaffId=async()=>{
     for(let i=0;i<12;i++){
       const bytes=new Uint32Array(1);crypto.getRandomValues(bytes);
@@ -248,15 +270,23 @@ Deno.serve(async(req)=>{
     const items=[];for(const p of data||[]){const {data:u}=await admin.auth.admin.getUserById(p.id);items.push({...p,email:u?.user?.email||null,phone:u?.user?.phone||null})}result={items};break;
    }
    case 'set_member_status':{
-    if(!canManage)throw new Error('Only admins and owners can suspend accounts.');
-    const {data:target,error:targetError}=await admin.from('profiles').select('id,role,account_status').eq('id',body.user_id).maybeSingle();
+    if(!canManage)throw new Error('Only admins and owners can suspend, reactivate or permanently ban accounts.');
+    const {data:target,error:targetError}=await admin.from('profiles').select('id,username,display_name,role,account_status').eq('id',body.user_id).maybeSingle();
     if(targetError)throw targetError;
     if(!target||target.role==='owner'||(!owner&&target.role!=='member'))throw new Error('You do not have permission to change this account.');
-    if(!['active','suspended'].includes(body.status))throw new Error('Invalid account status');
-    const {error:updateError}=await admin.from('profiles').update({account_status:body.status}).eq('id',body.user_id);
-    if(updateError)throw updateError;
-    await log('set_member_status','profile',body.user_id,{status:body.status});
-    result={ok:true,status:body.status};break;
+    if(!['active','suspended','banned'].includes(body.status))throw new Error('Invalid account status');
+    if(body.status==='banned')await rememberBannedIdentities(target.id,target);
+    const {error:updateError}=await admin.from('profiles').update({account_status:body.status,updated_at:new Date().toISOString()}).eq('id',body.user_id);
+    if(updateError){if(body.status==='banned'&&target.account_status!=='banned'){try{await clearBannedIdentities(target.id)}catch(_){}}throw updateError;}
+    if(body.status==='active')await clearBannedIdentities(target.id);
+    const notice=body.status==='banned'
+      ? 'Your Frnxup account has been permanently banned. This account cannot use Frnxup. You may submit an appeal at /Auth/appeal.html. Contact support at frnxup@gmail.com.'
+      : body.status==='suspended'
+        ? 'Your Frnxup account has been suspended by an administrator. You cannot use Frnxup while the suspension remains active. Submit an appeal at /Auth/appeal.html or contact support at frnxup@gmail.com.'
+        : 'Your Frnxup account has been reactivated. You can sign in and use Frnxup again.';
+    const notificationSent=await notifyMember(target.id,body.status==='banned'?'Frnxup account banned':body.status==='suspended'?'Frnxup account suspended':'Frnxup account reactivated',notice);
+    await log('set_member_status','profile',body.user_id,{status:body.status,previous_status:target.account_status,notification_sent:notificationSent});
+    result={ok:true,status:body.status,notification_sent:notificationSent};break;
    }
    case 'set_member_role':{
     if(!owner)throw new Error('Only the platform owner can change member roles.');
@@ -271,11 +301,17 @@ Deno.serve(async(req)=>{
     if(body.user_id===actor)throw new Error('You cannot delete the currently signed-in account.');
     const {data:target,error:targetError}=await admin.from('profiles').select('id,username,role,account_status').eq('id',body.user_id).maybeSingle();
     if(targetError)throw targetError;
-    if(!target||target.role==='owner'||(!owner&&target.role!=='member'))throw new Error('You do not have permission to delete this account. Only the owner can remove privileged accounts.')
+    if(!target||target.role==='owner'||(!owner&&target.role!=='member'))throw new Error('You do not have permission to delete this account. Only the owner can remove privileged accounts.');
+    // If an administrator deletes a banned account, retain hashes first so its
+    // email, phone and Frnxup username cannot be used to create another account.
+    if(target.account_status==='banned')await rememberBannedIdentities(target.id,target);
+    const {data:appeals}=await admin.from('account_appeals').select('evidence_paths').eq('user_id',body.user_id);
+    const evidencePaths=(appeals||[]).flatMap((appeal:any)=>Array.isArray(appeal.evidence_paths)?appeal.evidence_paths.map((doc:any)=>doc?.path).filter(Boolean):[]);
+    if(evidencePaths.length){const {error:storageError}=await admin.storage.from('account-appeals').remove(evidencePaths);if(storageError)throw storageError;}
     const {error:deleteError}=await admin.auth.admin.deleteUser(body.user_id);
     if(deleteError)throw deleteError;
-    await log('delete_member','profile',body.user_id,{username:target.username});
-    result={ok:true};break;
+    await log('delete_member','profile',body.user_id,{username:target.username,was_banned:target.account_status==='banned',ban_identifiers_retained:target.account_status==='banned'});
+    result={ok:true,ban_identifiers_retained:target.account_status==='banned'};break;
    }
    case 'list_posts':{let q=admin.from('posts').select('id,user_id,body,visibility,status,created_at,profiles!posts_user_id_fkey(username,display_name)').order('created_at',{ascending:false}).limit(100);if(!canModerate)q=q.eq('visibility','public').eq('status','published');if(body.q)q=q.ilike('body',`%${String(body.q).slice(0,80)}%`);const {data,error}=await q;if(error)throw error;result={items:data||[]};break}
    case 'moderate_post':{if(!canModerate)throw new Error('Moderator role is required.');if(!['hidden','deleted','published'].includes(body.status))throw new Error('Invalid moderation status');if(body.status==='deleted'&&!canManage)throw new Error('Only admins and the owner can permanently delete posts.');const {error}=await admin.from('posts').update({status:body.status}).eq('id',body.post_id);if(error)throw error;await log('moderate_post','post',body.post_id,{status:body.status});result={ok:true};break}
@@ -315,8 +351,41 @@ Deno.serve(async(req)=>{
    case 'resolve_report':{if(!['owner','admin','moderator'].includes(actorProfile.role))throw new Error('Moderator role required.');if(!['resolved','dismissed','reviewing'].includes(body.status))throw new Error('Invalid report status');const {error}=await admin.from('reports').update({status:body.status,reviewed_by:actor,updated_at:new Date().toISOString()}).eq('id',body.report_id);if(error)throw error;await log('resolve_report','report',body.report_id,{status:body.status});result={ok:true};break}
    case 'list_verifications':{if(!canManage)throw new Error('Verification records are restricted to admins and the owner.');const {data,error}=await admin.from('verification_requests').select('*').order('created_at',{ascending:false}).limit(100);if(error)throw error;result={items:data||[]};break}
    case 'update_verification':{if(!canManage)throw new Error('Admin role required.');if(!['approved','rejected'].includes(body.status))throw new Error('Invalid verification status.');const {error}=await admin.from('verification_requests').update({status:body.status,reviewed_by:actor,updated_at:new Date().toISOString()}).eq('id',body.verification_id);if(error)throw error;if(body.status==='approved'){const {data:v}=await admin.from('verification_requests').select('user_id').eq('id',body.verification_id).single();if(v)await admin.from('profiles').update({is_verified:true}).eq('id',v.user_id)}await log('update_verification','verification_request',body.verification_id,{status:body.status});result={ok:true};break}
-   case 'list_appeals':{if(!canManage)throw new Error('Appeal records are restricted to admins and the owner.');const {data,error}=await admin.from('account_appeals').select('*').order('created_at',{ascending:false}).limit(100);if(error)throw error;result={items:data||[]};break}
-   case 'update_appeal':{if(!canManage)throw new Error('Admin role required.');if(!['upheld','reinstated'].includes(body.status))throw new Error('Invalid appeal status.');const {data:a}=await admin.from('account_appeals').select('user_id').eq('id',body.appeal_id).single();const {error}=await admin.from('account_appeals').update({status:body.status,reviewed_by:actor,updated_at:new Date().toISOString()}).eq('id',body.appeal_id);if(error)throw error;if(body.status==='reinstated'&&a)await admin.from('profiles').update({account_status:'active'}).eq('id',a.user_id);await log('update_appeal','account_appeal',body.appeal_id,{status:body.status});result={ok:true};break}
+   case 'list_appeals':{
+    if(!canManage)throw new Error('Appeal records are restricted to admins and the owner.');
+    let q=admin.from('account_appeals').select('*').order('created_at',{ascending:false}).limit(100);
+    if(body.q){const term=String(body.q).replace(/[(),.%]/g,' ').slice(0,70);if(term)q=q.ilike('reason',`%${term}%`);}
+    const {data,error}=await q;if(error)throw error;const items=[];
+    for(const appeal of data||[]){
+      const [{data:profile},{data:authUser}]=await Promise.all([
+        admin.from('profiles').select('username,display_name,account_status').eq('id',appeal.user_id).maybeSingle(),
+        admin.auth.admin.getUserById(appeal.user_id)
+      ]);
+      const documents=[];
+      for(const doc of (Array.isArray(appeal.evidence_paths)?appeal.evidence_paths:[])){
+        if(!doc?.path)continue;
+        const {data:signed,error:signedError}=await admin.storage.from('account-appeals').createSignedUrl(doc.path,300);
+        documents.push({label:doc.label||'Supporting document',name:doc.original_name||'Private document',url:signedError?null:signed?.signedUrl||null});
+      }
+      items.push({...appeal,member:profile||null,email:authUser?.user?.email||appeal.contact_email||null,documents});
+    }
+    result={items};break;
+   }
+   case 'update_appeal':{
+    if(!canManage)throw new Error('Admin role required.');
+    if(!['upheld','reinstated'].includes(body.status))throw new Error('Invalid appeal status.');
+    const {data:a,error:appealError}=await admin.from('account_appeals').select('user_id').eq('id',body.appeal_id).maybeSingle();if(appealError)throw appealError;if(!a)throw new Error('Appeal record not found.');
+    const reviewNote=String(body.review_note||'').slice(0,1000);
+    const {error}=await admin.from('account_appeals').update({status:body.status,reviewed_by:actor,review_note:reviewNote,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',body.appeal_id);if(error)throw error;
+    if(body.status==='reinstated'){
+      const {error:profileError}=await admin.from('profiles').update({account_status:'active',updated_at:new Date().toISOString()}).eq('id',a.user_id);if(profileError)throw profileError;
+      await clearBannedIdentities(a.user_id);
+      await notifyMember(a.user_id,'Frnxup appeal approved','Your account appeal has been approved and your Frnxup account has been reactivated. You may now sign in again.');
+    }else{
+      await notifyMember(a.user_id,'Frnxup appeal reviewed','Your account appeal has been reviewed. The current account restriction remains in place. Contact frnxup@gmail.com if you need further assistance.');
+    }
+    await log('update_appeal','account_appeal',body.appeal_id,{status:body.status,review_note:reviewNote});result={ok:true};break;
+   }
    case 'list_admins':{
     if(!owner)throw new Error('Only the platform owner can view staff role management.');
     const {data,error}=await admin.from('profiles').select('id,username,display_name,role,account_status,created_at').in('role',['owner','admin','moderator']).order('created_at',{ascending:true});if(error)throw error;
