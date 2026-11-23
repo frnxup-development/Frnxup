@@ -1,9 +1,94 @@
-<!doctype html><html lang="en"><head><script src="/js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d17"><title>Frnxup Page · Frnxup</title><link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Pages/css/pages.css"><link rel="stylesheet" href="/Pages/css/page-actions.css?v=20261123-actions1"></head><body>
-<div class="frnx-page-screen"><header class="frnx-page-toolbar"><a href="/index.html" aria-label="Back">‹</a><strong id="public-toolbar-name">Frnxup Page</strong><button id="public-share-link" title="Share">↗</button><a id="public-owner-actions" href="/Pages/actions.html" title="Page actions" hidden>•••</a></header>
-<div class="frnx-page-cover" id="public-page-cover"><img class="frnx-page-cover-image" id="public-page-cover-image" alt="Page cover" hidden></div><div class="frnx-page-avatar-wrap" id="public-page-avatar"><div class="avatar-fallback" id="public-page-initial">F</div></div><a class="frnx-page-media-open" id="public-page-media-open" href="/Pages/all.html" hidden>▧ Photos · Reels · Mentions</a>
-<div class="frnx-page-summary"><h1 id="public-page-name">Loading…</h1><div class="frnx-page-followers" id="public-page-followers"></div><div class="frnx-page-category" id="public-page-category"></div><p class="frnx-page-about" id="public-page-about"></p></div>
-<div id="public-page-cta-host" class="frnx-page-owner-actions"></div><div class="frnx-page-owner-actions"><button class="frnx-page-follow-btn" id="public-follow-button">＋ Follow Page</button><a class="pages-button secondary" id="public-manage-link" href="/Pages/index.html" hidden>Manage this Page</a></div>
-<nav class="frnx-page-tabs" id="public-page-tabs" aria-label="Page content"><a class="active" data-page-media-route="all" href="/Pages/all.html">All</a><a data-page-media-route="photos" href="/Pages/photos.html">Photos</a><a data-page-media-route="reels" href="/Pages/reels.html">Reels</a><a data-page-media-route="mentions" href="/Pages/mentions.html">Mentions</a></nav>
-<section class="frnx-page-personal"><h2>About</h2><p id="public-page-location"></p><p id="public-page-website"></p><p id="public-page-privacy" hidden>Follower count is hidden by this page.</p></section>
-<div id="public-page-stories"></div><div id="public-page-highlights"></div><div class="frnx-page-feed" id="public-page-posts"><div class="pages-empty">Loading page posts…</div></div></div>
-<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script><script src="/js/media-tools.js"></script><script src="/Pages/js/pages.js?v=20261123-4-media-routes"></script><script src="/Pages/js/page-public-tools.js?v=20261123-actions1"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="/js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#1877f2">
+  <title>Frnxup Page · Frnxup</title>
+  <link rel="stylesheet" href="/Css/app.css">
+  <link rel="stylesheet" href="/Pages/css/pages.css">
+  <link rel="stylesheet" href="/Pages/css/page-actions.css?v=20261123-actions1">
+  <link rel="stylesheet" href="/Pages/css/facebook-pages.css?v=20261123-fb1">
+</head>
+<body class="fx-facebook-pages fx-page-public">
+  <div class="frnx-page-screen">
+    <header class="frnx-page-toolbar">
+      <a href="/index.html" aria-label="Back to Frnxup">‹</a>
+      <strong id="public-toolbar-name">Frnxup Page</strong>
+      <button id="public-share-link" type="button" title="Share Page" aria-label="Share Page">↗</button>
+      <a id="public-owner-actions" href="/Pages/actions.html" title="Page actions" aria-label="Page actions" hidden>•••</a>
+    </header>
+
+    <main class="frnx-page-content-wrap">
+      <section class="frnx-page-profile-card" aria-label="Page profile">
+        <div class="frnx-page-cover" id="public-page-cover">
+          <img class="frnx-page-cover-image" id="public-page-cover-image" alt="Page cover" hidden>
+        </div>
+        <div class="frnx-page-identity-row">
+          <div class="frnx-page-avatar-wrap" id="public-page-avatar"><div class="avatar-fallback" id="public-page-initial">F</div></div>
+          <div class="frnx-page-summary">
+            <h1 id="public-page-name">Loading…</h1>
+            <div class="frnx-page-followers" id="public-page-followers"></div>
+            <div class="frnx-page-category" id="public-page-category"></div>
+            <p class="frnx-page-about" id="public-page-about"></p>
+          </div>
+          <div class="frnx-page-owner-actions frnx-page-public-actions">
+            <button class="frnx-page-follow-btn" id="public-follow-button" type="button">＋ Follow Page</button>
+            <a class="pages-button secondary" id="public-manage-link" href="/Pages/index.html" hidden>Manage Page</a>
+            <a class="frnx-page-media-open" id="public-page-media-open" href="/Pages/all.html" hidden>▧ Photos &amp; videos</a>
+          </div>
+        </div>
+        <div id="public-page-cta-host" class="frnx-page-custom-cta"></div>
+        <nav class="frnx-page-tabs" id="public-page-tabs" aria-label="Page content">
+          <a class="active" data-page-media-route="all" href="/Pages/all.html">All</a>
+          <a data-page-media-route="photos" href="/Pages/photos.html">Photos</a>
+          <a data-page-media-route="reels" href="/Pages/reels.html">Reels</a>
+          <a data-page-media-route="mentions" href="/Pages/mentions.html">Mentions</a>
+        </nav>
+        <script>
+          (() => {
+            const params = new URLSearchParams(location.search);
+            const key = params.has('slug') ? 'slug' : (params.has('id') ? 'id' : '');
+            const value = key ? params.get(key) : '';
+            if (!key || !value) return;
+            const files = { all: 'all.html', photos: 'photos.html', reels: 'reels.html', mentions: 'mentions.html' };
+            document.querySelectorAll('#public-page-tabs [data-page-media-route]').forEach(link => {
+              const route = files[link.dataset.pageMediaRoute] || files.all;
+              link.href = `/Pages/${route}?${key}=${encodeURIComponent(value)}`;
+            });
+            const media = document.getElementById('public-page-media-open');
+            if (media) media.href = `/Pages/all.html?${key}=${encodeURIComponent(value)}`;
+          })();
+        </script>
+      </section>
+
+      <div class="frnx-page-content-layout">
+        <aside class="frnx-page-sidebar">
+          <section class="frnx-page-panel frnx-page-personal">
+            <h2>About</h2>
+            <p id="public-page-location"></p>
+            <p id="public-page-website"></p>
+            <p id="public-page-privacy" hidden>Follower count is hidden by this Page.</p>
+          </section>
+          <div id="public-page-highlights"></div>
+        </aside>
+        <section class="frnx-page-main" aria-label="Page posts">
+          <div id="public-page-stories"></div>
+          <div class="frnx-page-feed-heading"><h2>Posts</h2><span>Latest updates from this Page</span></div>
+          <div class="frnx-page-feed" id="public-page-posts"><div class="pages-empty">Loading page posts…</div></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="fx-toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="/js/layout.js"></script>
+  <script src="/js/media-tools.js"></script>
+  <script src="/Pages/js/pages.js?v=20261123-facebook1"></script>
+  <script src="/Pages/js/page-public-tools.js?v=20261123-facebook1"></script>
+</body>
+</html>

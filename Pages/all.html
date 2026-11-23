@@ -4,20 +4,31 @@
   <script src="/js/theme.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#080d17">
+  <meta name="theme-color" content="#1877f2">
   <title>All · Frnxup Page</title>
   <link rel="stylesheet" href="/Css/app.css">
   <link rel="stylesheet" href="/Pages/css/pages.css">
-  <link rel="stylesheet" href="/Pages/css/page-media.css?v=20261123-2">
+  <link rel="stylesheet" href="/Pages/css/page-media.css?v=20261123-facebook1">
+  <link rel="stylesheet" href="/Pages/css/facebook-pages.css?v=20261123-fb1">
 </head>
-<body data-page-media-filter="all">
+<body class="fx-facebook-pages fx-page-media" data-page-media-filter="all">
   <div data-frnxup-shell></div>
   <main class="page-media-wrap">
-    <header class="page-media-header">
-      <a id="page-media-back" href="/Pages/dashboard.html">‹ Page dashboard</a>
-      <div class="page-media-identity">
+    <header class="page-media-header frnx-media-profile-card">
+      <div class="page-media-topline">
+        <a id="page-media-back" href="/Pages/dashboard.html">‹ Page dashboard</a>
+        <a id="page-media-profile" href="/Pages/view.html" hidden>View Page</a>
+      </div>
+      <div class="page-media-cover" id="page-media-cover">
+        <img class="page-media-cover-image" id="page-media-cover-image" alt="Page cover" hidden>
+      </div>
+      <div class="page-media-identity-row">
         <div class="page-media-avatar" id="page-media-avatar">F</div>
-        <div><h1 id="page-media-title">All</h1><small id="page-media-slug">Page media</small></div>
+        <div class="page-media-identity-copy">
+          <small class="page-media-kicker">FRNXUP PAGE</small>
+          <h1 id="page-media-title">All</h1>
+          <small id="page-media-slug">Page media</small>
+        </div>
       </div>
       <p id="page-media-description">All posts published by this Page, including text, photos and videos.</p>
     </header>
@@ -37,6 +48,6 @@
   <script src="/js/core.js"></script>
   <script src="/js/layout.js"></script>
   <script src="/js/media-tools.js"></script>
-  <script src="/Pages/js/page-media.js?v=20261123-2"></script>
+  <script src="/Pages/js/page-media.js?v=20261123-facebook1"></script>
 </body>
 </html>
