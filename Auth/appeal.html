@@ -107,19 +107,42 @@
       };
       const callAppealService = async (body, ticket, isForm = false) => {
         if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) throw new Error('Frnxup appeal service is not configured. Please contact frnxup@gmail.com.');
-        const headers = { apikey: cfg.SUPABASE_ANON_KEY, 'x-frnxup-appeal-ticket': ticket };
-        if (!isForm) headers['Content-Type'] = 'application/json';
+
+        // Keep browser requests to Supabase's standard CORS headers. The appeal
+        // ticket travels in the HTTPS request body instead of a custom header;
+        // some Supabase gateways omit custom headers from preflight responses.
+        const headers = { apikey: cfg.SUPABASE_ANON_KEY };
+        let requestBody;
+        if (isForm) {
+          body.set('appeal_ticket', ticket);
+          requestBody = body; // Let the browser set the multipart boundary.
+        } else {
+          headers['Content-Type'] = 'application/json';
+          requestBody = JSON.stringify({ ...(body || {}), appeal_ticket: ticket });
+        }
+
         let response;
+        const controller = new AbortController();
+        let timedOut = false;
+        const timeoutId = window.setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, 90000);
         try {
           response = await fetch(`${cfg.SUPABASE_URL}/functions/v1/account-appeal`, {
-            method: 'POST', headers, body: isForm ? body : JSON.stringify(body),
-            signal: AbortSignal.timeout(90000)
+            method: 'POST', headers, body: requestBody, signal: controller.signal
           });
         } catch (networkError) {
-          if (networkError?.name === 'TimeoutError' || networkError?.name === 'AbortError') {
+          console.warn('Frnxup appeal service request failed:', networkError);
+          if (timedOut || networkError?.name === 'TimeoutError' || networkError?.name === 'AbortError') {
             throw new Error('The appeal upload timed out. Check your connection and try again; your selected files are still on this form.');
           }
-          throw new Error('Frnxup could not reach the appeal service. Check your internet connection and try again.');
+          if (navigator.onLine === false) {
+            throw new Error('Your device appears to be offline. Reconnect to the internet and try again; your selected files are still on this form.');
+          }
+          throw new Error('The secure appeal service could not be reached. Please check your connection and try again; your selected files are still on this form.');
+        } finally {
+          window.clearTimeout(timeoutId);
         }
         const raw = await response.text();
         let data = {};
