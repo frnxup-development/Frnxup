@@ -15,10 +15,9 @@
     ]).finally(() => clearTimeout(timer));
   }
 
-  function showError(host, message, retry) {
+  function showError(host, error, retry) {
     if (!host) return;
-    host.innerHTML = `<div class="pages-empty pages-error"><b>We couldn't load this section.</b><span>${esc(message)}</span>${retry ? '<button type="button" class="pages-retry" id="pages-retry">Try again</button>' : ''}</div>`;
-    if (retry) $('#pages-retry', host)?.addEventListener('click', retry, { once: true });
+    FXStates.fail(host, typeof error === 'string' ? new Error(error) : error, { retry, title: 'Could not load this Pages section' });
   }
 
   async function requireMember() {
@@ -60,51 +59,45 @@
   async function renderOwnedPages() {
     const host = $('#owned-pages');
     if (!host) return;
-    host.innerHTML = '<div class="pages-empty">Loading your Pages…</div>';
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Loading your Pages', message: 'Checking Pages you own.' });
     try {
       await requireMember();
       const result = await withTimeout(FX.client.from('frnxup_pages').select('*').eq('owner_user_id', FX.user.id).neq('status', 'removed').order('created_at', { ascending: false }), 'Loading your Pages');
       if (result.error) throw result.error;
       const pages = result.data || [];
-      if (!pages.length) {
-        host.innerHTML = '<div class="pages-empty pages-empty-action"><b>You have not created a Page yet.</b><span>Create a public identity for your brand, business or community.</span><a class="pages-button primary" href="/Pages/create.html">＋ Create your first Page</a></div>';
-        return;
-      }
-      host.innerHTML = (await Promise.all(pages.map(page => buildPageCard(page, 'owned')))).join('');
+      if (!pages.length) { FXStates.empty(host, { title: 'You have not created a Page yet', message: 'Create a public identity for your brand, business or community.' }); return; }
+      host.innerHTML = (await Promise.all(pages.map(page => buildPageCard(page, 'owned')))).join('');FXStates.loaded(host);
       host.querySelectorAll('[data-switch-page]').forEach(button => button.addEventListener('click', () => {
         FX.setActivePage(button.dataset.switchPage);
         location.href = `/Pages/dashboard.html?id=${encodeURIComponent(button.dataset.switchPage)}`;
       }));
     } catch (error) {
-      showError(host, error.message || 'An unexpected error occurred.', renderOwnedPages);
+      showError(host, error, renderOwnedPages);
     }
   }
 
   async function renderInvitations() {
     const host = $('#page-invitations');
     if (!host) return;
-    host.innerHTML = '<div class="pages-empty">Loading invitations…</div>';
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Loading Page invitations', message: 'Checking invitations sent to your account.' });
     try {
       await requireMember();
       const { data, error } = await withTimeout(FX.client.from('frnxup_page_invitations')
         .select('id,status,created_at,page:frnxup_pages!frnxup_page_invitations_page_id_fkey(id,name,slug,category,avatar_path,cover_path,owner_user_id,follower_count_visible)')
         .eq('invited_user_id', FX.user.id).eq('status', 'pending').order('created_at', { ascending: false }), 'Loading invitations');
       if (error) throw error;
-      if (!data?.length) {
-        host.innerHTML = '<div class="pages-empty"><b>No pending invitations.</b><span>When someone invites you to follow their Page, it will appear here.</span></div>';
-        return;
-      }
+      if (!data?.length) { FXStates.empty(host, { title: 'No pending invitations', message: 'When someone invites you to follow their Page, it will appear here.' }); return; }
       const cards = await Promise.all(data.map(async invite => {
         const page = invite.page || {};
         const avatar = page.avatar_path ? await FX.mediaUrl(page.avatar_path) : '';
         const photo = avatar ? `<img src="${esc(avatar)}" alt="" loading="lazy">` : `<span>${esc((page.name || 'F').slice(0,1).toUpperCase())}</span>`;
         return `<article class="page-mini-card page-invite-card"><div class="page-mini-body"><div class="page-avatar">${photo}</div><div class="page-mini-copy"><b>${esc(page.name || 'Frnxup Page')}</b><small>${esc(page.category || 'Frnxup Page')} · Invited ${esc(FX.relative(invite.created_at))}</small></div></div><p class="page-invite-copy">You have been invited to follow this Page.</p><div class="page-mini-actions"><button class="page-switch" type="button" data-accept-invite="${esc(invite.id)}">Accept invitation</button><button class="page-manage" type="button" data-decline-invite="${esc(invite.id)}">Decline</button></div></article>`;
       }));
-      host.innerHTML = cards.join('');
+      host.innerHTML = cards.join('');FXStates.loaded(host);
       host.querySelectorAll('[data-accept-invite]').forEach(button => button.addEventListener('click', () => respondToInvitation(button.dataset.acceptInvite, 'accepted', button)));
       host.querySelectorAll('[data-decline-invite]').forEach(button => button.addEventListener('click', () => respondToInvitation(button.dataset.declineInvite, 'declined', button)));
     } catch (error) {
-      showError(host, error.message || 'An unexpected error occurred.', renderInvitations);
+      showError(host, error, renderInvitations);
     }
   }
 
@@ -127,14 +120,14 @@
       await renderInvitations();
     } catch (error) {
       button.disabled = false;
-      FX.toast(error.message || 'We could not update this invitation.');
+      showError($('#page-invitations'), error, renderInvitations);
     }
   }
 
   async function renderFollowedPages() {
     const host = $('#followed-pages');
     if (!host) return;
-    host.innerHTML = '<div class="pages-empty">Loading followed Pages…</div>';
+    FXStates.loading(host, { title: 'Loading followed Pages', message: 'Checking the Pages you follow.' });
     try {
       await requireMember();
       const { data, error } = await withTimeout(FX.client.from('frnxup_page_followers')
@@ -143,13 +136,13 @@
       if (error) throw error;
       const pages = (data || []).map(row => row.page).filter(page => page && page.status === 'active');
       if (!pages.length) {
-        host.innerHTML = '<div class="pages-empty"><b>You are not following any Pages yet.</b><span>Accept an invitation or follow a Page when you visit it.</span><a class="pages-button primary" href="/index.html">Discover Frnxup</a></div>';
+        FXStates.empty(host, { title: 'You are not following any Pages yet', message: 'Accept an invitation or follow a Page when you visit it.' });
         return;
       }
-      host.innerHTML = (await Promise.all(pages.map(page => buildPageCard(page, 'followed')))).join('');
+      host.innerHTML = (await Promise.all(pages.map(page => buildPageCard(page, 'followed')))).join('');FXStates.loaded(host);
       host.querySelectorAll('[data-unfollow-page]').forEach(button => button.addEventListener('click', () => unfollowPage(button.dataset.unfollowPage, button)));
     } catch (error) {
-      showError(host, error.message || 'An unexpected error occurred.', renderFollowedPages);
+      showError(host, error, renderFollowedPages);
     }
   }
 
@@ -245,6 +238,7 @@
       }
 
       submitting = true;
+      FXStates.clearUpload('#create-page-message');
       button.disabled = true;
       button.setAttribute('aria-busy', 'true');
       button.textContent = 'Creating…';
@@ -277,6 +271,7 @@
         setTimeout(() => { location.assign(`/Pages/dashboard.html?id=${encodeURIComponent(pageId)}`); }, 450);
       } catch (error) {
         setCreateMessage(explainCreateError(error), 'error');
+        FXStates.failInline($('#create-page-message'), error, { retry: () => form.requestSubmit(), title: 'Page creation could not be completed', message: explainCreateError(error) });
         submitting = false;
         button.disabled = false;
         button.removeAttribute('aria-busy');

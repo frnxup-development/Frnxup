@@ -10,28 +10,17 @@
     all: ['All', 'All posts published by this Page, including text, photos and videos.'],
     photos: ['Photos', 'Photographs published by this Page.'],
     reels: ['Reels', 'Video posts published by this Page. Videos start muted; use the player controls to unmute.'],
-    mentions: ['Mentions', 'Public posts that mention this Page using its @slug.']
+    mentions: ['Mentions', `Public posts that mention this Page using @${params.get('slug') || 'its page slug'}.`]
   };
 
-  const requestedFilter = document.body?.dataset.pageMediaFilter || params.get('filter') || 'all';
-  let filter = aliases[requestedFilter] || requestedFilter;
+  const bodyFilter = document.body?.dataset.pageMediaFilter;
+  let filter = aliases[bodyFilter || params.get('filter') || 'all'] || bodyFilter || params.get('filter') || 'all';
   if (!routeFiles[filter]) filter = 'all';
 
   const host = $('#page-media-list');
   const back = $('#page-media-back');
   let page = null;
   let ownerView = false;
-
-  function readStoredSlug() {
-    try { return localStorage.getItem('frnxup_last_public_page_slug') || ''; } catch (_) { return ''; }
-  }
-
-  function rememberPage() {
-    try {
-      if (page?.slug) localStorage.setItem('frnxup_last_public_page_slug', page.slug);
-      if (page?.id) localStorage.setItem('frnxup_last_page_id', page.id);
-    } catch (_) { /* Storage is optional; route links still carry their own identifier. */ }
-  }
 
   function routeFor(name) {
     const file = routeFiles[name] || routeFiles.all;
@@ -40,57 +29,25 @@
   }
 
   function setMessage(message, isError = false) {
-    host.innerHTML = `<div class="pages-empty${isError ? ' page-media-error' : ''}">${esc(message)}</div>`;
+    if (/^Loading/i.test(message)) { FXStates.loading(host, { title: 'Loading Page content', message: 'Checking the Page and its published posts.' }); return; }
+    if (isError) { FXStates.fail(host, new Error(message), { retry: init }); return; }
+    FXStates.empty(host, { title: 'No content to show yet', message });
   }
 
-  async function setHeaderImage(selector, path, alt) {
-    const image = $(selector);
-    if (!image) return;
-    image.hidden = true;
-    image.removeAttribute('src');
-    if (!path) return;
-    try {
-      const url = await FX.mediaUrl(path);
-      if (!url) return;
-      image.alt = alt || '';
-      image.onload = () => { image.hidden = false; };
-      image.onerror = () => { image.hidden = true; };
-      image.src = url;
-      if (image.complete && image.naturalWidth > 0) image.hidden = false;
-    } catch (_) { image.hidden = true; }
-  }
-
-  async function updateNavigation() {
+  function updateNavigation() {
     const [title, description] = labels[filter];
     $('#page-media-title').textContent = `${page.name} · ${title}`;
     $('#page-media-description').textContent = filter === 'mentions'
       ? `Public posts that mention @${page.slug}.`
       : description;
     $('#page-media-slug').textContent = `@${page.slug}`;
-
     const avatar = $('#page-media-avatar');
-    if (avatar) {
+    if (page.avatar_path && avatar) {
+      FX.mediaUrl(page.avatar_path).then((url) => {
+        if (url) avatar.innerHTML = `<img src="${esc(url)}" alt="${esc(page.name)}">`;
+      }).catch(() => {});
+    } else if (avatar) {
       avatar.textContent = (page.name || 'F').slice(0, 1).toUpperCase();
-      if (page.avatar_path) {
-        try {
-          const url = await FX.mediaUrl(page.avatar_path);
-          if (url) {
-            const img = document.createElement('img');
-            img.src = url;
-            img.alt = page.name;
-            img.loading = 'eager';
-            img.onerror = () => { avatar.textContent = (page.name || 'F').slice(0, 1).toUpperCase(); };
-            avatar.replaceChildren(img);
-          }
-        } catch (_) { /* Keep the Page initial as a safe fallback. */ }
-      }
-    }
-    await setHeaderImage('#page-media-cover-image', page.cover_path, `${page.name} cover`);
-
-    const profileLink = $('#page-media-profile');
-    if (profileLink) {
-      profileLink.href = `/Pages/view.html?slug=${encodeURIComponent(page.slug)}`;
-      profileLink.hidden = false;
     }
     if (back) {
       back.href = ownerView
@@ -106,69 +63,37 @@
     });
   }
 
-  async function loadPageById(id) {
-    return FX.client.from('frnxup_pages')
-      .select('id,owner_user_id,name,slug,category,avatar_path,cover_path,status')
-      .eq('status', 'active').eq('id', id).maybeSingle();
-  }
-
-  async function loadPageBySlug(slug) {
-    return FX.client.from('frnxup_pages')
-      .select('id,owner_user_id,name,slug,category,avatar_path,cover_path,status')
-      .eq('status', 'active').eq('slug', slug).maybeSingle();
-  }
-
   async function resolvePage() {
     if (!FX.client) throw new Error('Frnxup database connection is unavailable. Refresh and try again.');
     await FX.loadUser();
 
-    let requestedId = params.get('id') || params.get('page_id');
-    let requestedSlug = params.get('slug') || params.get('page_slug');
+    let requestedId = params.get('id');
+    const requestedSlug = params.get('slug');
     let usedActivePageFallback = false;
-    const rememberedSlug = readStoredSlug();
-    let fallbackSlug = rememberedSlug;
-    if (!fallbackSlug) {
-      try {
-        const referrer = new URL(document.referrer);
-        if (referrer.pathname.endsWith('/Pages/view.html')) fallbackSlug = referrer.searchParams.get('slug') || '';
-      } catch (_) { /* No usable referrer. */ }
-    }
 
-    // Opened media links should always carry an ID or slug. These fallbacks
-    // recover older bookmarks that did not retain the Page identifier.
+    // Older dashboard bookmarks sometimes omit the query parameter. Recover the
+    // last Page selected in the owner dashboard, then verify it belongs to this user.
     if (!requestedId && !requestedSlug) {
       requestedId = FX.activePageId?.() || null;
       usedActivePageFallback = !!requestedId;
-      if (!requestedId) requestedSlug = fallbackSlug;
     }
     if (!requestedId && !requestedSlug) {
-      throw new Error('This media link has no Page ID or slug. Open the Page first, then choose All, Reels or Mentions.');
+      throw new Error('This Page link is missing its Page ID or slug. Open the media section from the Page dashboard again.');
     }
 
-    let result = requestedSlug ? await loadPageBySlug(requestedSlug) : await loadPageById(requestedId);
-    if (result.error) throw new Error(`Unable to load this Page: ${result.error.message}`);
+    let query = FX.client.from('frnxup_pages').select('id,owner_user_id,name,slug,category,avatar_path,cover_path,status').eq('status', 'active');
+    query = requestedSlug ? query.eq('slug', requestedSlug) : query.eq('id', requestedId);
+    const { data, error } = await query.maybeSingle();
+    if (error) throw new Error(`Unable to load this Page: ${error.message}`);
+    if (!data) throw new Error('Page not found or unavailable. Check the Page link and try again.');
 
-    // A stale active-owner ID can exist on a shared device. In that case,
-    // recover the last public Page slug rather than opening the wrong Page.
-    if (usedActivePageFallback && result.data && FX.user?.id !== result.data.owner_user_id && fallbackSlug) {
-      result = await loadPageBySlug(fallbackSlug);
-      if (result.error) throw new Error(`Unable to load this Page: ${result.error.message}`);
-      usedActivePageFallback = false;
+    const isOwner = !!FX.user && FX.user.id === data.owner_user_id;
+    if (usedActivePageFallback && !isOwner) {
+      throw new Error('The saved active Page is not owned by this account. Open the correct Page dashboard and try again.');
     }
-    if (!result.data && requestedId && fallbackSlug) {
-      result = await loadPageBySlug(fallbackSlug);
-      if (result.error) throw new Error(`Unable to load this Page: ${result.error.message}`);
-      usedActivePageFallback = false;
-    }
-    if (!result.data) throw new Error('Page not found or unavailable. Check the Page link and try again.');
-
-    page = result.data;
-    ownerView = !!FX.user && FX.user.id === page.owner_user_id;
-    if (usedActivePageFallback && !ownerView) {
-      throw new Error('The saved active Page is not owned by this account. Open the public Page link and try again.');
-    }
+    page = data;
+    ownerView = isOwner;
     if (ownerView) FX.setActivePage?.(page.id);
-    rememberPage();
   }
 
   async function getMediaByPost(posts) {
@@ -207,6 +132,7 @@
       .limit(100);
 
     if (filter === 'mentions') {
+      // Match the same @slug convention used by the Page's Review posts and tags screen.
       query = query.is('page_id', null)
         .eq('visibility', 'public')
         .ilike('body', `%@${page.slug}%`);
@@ -260,10 +186,11 @@
         ? (profile.display_name || profile.username || 'Frnxup member')
         : page.name;
       const mediaMarkup = media.map((item) => item.type === 'video'
-        ? `<video class="page-media-content" controls playsinline preload="metadata" src="${esc(item.url)}" aria-label="Page Reel"></video>`
+        ? `<video class="page-media-content" controls autoplay muted loop playsinline preload="metadata" src="${esc(item.url)}" aria-label="Page Reel"></video>`
         : `<img class="page-media-content" loading="lazy" decoding="async" src="${esc(item.url)}" alt="Photo published by ${esc(page.name)}">`
       ).join('');
 
+      // Photos/Reels show only matching media. All/Mentions also preserve text-only posts.
       if ((filter === 'photos' || filter === 'reels') && !media.length) continue;
       if (!media.length && !post.body) continue;
       const bodyText = post.body ? `<p class="page-media-post-text">${esc(post.body)}</p>` : '';
@@ -277,15 +204,14 @@
       setMessage(filter === 'photos' ? 'No photos are available for this Page yet.' : 'No Reels are available for this Page yet.');
       return;
     }
-    host.innerHTML = cards.join('');
+    host.innerHTML = cards.join('');FXStates.loaded(host);
   }
 
   async function init() {
     try {
-      setMessage('Loading Page content…');
+      setMessage('Loading Page media…');
       await resolvePage();
-      await updateNavigation();
-      document.body.classList.add('fx-page-media-ready');
+      updateNavigation();
       const posts = await queryPosts();
       await renderPosts(posts);
     } catch (error) {
