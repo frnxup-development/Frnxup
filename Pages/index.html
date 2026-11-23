@@ -1,8 +1,34 @@
-<!doctype html><html lang="en"><head><script src="/js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d17"><title>Your Pages · Frnxup</title><link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Pages/css/pages.css"></head><body>
-<div data-frnxup-shell></div><main class="pages-wrap"><div class="pages-top"><div><h1>Pages</h1><p>Create a public Frnxup identity for your business, brand, organization or community.</p></div><button class="pages-button primary" id="create-page-open" type="button" aria-controls="create-page-modal">＋ Create Page</button></div>
-<nav class="pages-tabs" aria-label="Pages sections"><button class="active" data-tab="owned">▣ Your Pages</button><button data-tab="invites">♧ Invitations <span id="invite-count"></span></button><button data-tab="followed">＋ Followed Pages</button></nav>
-<section class="pages-section" id="owned-panel"><h2>Your Pages</h2><div id="owned-pages" class="pages-grid"><div class="pages-empty">Loading your pages…</div></div></section>
-<section class="pages-section" id="invites-panel" hidden><h2>Page invitations</h2><div id="page-invites" class="pages-grid"></div></section>
-<section class="pages-section" id="followed-panel" hidden><h2>Followed Pages</h2><div id="followed-pages" class="pages-grid"></div></section></main>
-<div class="pages-modal-backdrop" id="create-page-modal"><form class="pages-modal" id="create-page-form"><h2>Create your Frnxup Page</h2><div class="pages-form-grid"><div class="pages-field full"><label for="new-page-name">Page name</label><input id="new-page-name" maxlength="80" required placeholder="e.g. Parrothit News"></div><div class="pages-field"><label for="new-page-slug">Personalized page link</label><input id="new-page-slug" maxlength="40" required pattern="[a-z0-9-]{3,40}" placeholder="parrothit-news"><small>frnxup.com/Pages/view.html?slug=…</small></div><div class="pages-field"><label for="new-page-category">Category</label><select id="new-page-category"><option>Media/news company</option><option>Business</option><option>Education</option><option>Entertainment</option><option>Creator</option><option>Community</option><option>Non-profit organization</option><option>Other</option></select></div><div class="pages-field full"><label for="new-page-about">Description</label><textarea id="new-page-about" maxlength="3000" placeholder="Tell people what this page is about"></textarea></div></div><p class="pages-message" id="create-page-message"></p><div class="pages-modal-actions"><button class="pages-button secondary" type="button" data-close-create>Cancel</button><button class="pages-button primary" type="submit" id="create-page-submit">Create Page</button></div></form></div>
-<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script><script src="/js/media-tools.js"></script><script src="/Pages/js/pages.js?v=20261123-create-page-fix"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="/js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080d17">
+  <title>Your Pages · Frnxup</title>
+  <link rel="stylesheet" href="/Css/app.css">
+  <link rel="stylesheet" href="/Pages/css/pages.css"><link rel="stylesheet" href="/Pages/css/pages-hub.css?v=20261123-1">
+</head>
+<body>
+  <div data-frnxup-shell></div>
+  <main class="pages-wrap pages-hub">
+    <div class="pages-top">
+      <div><span class="pages-eyebrow">YOUR FRNXUP IDENTITIES</span><h1>Pages</h1><p>Manage the public identities you own on Frnxup.</p></div>
+      <a class="pages-button primary pages-create-link" href="/Pages/create.html">＋ Create Page</a>
+    </div>
+    <nav class="pages-quick-links" aria-label="Pages navigation">
+      <a class="pages-quick-card" href="/Pages/create.html"><span class="pages-quick-icon">＋</span><span><b>Create Page</b><small>Set up a public identity for your brand or community.</small></span><strong>›</strong></a>
+      <a class="pages-quick-card" href="/Pages/invitations.html"><span class="pages-quick-icon">♧</span><span><b>Invitations</b><small>Review invitations to follow other Pages.</small></span><strong>›</strong></a>
+      <a class="pages-quick-card" href="/Pages/followed.html"><span class="pages-quick-icon">▣</span><span><b>Followed Pages</b><small>View and manage Pages you follow.</small></span><strong>›</strong></a>
+    </nav>
+    <section class="pages-section">
+      <div class="pages-section-heading"><div><span class="pages-eyebrow">YOUR WORKSPACE</span><h2>Your Pages</h2></div><a class="pages-text-link" href="/Pages/create.html">＋ Create another Page</a></div>
+      <div id="owned-pages" class="pages-grid" aria-live="polite"><div class="pages-empty">Loading your Pages…</div></div>
+    </section>
+  </main>
+  <div id="fx-toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script>
+  <script src="/Pages/js/pages-hub.js?v=20261123-1"></script>
+</body>
+</html>

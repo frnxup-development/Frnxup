@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="/js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d17">
+  <title>Create a Page · Frnxup</title><link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Pages/css/pages.css"><link rel="stylesheet" href="/Pages/css/pages-hub.css?v=20261123-1">
+</head>
+<body>
+  <div data-frnxup-shell></div>
+  <main class="pages-wrap pages-form-screen">
+    <a class="pages-back-link" href="/Pages/index.html">‹ Back to Your Pages</a>
+    <div class="pages-form-intro"><span class="pages-eyebrow">BUILD YOUR PRESENCE</span><h1>Create your Frnxup Page</h1><p>Give your business, brand, organization or community a public home on Frnxup.</p></div>
+    <form class="pages-create-form page-box" id="create-page-form" novalidate>
+      <div class="pages-form-grid">
+        <div class="pages-field full"><label for="new-page-name">Page name <span aria-hidden="true">*</span></label><input id="new-page-name" name="name" maxlength="80" minlength="2" required autocomplete="organization" placeholder="e.g. Parrothit News"><small>Choose a clear name people will recognize.</small></div>
+        <div class="pages-field full"><label for="new-page-slug">Personalized Page link <span aria-hidden="true">*</span></label><div class="pages-slug-field"><span>frnxup.com/Pages/view.html?slug=</span><input id="new-page-slug" name="slug" maxlength="40" minlength="3" pattern="[a-z0-9-]{3,40}" required placeholder="your-page-name" autocomplete="off"></div><small>Use 3–40 lowercase letters, numbers or hyphens. This link must be unique.</small></div>
+        <div class="pages-field full"><label for="new-page-category">Category</label><select id="new-page-category" name="category"><option>Media/news company</option><option>Business</option><option>Education</option><option>Entertainment</option><option>Creator</option><option>Community</option><option>Non-profit organization</option><option>Other</option></select></div>
+        <div class="pages-field full"><label for="new-page-about">Description</label><textarea id="new-page-about" name="about" maxlength="3000" rows="5" placeholder="Tell people what your Page is about (optional)."></textarea><small>Up to 3,000 characters.</small></div>
+      </div>
+      <div id="create-page-message" class="pages-form-feedback" role="status" aria-live="polite"></div>
+      <div class="pages-create-actions"><a class="pages-button secondary" href="/Pages/index.html">Cancel</a><button class="pages-button primary" type="submit" id="create-page-submit">Create Page</button></div>
+    </form>
+  </main>
+  <div id="fx-toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script>
+  <script src="/Pages/js/pages-hub.js?v=20261123-1"></script>
+</body>
+</html>
