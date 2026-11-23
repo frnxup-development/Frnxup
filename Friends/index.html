@@ -1,41 +1,28 @@
-<!doctype html><html><head>
-<script>
-(() => {
-  const path = location.pathname;
-  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
-  if (publicEntry) return;
-
-  const html = document.documentElement;
-  html.classList.add('fx-auth-pending');
-  const style = document.createElement('style');
-  style.textContent = `
-    html.fx-auth-pending, html.fx-auth-pending body { background: #f7fbfc !important; }
-    html.fx-auth-pending body { visibility: hidden !important; }
-    html.fx-auth-pending::before {
-      content: ''; position: fixed; inset: 0; z-index: 2147483646;
-      background: #f7fbfc url('/Asset/frnxup-mark.svg') center calc(50% - 25px) / 76px 76px no-repeat;
-    }
-    html.fx-auth-pending::after {
-      content: 'Loading'; position: fixed; z-index: 2147483647;
-      top: calc(50% + 34px); left: 50%; transform: translateX(-50%);
-      color: #31555d; font: 600 14px system-ui, sans-serif; letter-spacing: .04em;
-      animation: frnxup-loading-pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes frnxup-loading-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
-  `;
-  document.head.appendChild(style);
-
-  // Never leave a visitor on an endless loader if a script or auth request fails.
-  window.__frnxupAuthGateTimer = window.setTimeout(() => {
-    if (!html.classList.contains('fx-auth-pending')) return;
-    const next = location.pathname + location.search + location.hash;
-    const login = new URL('/Auth/index.html', location.origin);
-    login.searchParams.set('next', next || '/');
-    login.searchParams.set('sessionCheck', 'timeout');
-    location.replace(login.toString());
-  }, 12000);
-})();
-</script>
-
-<script src="../js/theme.js"></script>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Friends · Frnxup</title><link rel="stylesheet" href="../Css/app.css"></head><body><div data-frnxup-shell></div><main class="page"><div class="page-heading"><div><span class="eyebrow">YOUR CIRCLE</span><h1>Friends</h1><p>Connect with people and grow your community.</p></div><a class="button primary" href="suggestions.html">Find friends</a></div><div class="grid-cards"><section class="card" style="padding:16px"><h3>My friends</h3><div id="my-friends" class="list"><div class="empty">Sign in to see your friends.</div></div></section><section class="card" style="padding:16px"><h3>Friend requests</h3><div id="friend-requests" class="list"><div class="empty">No requests loaded.</div></div></section><section class="card" style="padding:16px"><h3>Sent requests</h3><div id="sent-requests" class="list"><div class="empty">No sent requests loaded.</div></div></section></div></main><div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script src="../js/friends.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="../js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Friends · Frnxup</title>
+  <link rel="stylesheet" href="../Css/app.css">
+</head>
+<body data-friends-view="hub">
+  <div data-frnxup-shell></div>
+  <main class="page fx-friends-page">
+    <div class="page-heading">
+      <div><span class="eyebrow">YOUR CIRCLE</span><h1>Friends</h1><p>Manage your connections and grow your community.</p></div>
+      <a class="button primary" href="suggestions.html">Find friends</a>
+    </div>
+    <div class="fx-friends-hub">
+      <a class="card fx-friends-hub-card" href="my-friends.html"><span class="fx-friends-hub-icon">♧</span><span><b>My friends</b><small>View and manage people you are connected with.</small></span><strong>›</strong></a>
+      <a class="card fx-friends-hub-card" href="requests.html"><span class="fx-friends-hub-icon">＋</span><span><b>Friend requests</b><small>Review requests people have sent to you.</small></span><strong>›</strong></a>
+      <a class="card fx-friends-hub-card" href="sent-requests.html"><span class="fx-friends-hub-icon">↗</span><span><b>Sent requests</b><small>Check or cancel your pending requests.</small></span><strong>›</strong></a>
+      <a class="card fx-friends-hub-card" href="blocked.html"><span class="fx-friends-hub-icon">⊘</span><span><b>Blocked members</b><small>Review blocked accounts and unblock them at any time.</small></span><strong>›</strong></a>
+    </div>
+  </main>
+  <div id="fx-toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script src="../js/friends.js"></script>
+</body>
+</html>
