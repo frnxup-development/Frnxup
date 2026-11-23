@@ -52,6 +52,25 @@
       <div class="field"><label for="new-password">New password (minimum 8 characters)</label><input type="password" id="new-password" minlength="8" autocomplete="new-password"></div>
       <button class="button primary" id="change-password" type="button">Update password</button>
       <div class="divider"></div>
+      <h3>Phone two-step verification</h3>
+      <p class="muted" style="font-size:13px;line-height:1.6">Add a phone you control. Frnxup will ask for a second code when you sign in or reset your password. WhatsApp is recommended; SMS is available as a fallback.</p>
+      <div id="phone-security-enabled" hidden style="padding:14px;border:1px solid #c9e6d4;border-radius:12px;margin:12px 0">
+        <strong>✓ Phone verification enabled</strong>
+        <p class="muted" style="margin:7px 0">Verified phone: <span id="phone-security-number"></span></p>
+        <button class="button danger" id="phone-remove" type="button">Remove phone verification</button>
+      </div>
+      <form id="phone-setup-form">
+        <div class="field"><label for="phone-number">Phone number (international format)</label><input id="phone-number" type="tel" inputmode="tel" autocomplete="tel" placeholder="+2348012345678" maxlength="16" required></div>
+        <div class="field"><label for="phone-channel">Code delivery</label><select id="phone-channel"><option value="whatsapp" selected>WhatsApp (recommended)</option><option value="sms">SMS</option></select></div>
+        <button class="button primary" id="phone-enroll" type="submit">Send verification code</button>
+      </form>
+      <form id="phone-code-form" hidden>
+        <div class="field" id="phone-code-wrap" hidden><label for="phone-code">6-digit verification code</label><input id="phone-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000"></div>
+        <button class="button primary" id="phone-verify" type="submit">Verify phone number</button>
+        <button class="button subtle" id="phone-resend" type="button">Send code again</button>
+      </form>
+      <p id="phone-security-msg" class="status-line" aria-live="polite"></p>
+      <div class="divider"></div>
       <h3>Sessions</h3><p class="muted" style="font-size:11px">You can sign out this browser or all active devices.</p>
       <button class="button danger" id="signout-all" type="button">Sign out all sessions</button>
       <div class="divider"></div>
@@ -62,6 +81,6 @@
   </main>
   <div id="fx-toast" class="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script src="../js/dashboard.js"></script>
+  <script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script src="../js/dashboard.js"></script><script src="../js/security-mfa.js"></script>
 </body>
 </html>
