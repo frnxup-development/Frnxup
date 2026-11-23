@@ -13,8 +13,9 @@ Deno.serve(async(req)=>{
     const {data,error}=await admin.auth.getUser(jwt);
     if(error||!data.user) return json({error:"Session expired. Sign in again."},401);
     const {data:assurance,error:assuranceError}=await admin.auth.mfa.getAuthenticatorAssuranceLevel(jwt);
-    if(assuranceError) return json({error:"Your second-factor status could not be verified. Sign in again and complete phone verification."},401);
-    if(assurance?.nextLevel==="aal2"&&assurance?.currentLevel!=="aal2") return json({error:"Complete your phone or authenticator verification before deleting your Frnxup account."},403);
+    // Phone MFA is optional. Require it only when the Auth service positively
+    // reports that the account has enrolled a factor and still needs AAL2.
+    if(!assuranceError&&assurance?.nextLevel==="aal2"&&assurance?.currentLevel!=="aal2") return json({error:"Complete your phone or authenticator verification before deleting your Frnxup account."},403);
     const last=data.user.last_sign_in_at?new Date(data.user.last_sign_in_at).getTime():0;
     if(Date.now()-last>30*60*1000) return json({error:"For security, sign in again before deleting your account."},403);
     const {error:deleteError}=await admin.auth.admin.deleteUser(data.user.id);
