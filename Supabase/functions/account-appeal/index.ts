@@ -40,20 +40,47 @@ async function sha256(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function makeReferenceNumber(): string {
+  const bytes = new Uint8Array(9);
+  crypto.getRandomValues(bytes);
+  const digits = Array.from(bytes, (byte) => String(byte % 10)).join("");
+  return `FRN-${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 9)}`;
+}
+
+function publicStatus(status: string): string {
+  if (status === "pending") return "Pending";
+  if (status === "rejected" || status === "upheld") return "Appeal rejected";
+  if (status === "approved") return "Appeal approved";
+  if (status === "reactivated" || status === "reinstated") return "Frnxup user reactivated";
+  return "Under review";
+}
+
+async function consumeLookupQuota(admin: AdminClient, key: string): Promise<boolean> {
+  const keyHash = await sha256(key);
+  const { data, error } = await admin.rpc("consume_account_appeal_lookup_quota", {
+    p_key_hash: keyHash,
+    p_now: new Date().toISOString()
+  });
+  if (error) throw error;
+  return data === true;
+}
+
 async function validateTicket(admin: AdminClient, ticket: string) {
-  if (!/^[a-f0-9]{64}$/i.test(ticket)) throw new Error("This appeal page is locked. Return to Frnxup login and sign in with the suspended account to unlock it.");
+  if (!/^[a-f0-9]{64}$/i.test(ticket)) {
+    throw new Error("This appeal page is locked. Return to Frnxup login and sign in with the restricted account to unlock it.");
+  }
   const tokenHash = await sha256(ticket);
   const { data: grant, error: grantError } = await admin.from("account_appeal_access_tokens")
     .select("token_hash,user_id,expires_at,used_at").eq("token_hash", tokenHash).maybeSingle();
   if (grantError) throw grantError;
   if (!grant || grant.used_at || new Date(grant.expires_at).getTime() <= Date.now()) {
-    throw new Error("Your secure appeal access has expired or has already been used. Return to Frnxup login and verify the suspended account again.");
+    throw new Error("Your secure appeal access has expired or has already been used. Return to Frnxup login and verify the restricted account again.");
   }
   const typedGrant = grant as Grant;
   const { data: profile, error: profileError } = await admin.from("profiles")
     .select("id,username,display_name,account_status,role").eq("id", typedGrant.user_id).maybeSingle();
   if (profileError) throw profileError;
-  if (!profile || profile.account_status !== "suspended") {
+  if (!profile || !["suspended", "banned"].includes(profile.account_status)) {
     throw new Error("This account is no longer eligible to submit an appeal. Contact frnxup@gmail.com for assistance.");
   }
   if (["owner", "admin", "moderator"].includes(profile.role)) {
@@ -66,6 +93,53 @@ function safeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100) || "document";
 }
 
+async function lookupAppealStatus(admin: AdminClient, body: any, req: Request) {
+  const reference = String(body?.reference_number || "").trim().toUpperCase();
+  const email = String(body?.email || "").trim().toLowerCase();
+  if (!/^FRN-\d{3}-\d{3}-\d{3}$/.test(reference) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return json({ error: "Enter a valid appeal reference number and the registered email address." }, 400);
+  }
+  const ip = (req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim().slice(0, 80);
+  if (!await consumeLookupQuota(admin, `status|${ip}|${email}`)) {
+    return json({ error: "Too many status checks. Please wait 15 minutes and try again." }, 429);
+  }
+  const { data: appeal, error } = await admin.from("account_appeals")
+    .select("reference_number,status,created_at,reviewed_at")
+    .eq("reference_number", reference).eq("contact_email", email).maybeSingle();
+  if (error) throw error;
+  if (!appeal) return json({ error: "We could not match that reference number and registered email. Check both details and try again." }, 404);
+  return json({ ok: true, reference_number: appeal.reference_number, status: publicStatus(appeal.status), status_code: appeal.status, submitted_at: appeal.created_at, reviewed_at: appeal.reviewed_at || null });
+}
+
+async function recoverAppealReference(admin: AdminClient, body: any, req: Request) {
+  const email = String(body?.email || "").trim().toLowerCase();
+  const username = String(body?.username || "").trim().replace(/^@/, "").toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^[a-z0-9_]{3,24}$/.test(username)) {
+    return json({ error: "Enter the registered email address and Frnxup username." }, 400);
+  }
+  const ip = (req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim().slice(0, 80);
+  if (!await consumeLookupQuota(admin, `recover|${ip}|${email}`)) {
+    return json({ error: "Too many reference recovery attempts. Please wait 15 minutes and try again." }, 429);
+  }
+  const { data: profile, error: profileError } = await admin.from("profiles")
+    .select("id,username").eq("username", username).maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile) return json({ error: "We could not verify those details. Check the registered email and username, then try again." }, 404);
+  const { data: authRecord, error: authError } = await admin.auth.admin.getUserById(profile.id);
+  if (authError) throw authError;
+  const registeredEmail = String(authRecord?.user?.email || "").trim().toLowerCase();
+  if (!registeredEmail || registeredEmail !== email) {
+    return json({ error: "We could not verify those details. Check the registered email and username, then try again." }, 404);
+  }
+  const { data: appeal, error } = await admin.from("account_appeals")
+    .select("reference_number,status,created_at")
+    .eq("user_id", profile.id).not("reference_number", "is", null)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw error;
+  if (!appeal?.reference_number) return json({ error: "We could not find an appeal reference for those details. Submit an appeal first or contact frnxup@gmail.com." }, 404);
+  return json({ ok: true, reference_number: appeal.reference_number, status: publicStatus(appeal.status), message: "Your existing appeal reference has been recovered. Keep it safe for future status checks." });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -74,18 +148,20 @@ Deno.serve(async (req) => {
     const url = Deno.env.get("SUPABASE_URL");
     const serviceKey = readServiceKey();
     if (!url || !serviceKey) return json({ error: "The secure appeal service is not configured." }, 503);
-    const ticket = req.headers.get("x-frnxup-appeal-ticket") || "";
-    if (!ticket) return json({ error: "This appeal page is locked. Return to Frnxup login and verify the suspended account first." }, 401);
-
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { grant, profile } = await validateTicket(admin, ticket);
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("application/json")) {
       const body = await req.json();
+      if (body?.action === "check_status") return await lookupAppealStatus(admin, body, req);
+      if (body?.action === "recover_reference") return await recoverAppealReference(admin, body, req);
+
+      const ticket = req.headers.get("x-frnxup-appeal-ticket") || "";
+      if (!ticket) return json({ error: "This appeal page is locked. Return to Frnxup login and verify the restricted account first." }, 401);
+      const { grant, profile } = await validateTicket(admin, ticket);
       if (body?.action !== "verify") return json({ error: "Unsupported appeal request." }, 400);
       const { data: history, error: historyError } = await admin.from("account_appeals")
-        .select("status,review_note,created_at,reviewed_at")
+        .select("reference_number,status,review_note,created_at,reviewed_at")
         .eq("user_id", grant.user_id).order("created_at", { ascending: false }).limit(10);
       if (historyError) throw historyError;
       return json({
@@ -96,6 +172,9 @@ Deno.serve(async (req) => {
     }
 
     if (!contentType.includes("multipart/form-data")) return json({ error: "The appeal form was not submitted in the expected format." }, 400);
+    const ticket = req.headers.get("x-frnxup-appeal-ticket") || "";
+    if (!ticket) return json({ error: "This appeal page is locked. Return to Frnxup login and verify the restricted account first." }, 401);
+    const { grant, profile } = await validateTicket(admin, ticket);
     const form = await req.formData();
     const reason = String(form.get("reason") || "").trim();
     const idType = String(form.get("identity_type") || "");
@@ -138,6 +217,7 @@ Deno.serve(async (req) => {
     const bucket = admin.storage.from("account-appeals");
     const stored: Array<{ path: string; label: string; original_name: string; mime_type: string }> = [];
     let appealInserted = false;
+    let referenceNumber = "";
 
     try {
       for (const entry of files) {
@@ -159,19 +239,24 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { error: insertError } = await admin.from("account_appeals").insert({
-        id: appealId,
-        user_id: grant.user_id,
-        reason,
-        status: "pending",
-        contact_email: authRecord.user?.email?.toLowerCase() || null,
-        evidence_paths: stored
-      });
-      if (insertError) throw insertError;
-      appealInserted = true;
+      let insertError: any = null;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        referenceNumber = makeReferenceNumber();
+        const { error } = await admin.from("account_appeals").insert({
+          id: appealId,
+          user_id: grant.user_id,
+          reason,
+          status: "pending",
+          contact_email: authRecord.user?.email?.toLowerCase() || null,
+          evidence_paths: stored,
+          reference_number: referenceNumber
+        });
+        insertError = error;
+        if (!error) { appealInserted = true; break; }
+        if (error.code !== "23505") break;
+      }
+      if (!appealInserted) throw insertError || new Error("Could not allocate a unique appeal reference number. Please try again.");
 
-      // A pending appeal prevents a second submission even if token cleanup
-      // encounters a transient database error.
       const { error: consumeError } = await admin.from("account_appeal_access_tokens")
         .update({ used_at: new Date().toISOString() })
         .eq("token_hash", grant.token_hash).is("used_at", null);
@@ -189,11 +274,16 @@ Deno.serve(async (req) => {
         actor_id: null,
         type: "account_appeal_submitted",
         title: "New account appeal submitted",
-        body: `@${profile.username} submitted a complete account appeal. Open Admin → Appeals to review it.`
+        body: `@${profile.username} submitted appeal ${referenceNumber}. Open Admin → Appeals to review it.`
       })));
     }
 
-    return json({ ok: true, appeal_id: appealId, message: "Your appeal and all required documents have been submitted securely. The Frnxup team will review your submission." });
+    return json({
+      ok: true,
+      appeal_id: appealId,
+      reference_number: referenceNumber,
+      message: "Your appeal and all required documents have been submitted securely. Save your reference number to check the appeal status later."
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to submit your appeal.";
     const status = message.toLowerCase().includes("expired") || message.toLowerCase().includes("locked") ? 401 : 400;
