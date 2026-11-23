@@ -106,6 +106,134 @@
     }
   }
 
+  function setupSuggestionCarousel(root) {
+    const section = root?.querySelector('.people-suggestions');
+    const track = section?.querySelector('.suggestion-track');
+    const previous = section?.querySelector('[data-suggestion-scroll="prev"]');
+    const next = section?.querySelector('[data-suggestion-scroll="next"]');
+    if (!section || !track || !previous || !next || track.dataset.carouselReady === 'true') return;
+
+    const cards = () => Array.from(track.querySelectorAll('.suggestion-card'));
+    const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    const reducedMotion = () => Boolean(motionPreference?.matches);
+    let autoplayTimer = null;
+    let resumeTimer = null;
+    let hovering = false;
+    let focused = false;
+    let interacting = false;
+    let pageVisible = !document.hidden;
+
+    track.dataset.carouselReady = 'true';
+    section.setAttribute('role', 'region');
+    section.setAttribute('aria-roledescription', 'carousel');
+    section.setAttribute('aria-label', 'People you may know');
+    track.setAttribute('aria-live', 'off');
+
+    function maxScroll() {
+      return Math.max(0, track.scrollWidth - track.clientWidth);
+    }
+
+    function updateControls() {
+      const canMove = cards().length > 1 && maxScroll() > 2;
+      previous.disabled = !canMove;
+      next.disabled = !canMove;
+      previous.setAttribute('aria-disabled', String(!canMove));
+      next.setAttribute('aria-disabled', String(!canMove));
+      section.classList.toggle('suggestions-can-slide', canMove);
+    }
+
+    function move(direction, automatic = false) {
+      const list = cards();
+      const maximum = maxScroll();
+      if (list.length < 2 || maximum <= 2) {
+        updateControls();
+        return;
+      }
+      const firstCard = list[0];
+      const cardWidth = firstCard?.getBoundingClientRect().width || 270;
+      const gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap) || 13;
+      const step = cardWidth + gap;
+      const current = Math.max(0, track.scrollLeft);
+      let target;
+      if (direction > 0) target = current >= maximum - 3 ? 0 : Math.min(maximum, current + step);
+      else target = current <= 3 ? maximum : Math.max(0, current - step);
+      track.scrollTo({ left: target, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      if (automatic) track.setAttribute('aria-label', 'People you may know. Automatically showing suggested members.');
+    }
+
+    function clearAutoplay() {
+      if (autoplayTimer) window.clearTimeout(autoplayTimer);
+      autoplayTimer = null;
+    }
+
+    function canAutoplay() {
+      return !reducedMotion() && pageVisible && !hovering && !focused && !interacting && cards().length > 1 && maxScroll() > 2;
+    }
+
+    function scheduleAutoplay(delay = 4300) {
+      clearAutoplay();
+      if (!canAutoplay()) return;
+      autoplayTimer = window.setTimeout(() => {
+        if (!canAutoplay()) return;
+        move(1, true);
+        scheduleAutoplay(4300);
+      }, delay);
+    }
+
+    function pauseForInteraction() {
+      interacting = true;
+      clearAutoplay();
+      if (resumeTimer) window.clearTimeout(resumeTimer);
+    }
+
+    function resumeAfterInteraction() {
+      if (resumeTimer) window.clearTimeout(resumeTimer);
+      resumeTimer = window.setTimeout(() => {
+        interacting = false;
+        scheduleAutoplay(1800);
+      }, 7000);
+    }
+
+    previous.addEventListener('click', () => { move(-1); scheduleAutoplay(6500); });
+    next.addEventListener('click', () => { move(1); scheduleAutoplay(6500); });
+    track.addEventListener('scroll', updateControls, { passive: true });
+    section.addEventListener('mouseenter', () => { hovering = true; clearAutoplay(); });
+    section.addEventListener('mouseleave', () => { hovering = false; scheduleAutoplay(1800); });
+    section.addEventListener('focusin', () => { focused = true; clearAutoplay(); });
+    section.addEventListener('focusout', () => {
+      window.setTimeout(() => {
+        focused = section.contains(document.activeElement);
+        if (!focused) scheduleAutoplay(2500);
+      }, 0);
+    });
+    section.addEventListener('touchstart', pauseForInteraction, { passive: true });
+    section.addEventListener('touchend', resumeAfterInteraction, { passive: true });
+    section.addEventListener('touchcancel', resumeAfterInteraction, { passive: true });
+    section.addEventListener('pointerdown', pauseForInteraction, { passive: true });
+    section.addEventListener('pointerup', resumeAfterInteraction, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      pageVisible = !document.hidden;
+      if (pageVisible) scheduleAutoplay(1800);
+      else clearAutoplay();
+    });
+    motionPreference?.addEventListener?.('change', () => {
+      if (reducedMotion()) clearAutoplay();
+      else scheduleAutoplay(1800);
+    });
+
+    if ('ResizeObserver' in window) {
+      const observer = new ResizeObserver(updateControls);
+      observer.observe(track);
+      observer.observe(section);
+    } else {
+      window.addEventListener('resize', updateControls, { passive: true });
+    }
+    window.requestAnimationFrame(() => {
+      updateControls();
+      scheduleAutoplay(4300);
+    });
+  }
+
   async function loadSuggestions() {
     const { data, error } = await FX.client.rpc('frnxup_friend_suggestions', { p_limit: 8 });
     if (error || !data?.length) return '';
@@ -117,8 +245,8 @@
       avatar_url: paths.get(person.id) ? await FX.mediaUrl(paths.get(person.id)) : ''
     })));
     return `<section class="people-suggestions">
-      <div class="suggestions-heading"><h2>People you may know <span aria-label="Suggestions based on your network">i</span></h2><div class="suggestion-heading-actions"><a href="/Friends/suggestions.html" aria-label="See all suggestions">See all</a><button type="button" data-suggestion-scroll="prev" aria-label="Scroll suggestions left">‹</button><button type="button" data-suggestion-scroll="next" aria-label="Scroll suggestions right">›</button></div></div>
-      <div class="suggestion-track-wrap"><div class="suggestion-track">${rows.map(person => {
+      <div class="suggestions-heading"><h2>People you may know <span aria-label="Suggestions based on your network">i</span></h2><div class="suggestion-heading-actions"><a href="/Friends/suggestions.html" aria-label="See all suggestions">See all</a><button type="button" data-suggestion-scroll="prev" aria-label="Show previous people" title="Previous people">‹</button><button type="button" data-suggestion-scroll="next" aria-label="Show next people" title="Next people">›</button></div></div>
+      <div class="suggestion-track-wrap"><div class="suggestion-track" tabindex="0" aria-label="Swipe or scroll horizontally to see suggested members">${rows.map(person => {
         const name = person.display_name || person.username || 'Frnxup member';
         const count = Number(person.mutual_count || person.mutual_friends || 0);
         return `<article class="suggestion-card" data-suggestion="${person.id}">
@@ -176,6 +304,7 @@
       host.innerHTML = (suggestionMarkup || '') + '<div class="messages-empty">No conversations yet. Start a private message with one friend or create a group chat.</div>';
     }
     if (!suggestionMarkup && !rendered.length) host.innerHTML = '<div class="messages-empty">No conversations or friend suggestions yet.</div>';
+    setupSuggestionCarousel(host);
   }
 
   async function addFriend(id, button) {
@@ -365,11 +494,6 @@
           const card = dismiss.closest('.suggestion-card');
           card?.remove();
           return;
-        }
-        const scrollButton = event.target.closest('[data-suggestion-scroll]');
-        if (scrollButton) {
-          const track = $('#conversation-list .suggestion-track');
-          if (track) track.scrollBy({ left: (scrollButton.dataset.suggestionScroll === 'prev' ? -1 : 1) * Math.max(250, track.clientWidth * 0.78), behavior: 'smooth' });
         }
       });
       return;
