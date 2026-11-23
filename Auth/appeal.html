@@ -23,8 +23,8 @@
   <main class="appeal-wrap">
     <a class="appeal-brand" href="/Auth/index.html"><img src="../Asset/frnxup-mark.svg" alt=""><span>Frnxup</span></a>
     <section class="appeal-card">
-      <h1>Appeal a suspended account</h1>
-      <p class="appeal-intro">This secure form is available only after Frnxup verifies the correct password for a suspended account. Your appeal and documents will be attached to that account.</p>
+      <h1>Appeal a restricted account</h1>
+      <p class="appeal-intro">This secure form is available only after Frnxup verifies the correct password for a suspended or banned account. Your appeal and required documents will be attached to that account.</p>
 
       <div id="appeal-state" class="appeal-state" role="status" aria-live="polite">Checking your secure appeal access…</div>
       <div id="appeal-account" class="appeal-note appeal-hidden"></div>
@@ -70,6 +70,13 @@
         </form>
       </section>
 
+      <section id="appeal-submitted" class="appeal-note appeal-hidden" aria-live="polite">
+        <strong>Your appeal was submitted successfully.</strong>
+        <p style="margin:8px 0">Save this reference number. You will need it together with your registered email address to check your appeal status.</p>
+        <div id="appeal-reference-number" style="font-size:22px;font-weight:900;letter-spacing:.08em;margin:8px 0 12px"></div>
+        <button id="copy-appeal-reference" type="button" style="margin:0 0 10px">Copy reference number</button>
+        <a class="button primary" href="/Auth/appeal-status.html">Check appeal status</a>
+      </section>
       <section id="appeal-history" class="appeal-history appeal-hidden" aria-live="polite">
         <h2>Your appeal history</h2>
         <div id="appeal-history-list"></div>
@@ -122,7 +129,7 @@
           const card = document.createElement('div');
           card.className = 'appeal-history-item';
           const title = document.createElement('b');
-          title.textContent = item.status === 'pending' ? 'Awaiting review' : item.status === 'reinstated' ? 'Approved — account reinstated' : 'Reviewed — restriction upheld';
+          title.textContent = ({pending:'Pending',rejected:'Appeal rejected',upheld:'Appeal rejected',approved:'Appeal approved',reactivated:'Frnxup user reactivated',reinstated:'Frnxup user reactivated'})[item.status] || 'Appeal reviewed';
           const date = document.createElement('small');
           date.textContent = `Submitted ${new Date(item.created_at).toLocaleString()}`;
           card.append(title, date);
@@ -139,13 +146,13 @@
       async function initialise() {
         const ticket = getTicket();
         if (!ticket) {
-          setState('This appeal page is locked. To access it, return to Frnxup login and enter the correct password for your suspended account. The secure appeal button will appear only after Frnxup verifies that account.', 'error');
+          setState('This appeal page is locked. Return to Frnxup login and sign in with the correct password for the suspended or banned account. Frnxup will unlock this form only after verifying the account.', 'error');
           lockedActions.classList.remove('appeal-hidden');
           return;
         }
         try {
           const data = await callAppealService({ action: 'verify' }, ticket);
-          $('#appeal-account').textContent = `Verified suspended account: @${data.account.username}. Your appeal will be linked to this account.`;
+          $('#appeal-account').textContent = `Verified ${data.account.account_status} account: @${data.account.username}. Your appeal will be linked to this account.`;
           $('#appeal-account').classList.remove('appeal-hidden');
           formSection.classList.remove('appeal-hidden');
           renderHistory(data.history);
@@ -153,7 +160,7 @@
             for (const control of $('#appeal-form').elements) control.disabled = true;
             setState('Your previous appeal is already awaiting review. You cannot submit another appeal until the Frnxup team completes its review.', 'info');
           } else {
-            setState('Your suspended account has been verified. Complete every required field and submit all three documents below.', 'success');
+            setState('Your restricted account has been verified. Complete every required field and submit all three required documents below.', 'success');
           }
         } catch (error) {
           forgetTicket();
@@ -162,13 +169,24 @@
         }
       }
 
+      $('#copy-appeal-reference').addEventListener('click', async () => {
+        const reference = $('#appeal-reference-number').textContent || '';
+        if (!reference || reference === 'Reference unavailable') return;
+        try {
+          await navigator.clipboard.writeText(reference);
+          setState('Your appeal reference number has been copied.', 'success');
+        } catch (_) {
+          setState('Long-press the reference number above to select and copy it.', 'info');
+        }
+      });
+
       $('#appeal-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const form = $('#appeal-form');
         if (!form.reportValidity()) return;
         const ticket = getTicket();
         if (!ticket) {
-          setState('Your secure appeal access has expired. Return to Frnxup login and verify the suspended account again.', 'error');
+          setState('Your secure appeal access has expired. Return to Frnxup login and verify the restricted account again.', 'error');
           formSection.classList.add('appeal-hidden');
           lockedActions.classList.remove('appeal-hidden');
           return;
@@ -181,7 +199,9 @@
           const result = await callAppealService(new FormData(form), ticket, true);
           forgetTicket();
           formSection.classList.add('appeal-hidden');
-          setState(result.message || 'Your complete appeal has been submitted successfully.', 'success');
+          $('#appeal-submitted').classList.remove('appeal-hidden');
+          $('#appeal-reference-number').textContent = result.reference_number || 'Reference unavailable';
+          setState(result.message || 'Your complete appeal has been submitted successfully. Save your reference number.', 'success');
           lockedActions.classList.remove('appeal-hidden');
           lockedActions.querySelector('a').textContent = 'Return to Frnxup login';
         } catch (error) {

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f4f8f5">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Appeal status · Frnxup</title>
+  <link rel="icon" href="../Asset/frnxup-mark.svg">
+  <style>
+    :root{--green:#126b4d;--dark:#19352b;--muted:#687970;--line:#dfe9e3;--surface:#fff;--page:#f1f6f2;--soft:#eef7f1}*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:24px 14px;background:radial-gradient(circle at 50% 0,#e1f0e7,transparent 44%),var(--page);font-family:Inter,system-ui,sans-serif;color:var(--dark)}main{width:min(690px,100%);margin:0 auto}.brand{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--dark);font-weight:900;font-size:22px;margin:3px 0 18px}.brand img{width:42px;height:42px}.card{padding:clamp(20px,4vw,32px);background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:0 15px 50px #1b483013;margin-bottom:16px}h1{font-size:clamp(25px,5vw,32px);margin:0 0 7px}.intro{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 21px}.field{margin:13px 0}.field label{display:block;font-weight:750;font-size:13px;margin-bottom:6px}.field input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;font:inherit;color:var(--dark);background:#fff}.field input:focus{outline:3px solid #126b4d24;border-color:var(--green)}button,.button{border:0;border-radius:12px;padding:13px 17px;background:var(--green);color:#fff;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:46px}button:disabled{opacity:.55;cursor:wait}.secondary{background:#edf5ef;color:#28543f;border:1px solid var(--line)}.actions{display:flex;gap:10px;flex-wrap:wrap}.state{display:none;padding:12px 14px;border-radius:12px;margin:14px 0;font-size:13px;line-height:1.55}.state.show{display:block}.state.error{background:#fff0ed;color:#8b352a}.state.success{background:#eaf7ee;color:#1b613a}.state.info{background:#eef5ff;color:#24528c}.result{display:none;margin-top:15px;padding:17px;border-radius:15px;background:var(--soft);border:1px solid #d6e9dc}.result.show{display:block}.result small{display:block;color:var(--muted);margin-bottom:6px}.ref{font-size:22px;font-weight:900;letter-spacing:.08em;color:var(--green);word-break:break-word}.status{display:inline-flex;padding:7px 10px;border-radius:20px;background:#fff;border:1px solid var(--line);font-size:12px;font-weight:850;margin-top:10px}.divider{height:1px;background:var(--line);margin:23px 0}.small{font-size:12px;color:var(--muted);line-height:1.6}.footer{text-align:center;color:#829188;font-size:12px;margin:18px 0}.footer a{color:var(--green);font-weight:750;text-decoration:none}
+    @media(max-width:520px){.actions{display:grid}.actions button,.actions a{width:100%}}
+  </style>
+</head>
+<body>
+  <main>
+    <a class="brand" href="/Auth/index.html"><img src="../Asset/frnxup-mark.svg" alt="">Frnxup</a>
+    <section class="card">
+      <h1>Check your appeal status</h1>
+      <p class="intro">Enter your appeal reference number and the email address registered to the restricted Frnxup account. Your appeal status will be displayed here.</p>
+      <form id="status-form">
+        <div class="field"><label for="status-reference">Appeal reference number</label><input id="status-reference" name="reference_number" placeholder="FRN-123-456-789" pattern="[Ff][Rr][Nn]-[0-9]{3}-[0-9]{3}-[0-9]{3}" autocapitalize="characters" required></div>
+        <div class="field"><label for="status-email">Registered email address</label><input id="status-email" name="email" type="email" autocomplete="email" required></div>
+        <div class="actions"><button id="check-button" type="submit">Check appeal status</button></div>
+      </form>
+      <div class="state" id="status-state" role="status" aria-live="polite"></div>
+      <div class="result" id="status-result" aria-live="polite">
+        <small>Appeal reference</small><div class="ref" id="result-reference"></div>
+        <div class="status" id="result-status"></div>
+        <p class="small" id="result-date" style="margin:10px 0 0"></p>
+        <div class="actions" style="margin-top:13px"><button type="button" class="secondary" id="copy-reference">Copy reference number</button></div>
+      </div>
+      <div class="divider"></div>
+      <h2 style="font-size:19px;margin:0 0 6px">Forgot your reference number?</h2>
+      <p class="intro" style="margin-bottom:13px">Recover your existing appeal reference using both the email address and username registered to your Frnxup account.</p>
+      <form id="recover-form">
+        <div class="field"><label for="recover-email">Registered email address</label><input id="recover-email" name="email" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="recover-username">Frnxup username</label><input id="recover-username" name="username" autocomplete="username" placeholder="@username or username" required></div>
+        <div class="actions"><button id="recover-button" type="submit">Recover reference number</button></div>
+      </form>
+      <div class="small" style="margin-top:16px">For your protection, recovery requests are rate-limited. The reference number is a tracking code, not a login credential. Contact <a href="mailto:frnxup@gmail.com" style="color:var(--green);font-weight:750">frnxup@gmail.com</a> if you need additional help.</div>
+    </section>
+    <p class="footer"><a href="/Auth/index.html">Return to login</a> · © <span id="year"></span> Frnxup</p>
+  </main>
+  <script src="../js/config.js"></script>
+  <script>
+    (() => {
+      const cfg = window.FRNXUP_CONFIG || {};
+      const $ = (id) => document.getElementById(id);
+      const state = $('status-state');
+      const result = $('status-result');
+      let latestReference = '';
+      const showState = (message, kind = 'info') => { state.textContent = message; state.className = `state show ${kind}`; };
+      const clearResult = () => { result.classList.remove('show'); latestReference = ''; };
+      async function callService(body) {
+        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) throw new Error('Frnxup appeal status service is not configured. Contact frnxup@gmail.com.');
+        const response = await fetch(`${cfg.SUPABASE_URL}/functions/v1/account-appeal`, {
+          method: 'POST', headers: { apikey: cfg.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.error) throw new Error(data.error || 'Unable to retrieve appeal information.');
+        return data;
+      }
+      function showResult(data) {
+        latestReference = data.reference_number || '';
+        $('result-reference').textContent = latestReference;
+        $('result-status').textContent = data.status || 'Under review';
+        $('result-date').textContent = data.submitted_at ? `Submitted: ${new Date(data.submitted_at).toLocaleString()}` : (data.message || 'Keep this reference number for your records.');
+        result.classList.add('show');
+      }
+      async function submitForm(form, button, action) {
+        if (!form.reportValidity()) return;
+        const oldText = button.textContent; button.disabled = true; button.textContent = action === 'check_status' ? 'Checking…' : 'Recovering…'; clearResult(); state.className = 'state';
+        try {
+          const body = Object.fromEntries(new FormData(form).entries()); body.action = action;
+          const data = await callService(body);
+          showResult(data);
+          showState(action === 'check_status' ? 'Appeal status retrieved successfully.' : (data.message || 'Your appeal reference has been recovered.'), 'success');
+          if (action === 'recover_reference') $('status-reference').value = data.reference_number || '';
+          if (action === 'recover_reference') $('status-email').value = body.email;
+        } catch (error) { showState(error.message || 'Unable to complete your request. Please try again.', 'error'); }
+        finally { button.disabled = false; button.textContent = oldText; }
+      }
+      $('status-form').addEventListener('submit', (event) => { event.preventDefault(); submitForm(event.currentTarget, $('check-button'), 'check_status'); });
+      $('recover-form').addEventListener('submit', (event) => { event.preventDefault(); submitForm(event.currentTarget, $('recover-button'), 'recover_reference'); });
+      $('copy-reference').addEventListener('click', async () => { if (!latestReference) return; try { await navigator.clipboard.writeText(latestReference); showState('Appeal reference copied.', 'success'); } catch (_) { showState('Select and copy the reference number shown above.', 'info'); } });
+      $('year').textContent = new Date().getFullYear();
+    })();
+  </script>
+</body>
+</html>

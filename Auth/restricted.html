@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102f28">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Account access restricted · Frnxup</title>
+  <link rel="icon" href="../Asset/frnxup-mark.svg">
+  <style>
+    :root{color-scheme:light;--green:#116b4d;--ink:#183029;--muted:#65766f;--line:#e0e9e4;--surface:#fff;--page:#f0f5f2}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px 14px;background:radial-gradient(circle at 50% 10%,#dcefe5 0,transparent 42%),var(--page);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
+    .card{width:min(520px,100%);padding:clamp(25px,6vw,42px);border:1px solid var(--line);border-radius:25px;background:var(--surface);box-shadow:0 20px 70px #163d2b16;text-align:center}
+    .logo-wrap{width:94px;height:94px;margin:2px auto 22px;display:grid;place-items:center;position:relative}.logo-wrap:before,.logo-wrap:after{content:"";position:absolute;inset:1px;border:2px solid #42a87c;border-radius:30px;animation:pulse 2s ease-out infinite}.logo-wrap:after{animation-delay:1s}.logo{width:58px;height:58px;object-fit:contain;animation:float 2.4s ease-in-out infinite;filter:drop-shadow(0 5px 8px #176b4b24)}
+    @keyframes pulse{0%{transform:scale(.72);opacity:.85}100%{transform:scale(1.22);opacity:0}}@keyframes float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4px) rotate(2deg)}}
+    .eyebrow{font-size:11px;letter-spacing:.16em;font-weight:800;color:var(--green)}h1{margin:8px 0 12px;font-size:clamp(25px,6vw,33px);line-height:1.15}p{margin:0;color:var(--muted);font-size:15px;line-height:1.7}.notice{padding:16px;margin:20px 0;border-radius:15px;background:#fff4ef;border:1px solid #f4d8cc;color:#853b2b;font-size:14px;line-height:1.65;text-align:left}.notice strong{color:#772a1b}.actions{display:grid;gap:10px;margin-top:22px}.button{display:flex;min-height:48px;align-items:center;justify-content:center;padding:12px 16px;border-radius:13px;text-decoration:none;font-weight:800;font-size:14px}.primary{background:var(--green);color:#fff}.secondary{background:#eef5f1;color:#25523e;border:1px solid #dce9e0}.hidden{display:none!important}.support{margin-top:20px;font-size:12px}.support a{color:var(--green);font-weight:700;text-decoration:none}.foot{margin-top:24px;color:#87958e;font-size:11px}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo-wrap" aria-hidden="true"><img class="logo" src="../Asset/frnxup-mark.svg" alt=""></div>
+    <div class="eyebrow">FRNXUP ACCOUNT SECURITY</div>
+    <h1 id="restriction-title">Account access restricted</h1>
+    <p id="restriction-intro">Frnxup has checked your account status.</p>
+    <div class="notice" role="alert" aria-live="assertive" id="restriction-message">This account has been suspended by Frnxup administrators. Submit an appeal at /Auth/appeal.html or contact Frnxup-desk's support at frnxup@gmail.com.</div>
+    <div class="actions">
+      <a id="appeal-button" class="button primary hidden" href="/Auth/appeal.html">Submit an appeal</a>
+      <a class="button secondary" href="/Auth/appeal-status.html">Check appeal status / recover reference</a>
+      <a class="button secondary" href="mailto:frnxup@gmail.com">Contact Frnxup support</a>
+      <a id="login-button" class="button secondary" href="/Auth/index.html">Return to login</a>
+    </div>
+    <p class="support">Support email: <a href="mailto:frnxup@gmail.com">frnxup@gmail.com</a></p>
+    <div class="foot">© <span id="year">2026</span> Frnxup · Connect. Express. Rise.</div>
+  </main>
+  <script>
+    (() => {
+      const status = (() => { try { return sessionStorage.getItem('frnxup_restricted_status') || new URLSearchParams(location.search).get('status') || ''; } catch (_) { return new URLSearchParams(location.search).get('status') || ''; } })();
+      const ticket = (() => { try { return sessionStorage.getItem('frnxup_appeal_ticket') || ''; } catch (_) { return ''; } })();
+      const title = document.getElementById('restriction-title');
+      const message = document.getElementById('restriction-message');
+      const intro = document.getElementById('restriction-intro');
+      const appealButton = document.getElementById('appeal-button');
+      const loginButton = document.getElementById('login-button');
+      if (ticket && (status === 'suspended' || status === 'banned')) {
+        const verb = status === 'banned' ? 'banned' : 'suspended';
+        title.textContent = status === 'banned' ? 'Account banned' : 'Account suspended';
+        intro.textContent = 'Frnxup verified your login credentials and confirmed the current account restriction.';
+        message.textContent = `This account has been ${verb} by Frnxup administrators. Submit an appeal at /Auth/appeal.html or contact Frnxup-desk's support at frnxup@gmail.com.`;
+        appealButton.classList.remove('hidden');
+      } else {
+        if (status === 'suspended' || status === 'banned') {
+          const verb = status === 'banned' ? 'banned' : 'suspended';
+          title.textContent = status === 'banned' ? 'Account banned' : 'Account suspended';
+          intro.textContent = 'Frnxup detected that this signed-in account is restricted. Verify the account again to unlock its secure appeal form.';
+          message.textContent = `This account has been ${verb} by Frnxup administrators. To submit an appeal, return to Frnxup login and enter the correct password. Frnxup will then unlock the secure appeal page. You may also contact Frnxup-desk's support at frnxup@gmail.com.`;
+        } else {
+          title.textContent = 'Account verification required';
+          intro.textContent = 'This restricted-account notice is shown after Frnxup verifies the account credentials.';
+          message.textContent = 'To view an account restriction notice and access the appeal form, return to Frnxup login and sign in with the affected account. The appeal form remains locked until Frnxup verifies the account.';
+        }
+        appealButton.classList.add('hidden');
+        loginButton.classList.remove('hidden');
+      }
+      document.getElementById('year').textContent = new Date().getFullYear();
+    })();
+  </script>
+</body>
+</html>
