@@ -144,11 +144,14 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
+  let stage = "initialization";
   try {
+    stage = "configuration";
     const url = Deno.env.get("SUPABASE_URL");
     const serviceKey = readServiceKey();
     if (!url || !serviceKey) return json({ error: "The secure appeal service is not configured." }, 503);
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    stage = "request-routing";
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("application/json")) {
@@ -172,9 +175,11 @@ Deno.serve(async (req) => {
     }
 
     if (!contentType.includes("multipart/form-data")) return json({ error: "The appeal form was not submitted in the expected format." }, 400);
+    stage = "ticket-verification";
     const ticket = req.headers.get("x-frnxup-appeal-ticket") || "";
     if (!ticket) return json({ error: "This appeal page is locked. Return to Frnxup login and verify the restricted account first." }, 401);
     const { grant, profile } = await validateTicket(admin, ticket);
+    stage = "form-validation";
     const form = await req.formData();
     const reason = String(form.get("reason") || "").trim();
     const idType = String(form.get("identity_type") || "");
@@ -215,6 +220,7 @@ Deno.serve(async (req) => {
     if (authError) throw authError;
     const appealId = crypto.randomUUID();
     const bucket = admin.storage.from("account-appeals");
+    stage = "document-upload";
     const stored: Array<{ path: string; label: string; original_name: string; mime_type: string }> = [];
     let appealInserted = false;
     let referenceNumber = "";
@@ -239,6 +245,7 @@ Deno.serve(async (req) => {
         });
       }
 
+      stage = "appeal-record-insert";
       let insertError: any = null;
       for (let attempt = 0; attempt < 10; attempt++) {
         referenceNumber = makeReferenceNumber();
@@ -257,6 +264,7 @@ Deno.serve(async (req) => {
       }
       if (!appealInserted) throw insertError || new Error("Could not allocate a unique appeal reference number. Please try again.");
 
+      stage = "appeal-ticket-consumption";
       const { error: consumeError } = await admin.from("account_appeal_access_tokens")
         .update({ used_at: new Date().toISOString() })
         .eq("token_hash", grant.token_hash).is("used_at", null);
@@ -266,6 +274,7 @@ Deno.serve(async (req) => {
       throw error;
     }
 
+    stage = "admin-notification";
     const { data: administrators } = await admin.from("profiles")
       .select("id").in("role", ["admin", "owner"]).eq("account_status", "active");
     if (administrators?.length) {
@@ -286,7 +295,9 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to submit your appeal.";
+    console.error(`account-appeal failure at ${stage}:`, error);
     const status = message.toLowerCase().includes("expired") || message.toLowerCase().includes("locked") ? 401 : 400;
-    return json({ error: message }, status);
+    // The stage label is safe to show; detailed Supabase internals stay in server logs.
+    return json({ error: message, stage }, status);
   }
 });
