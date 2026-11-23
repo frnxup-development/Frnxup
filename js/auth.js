@@ -60,7 +60,11 @@
 
   const accountStatusFromUrl = new URLSearchParams(location.search).get('accountStatus');
   if (accountStatusFromUrl === 'banned' || accountStatusFromUrl === 'suspended') {
-    setMessage('#login-msg', FX.accountRestrictionMessage(accountStatusFromUrl), 'error');
+    try {
+      sessionStorage.setItem('frnxup_restricted_status', accountStatusFromUrl);
+      sessionStorage.removeItem('frnxup_appeal_ticket');
+    } catch (_) {}
+    location.replace(`/Auth/restricted.html?status=${encodeURIComponent(accountStatusFromUrl)}`);
   }
   if (new URLSearchParams(location.search).get('appealSubmitted') === '1') {
     setMessage('#login-msg', 'Your account appeal was submitted securely. The Frnxup team will review it. You will be contacted through your verified email.', 'success');
@@ -239,7 +243,7 @@
   }
 
   // A member who is already signed in does not need to see the access forms.
-  if ($('#login-form') || signupForm) {
+  if (accountStatusFromUrl !== 'banned' && accountStatusFromUrl !== 'suspended' && ($('#login-form') || signupForm)) {
     if (typeof FX.loadUser === 'function') {
       FX.loadUser().then(user => {
         if (user) location.replace(nextPath());
@@ -247,15 +251,18 @@
     }
   }
 
-  // Login page: supports email/password and the existing username-login function.
+  // Restricted accounts are redirected to a dedicated static screen only
+  // after the server verifies their password and current account status.
   const loginForm = $('#login-form');
   if (loginForm) {
     loginForm.addEventListener('submit', async (event) => {
       event.preventDefault();
+      try { sessionStorage.removeItem('frnxup_appeal_ticket'); sessionStorage.removeItem('frnxup_restricted_status'); } catch (_) {}
       const identity = ($('#identity')?.value || '').trim();
       const password = $('#password')?.value || '';
       if (!identity || !password) return setMessage('#login-msg', 'Enter your email or username and password.', 'error');
       if (!FX.client) return setMessage('#login-msg', 'Supabase is not configured. Check js/config.js.', 'error');
+      if (navigator.onLine === false) return setMessage('#login-msg', 'You appear to be offline. Connect to the internet and try again.', 'error');
       saveRememberChoice();
 
       const button = $('#login');
@@ -263,22 +270,38 @@
       if (button) {
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
+        button.textContent = 'Checking account…';
       }
       try {
-        let result;
-        if (identity.includes('@')) {
-          result = await FX.client.auth.signInWithPassword({ email: identity, password });
-        } else {
-          const data = await FX.invoke('username-login', { username: identity.replace(/^@/, ''), password });
-          result = await FX.client.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
-        }
-        if (result.error) throw result.error;
-        const { data: current, error } = await FX.client.auth.getUser();
-        if (error) throw error;
-        if (!current.user) throw new Error('Your sign-in could not be confirmed. Please try again.');
+        const data = await FX.invoke('username-login', {
+          identifier: identity,
+          username: identity,
+          password
+        });
 
-        // Email/password login goes directly through Supabase Auth, so confirm
-        // the authoritative Frnxup profile state before granting website access.
+        if (data?.restricted && data?.appeal_ticket && ['suspended', 'banned'].includes(data.account_status)) {
+          await FX.client.auth.signOut().catch(() => {});
+          try {
+            sessionStorage.setItem('frnxup_appeal_ticket', data.appeal_ticket);
+            sessionStorage.setItem('frnxup_restricted_status', data.account_status);
+          } catch (_) {
+            throw new Error('Your browser could not securely open the account restriction page. Enable site storage and try again.');
+          }
+          location.replace(`/Auth/restricted.html?status=${encodeURIComponent(data.account_status)}`);
+          return;
+        }
+        if (!data?.access_token || !data?.refresh_token) {
+          throw new Error(data?.error || 'Frnxup could not complete sign-in. Please check your details and try again.');
+        }
+
+        const { error: sessionError } = await FX.client.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token
+        });
+        if (sessionError) throw sessionError;
+
+        const { data: current, error: userError } = await FX.client.auth.getUser();
+        if (userError || !current?.user) throw userError || new Error('Your sign-in could not be confirmed. Please try again.');
         const { data: accountProfile, error: statusError } = await FX.client
           .from('profiles').select('account_status').eq('id', current.user.id).maybeSingle();
         if (statusError || !accountProfile) {
@@ -286,15 +309,8 @@
           throw new Error('Frnxup could not verify this account status. Please check your connection and try again.');
         }
         if (accountProfile.account_status !== 'active') {
-          const message = FX.accountRestrictionMessage(accountProfile.account_status);
           await FX.client.auth.signOut();
-          setMessage('#login-msg', message, 'error');
-          if (button) {
-            button.disabled = false;
-            button.removeAttribute('aria-busy');
-            button.textContent = originalLabel;
-          }
-          return;
+          throw new Error('Frnxup could not complete this sign-in because the account status changed. Please try again.');
         }
         try {
           await FX.client.rpc('frnxup_log_activity', {
@@ -307,6 +323,7 @@
         location.replace(nextPath());
       } catch (error) {
         setMessage('#login-msg', error?.message || 'Unable to sign in. Please try again.', 'error');
+      } finally {
         if (button) {
           button.disabled = false;
           button.removeAttribute('aria-busy');
