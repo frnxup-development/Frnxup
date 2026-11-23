@@ -1,46 +1,8 @@
-<!doctype html><html lang="en"><head>
-<script>
-(() => {
-  const path = location.pathname;
-  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
-  if (publicEntry) return;
-
-  const html = document.documentElement;
-  html.classList.add('fx-auth-pending');
-  const style = document.createElement('style');
-  style.textContent = `
-    html.fx-auth-pending, html.fx-auth-pending body { background: #f7fbfc !important; }
-    html.fx-auth-pending body { visibility: hidden !important; }
-    html.fx-auth-pending::before {
-      content: ''; position: fixed; inset: 0; z-index: 2147483646;
-      background: #f7fbfc url('/Asset/frnxup-mark.svg') center calc(50% - 25px) / 76px 76px no-repeat;
-    }
-    html.fx-auth-pending::after {
-      content: 'Loading'; position: fixed; z-index: 2147483647;
-      top: calc(50% + 34px); left: 50%; transform: translateX(-50%);
-      color: #31555d; font: 600 14px system-ui, sans-serif; letter-spacing: .04em;
-      animation: frnxup-loading-pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes frnxup-loading-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
-  `;
-  document.head.appendChild(style);
-
-  // Never leave a visitor on an endless loader if a script or auth request fails.
-  window.__frnxupAuthGateTimer = window.setTimeout(() => {
-    if (!html.classList.contains('fx-auth-pending')) return;
-    const next = location.pathname + location.search + location.hash;
-    const login = new URL('/Auth/index.html', location.origin);
-    login.searchParams.set('next', next || '/');
-    login.searchParams.set('sessionCheck', 'timeout');
-    location.replace(login.toString());
-  }, 12000);
-})();
-</script>
-<script src="/js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d17"><title>Your Pages · Frnxup</title><link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Pages/css/pages.css"></head><body>
-<div data-frnxup-shell></div><main class="pages-wrap"><div class="pages-top"><div><h1>Pages</h1><p>Create a public Frnxup identity for your business, brand, organization or community.</p></div><button class="pages-button primary" id="create-page-open">＋ Create Page</button></div>
+<!doctype html><html lang="en"><head><script src="/js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d17"><title>Your Pages · Frnxup</title><link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Pages/css/pages.css"></head><body>
+<div data-frnxup-shell></div><main class="pages-wrap"><div class="pages-top"><div><h1>Pages</h1><p>Create a public Frnxup identity for your business, brand, organization or community.</p></div><button class="pages-button primary" id="create-page-open" type="button" aria-controls="create-page-modal">＋ Create Page</button></div>
 <nav class="pages-tabs" aria-label="Pages sections"><button class="active" data-tab="owned">▣ Your Pages</button><button data-tab="invites">♧ Invitations <span id="invite-count"></span></button><button data-tab="followed">＋ Followed Pages</button></nav>
 <section class="pages-section" id="owned-panel"><h2>Your Pages</h2><div id="owned-pages" class="pages-grid"><div class="pages-empty">Loading your pages…</div></div></section>
 <section class="pages-section" id="invites-panel" hidden><h2>Page invitations</h2><div id="page-invites" class="pages-grid"></div></section>
 <section class="pages-section" id="followed-panel" hidden><h2>Followed Pages</h2><div id="followed-pages" class="pages-grid"></div></section></main>
 <div class="pages-modal-backdrop" id="create-page-modal"><form class="pages-modal" id="create-page-form"><h2>Create your Frnxup Page</h2><div class="pages-form-grid"><div class="pages-field full"><label for="new-page-name">Page name</label><input id="new-page-name" maxlength="80" required placeholder="e.g. Parrothit News"></div><div class="pages-field"><label for="new-page-slug">Personalized page link</label><input id="new-page-slug" maxlength="40" required pattern="[a-z0-9-]{3,40}" placeholder="parrothit-news"><small>frnxup.com/Pages/view.html?slug=…</small></div><div class="pages-field"><label for="new-page-category">Category</label><select id="new-page-category"><option>Media/news company</option><option>Business</option><option>Education</option><option>Entertainment</option><option>Creator</option><option>Community</option><option>Non-profit organization</option><option>Other</option></select></div><div class="pages-field full"><label for="new-page-about">Description</label><textarea id="new-page-about" maxlength="3000" placeholder="Tell people what this page is about"></textarea></div></div><p class="pages-message" id="create-page-message"></p><div class="pages-modal-actions"><button class="pages-button secondary" type="button" data-close-create>Cancel</button><button class="pages-button primary" type="submit" id="create-page-submit">Create Page</button></div></form></div>
-<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script><script src="/js/media-tools.js"></script><script src="/Pages/js/pages.js"></script></body></html>
+<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script><script src="/js/media-tools.js"></script><script src="/Pages/js/pages.js?v=20261123-create-page-fix"></script></body></html>
