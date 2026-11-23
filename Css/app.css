@@ -297,3 +297,46 @@ body a:not(.brand):not(.fx-sidebar-brand){font-size:15px!important}
 .fx-post-page-badge,.fx-profile-page-badge{display:inline-flex;align-items:center;gap:5px;margin:5px 0;padding:4px 9px;border-radius:999px;background:#d9fbe6;color:#087c3d;border:1px solid #79d99d;font-size:11px;font-weight:900;text-decoration:none;line-height:1.3}.dark .fx-post-page-badge,.dark .fx-profile-page-badge{background:#063d24;color:#75f3a7;border-color:#158a48}
 
 .fx-profile-page-badge[hidden],.frnx-page-media-open[hidden]{display:none!important}
+
+/* Frnxup global navigation: keep Header One and Header Two fixed while content scrolls. */
+:root{
+  --fx-header-one-height:70px;
+  --fx-header-two-height:60px;
+}
+[data-frnxup-shell]{
+  display:block;
+  height:calc(var(--fx-header-one-height) + var(--fx-header-two-height));
+  min-height:0;
+}
+.brand-header{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  width:100%;
+  height:var(--fx-header-one-height);
+  box-sizing:border-box;
+  z-index:40;
+}
+.action-header{
+  position:fixed;
+  top:var(--fx-header-one-height);
+  left:0;
+  right:0;
+  width:100%;
+  height:var(--fx-header-two-height);
+  box-sizing:border-box;
+  z-index:39;
+}
+
+/* Messages intentionally use Header Two by itself. */
+.messages-page .brand-header{display:none}
+.messages-page .action-header{position:fixed;top:0;z-index:39}
+.messages-page [data-frnxup-shell]{height:var(--fx-header-two-height)}
+
+@media(max-width:700px){
+  :root{
+    --fx-header-one-height:62px;
+    --fx-header-two-height:57px;
+  }
+}
