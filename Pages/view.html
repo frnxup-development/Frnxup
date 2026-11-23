@@ -1,42 +1,4 @@
-<!doctype html><html lang="en"><head>
-<script>
-(() => {
-  const path = location.pathname;
-  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
-  if (publicEntry) return;
-
-  const html = document.documentElement;
-  html.classList.add('fx-auth-pending');
-  const style = document.createElement('style');
-  style.textContent = `
-    html.fx-auth-pending, html.fx-auth-pending body { background: #f7fbfc !important; }
-    html.fx-auth-pending body { visibility: hidden !important; }
-    html.fx-auth-pending::before {
-      content: ''; position: fixed; inset: 0; z-index: 2147483646;
-      background: #f7fbfc url('/Asset/frnxup-mark.svg') center calc(50% - 25px) / 76px 76px no-repeat;
-    }
-    html.fx-auth-pending::after {
-      content: 'Loading'; position: fixed; z-index: 2147483647;
-      top: calc(50% + 34px); left: 50%; transform: translateX(-50%);
-      color: #31555d; font: 600 14px system-ui, sans-serif; letter-spacing: .04em;
-      animation: frnxup-loading-pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes frnxup-loading-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
-  `;
-  document.head.appendChild(style);
-
-  // Never leave a visitor on an endless loader if a script or auth request fails.
-  window.__frnxupAuthGateTimer = window.setTimeout(() => {
-    if (!html.classList.contains('fx-auth-pending')) return;
-    const next = location.pathname + location.search + location.hash;
-    const login = new URL('/Auth/index.html', location.origin);
-    login.searchParams.set('next', next || '/');
-    login.searchParams.set('sessionCheck', 'timeout');
-    location.replace(login.toString());
-  }, 12000);
-})();
-</script>
-<script src="/js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d17"><title>Frnxup Page · Frnxup</title><link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Pages/css/pages.css"></head><body>
+<!doctype html><html lang="en"><head><script src="/js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d17"><title>Frnxup Page · Frnxup</title><link rel="stylesheet" href="/Css/app.css"><link rel="stylesheet" href="/Pages/css/pages.css"></head><body>
 <div class="frnx-page-screen"><header class="frnx-page-toolbar"><a href="/index.html" aria-label="Back">‹</a><strong id="public-toolbar-name">Frnxup Page</strong><button id="public-share-link" title="Share">↗</button></header>
 <div class="frnx-page-cover" id="public-page-cover"></div><div class="frnx-page-avatar-wrap" id="public-page-avatar"><div class="avatar-fallback" id="public-page-initial">F</div></div>
 <div class="frnx-page-summary"><h1 id="public-page-name">Loading…</h1><div class="frnx-page-followers" id="public-page-followers"></div><div class="frnx-page-category" id="public-page-category"></div><p class="frnx-page-about" id="public-page-about"></p></div>
@@ -44,4 +6,4 @@
 <nav class="frnx-page-tabs" id="public-page-tabs"><button class="active" data-filter="all">All</button><button data-filter="photos">Photos</button><button data-filter="videos">Reels</button></nav>
 <section class="frnx-page-personal"><h2>About</h2><p id="public-page-location"></p><p id="public-page-website"></p><p id="public-page-privacy" hidden>Follower count is hidden by this page.</p></section>
 <div class="frnx-page-feed" id="public-page-posts"><div class="pages-empty">Loading page posts…</div></div></div>
-<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script><script src="/js/media-tools.js"></script><script src="/Pages/js/pages.js"></script></body></html>
+<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/js/config.js"></script><script src="/js/core.js"></script><script src="/js/layout.js"></script><script src="/js/media-tools.js"></script><script src="/Pages/js/pages.js?v=20261123-2"></script></body></html>
