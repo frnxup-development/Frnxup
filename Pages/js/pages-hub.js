@@ -109,20 +109,21 @@
   }
 
   async function respondToInvitation(invitationId, status, button) {
+    if (!['accepted', 'declined'].includes(status)) return;
     button.disabled = true;
-    const card = button.closest('.page-mini-card');
     try {
-      const { error } = await FX.client.from('frnxup_page_invitations').update({ status }).eq('id', invitationId).eq('invited_user_id', FX.user.id).eq('status', 'pending');
+      const { data, error } = await withTimeout(
+        FX.client.rpc('frnxup_respond_page_invitation', {
+          p_invitation_id: invitationId,
+          p_response: status
+        }),
+        'Updating invitation'
+      );
       if (error) throw error;
-      if (status === 'accepted') {
-        const { data: invite, error: fetchError } = await FX.client.from('frnxup_page_invitations').select('page_id').eq('id', invitationId).single();
-        if (fetchError) throw fetchError;
-        const { error: followError } = await FX.client.from('frnxup_page_followers').upsert({ page_id: invite.page_id, user_id: FX.user.id }, { onConflict: 'page_id,user_id' });
-        if (followError) throw followError;
-        FX.toast('Invitation accepted. The Page is now in your Followed Pages.');
-      } else {
-        FX.toast('Invitation declined.');
-      }
+      if (data !== true && data !== 'true') throw new Error('The invitation response was not confirmed. Refresh and check your invitations.');
+      FX.toast(status === 'accepted'
+        ? 'Invitation accepted. The Page is now in your Followed Pages.'
+        : 'Invitation declined.');
       await renderInvitations();
     } catch (error) {
       button.disabled = false;
@@ -180,81 +181,126 @@
     });
   }
 
-  async function setupCreatePage() {
+  function setCreateMessage(message, kind = 'info') {
+    const host = $('#create-page-message');
+    if (!host) return;
+    host.textContent = message;
+    host.classList.remove('is-error', 'is-success', 'is-info');
+    host.classList.add(kind === 'error' ? 'is-error' : kind === 'success' ? 'is-success' : 'is-info');
+  }
+
+  function explainCreateError(error) {
+    const code = error?.code || '';
+    const text = String(error?.message || error || 'Your Page could not be created.');
+    if (code === '23505') return 'That personalized Page link is already in use. Choose another link.';
+    if (code === '42501') return 'Supabase denied Page creation. Run the included Pages SQL migration and confirm that your account is active.';
+    if (code === '23514') return 'One of the Page details does not meet the database requirements. Check the name and link format.';
+    if (code === '42P01' || /relation .* does not exist/i.test(text)) return 'The Pages database tables are missing. Run the included Supabase Pages migration, then try again.';
+    if (code === 'PGRST202' || /frnxup_create_page.*(not found|schema cache)/i.test(text)) return 'The Page-creation database function is not installed yet. Run the included Supabase Pages migration, wait for it to finish, and try again.';
+    if (/Invalid API key|JWT|not authenticated|session/i.test(text)) return 'Your Frnxup sign-in session could not be verified. Sign in again, then retry. Your form details have been kept.';
+    return text;
+  }
+
+  function setupCreatePage() {
     const form = $('#create-page-form');
     if (!form) return;
-    const message = $('#create-page-message');
     const button = $('#create-page-submit');
-    setupSlug();
-    try { await requireMember(); }
-    catch (error) {
-      message.textContent = error.message;
-      message.classList.add('is-error');
+    const nameInput = $('#new-page-name');
+    const slugInput = $('#new-page-slug');
+    const categoryInput = $('#new-page-category');
+    const aboutInput = $('#new-page-about');
+    if (!button || !nameInput || !slugInput || !categoryInput || !aboutInput) {
+      setCreateMessage('The Page form is incomplete. Refresh the page or reinstall the Pages update.', 'error');
       return;
     }
+
+    // Attach immediately. Do not wait for an auth/network request; otherwise the
+    // browser may perform a normal form submit and clear the member's entries.
+    setupSlug();
+    let submitting = false;
     form.addEventListener('submit', async event => {
       event.preventDefault();
-      const name = $('#new-page-name').value.trim();
-      const slug = $('#new-page-slug').value.trim().toLowerCase();
-      const category = $('#new-page-category').value || 'Other';
-      const about = $('#new-page-about').value.trim();
-      message.classList.remove('is-error', 'is-success');
+      event.stopPropagation();
+      if (submitting) return;
+
+      const name = nameInput.value.trim();
+      const slug = slugInput.value.trim().toLowerCase();
+      const category = categoryInput.value || 'Other';
+      const about = aboutInput.value.trim();
+
       if (name.length < 2 || name.length > 80) {
-        message.textContent = 'Page name must contain between 2 and 80 characters.';
-        message.classList.add('is-error');
-        $('#new-page-name').focus();
+        setCreateMessage('Page name must contain between 2 and 80 characters.', 'error');
+        nameInput.focus();
         return;
       }
       if (!/^[a-z0-9-]{3,40}$/.test(slug)) {
-        message.textContent = 'Page link must be 3–40 characters using lowercase letters, numbers and hyphens only.';
-        message.classList.add('is-error');
-        $('#new-page-slug').focus();
+        setCreateMessage('Page link must be 3–40 characters using lowercase letters, numbers and hyphens only.', 'error');
+        slugInput.focus();
         return;
       }
       if (about.length > 3000) {
-        message.textContent = 'Description must be 3,000 characters or fewer.';
-        message.classList.add('is-error');
+        setCreateMessage('Description must be 3,000 characters or fewer.', 'error');
+        aboutInput.focus();
         return;
       }
+
+      submitting = true;
       button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
       button.textContent = 'Creating…';
-      message.textContent = 'Creating your Page…';
+      setCreateMessage('Checking your sign-in and creating your Page…');
+
       try {
-        const { data, error } = await withTimeout(FX.client.from('frnxup_pages').insert({
-          owner_user_id: FX.user.id,
-          name,
-          slug,
-          category,
-          about
-        }).select('id,slug').single(), 'Creating your Page');
+        if (!window.FX?.client) throw new Error('Frnxup is not connected to Supabase. Check the site configuration.');
+        const user = await withTimeout(FX.loadUser(), 'Verifying your sign-in');
+        if (!user?.id) {
+          FX.showAuthNotice('Sign in to create and manage your Pages.');
+          throw new Error('Please sign in to continue. Your form details have been kept.');
+        }
+
+        // The RPC validates ownership/account status and inserts the Page in the
+        // database. The form is never reset on error.
+        const { data, error } = await withTimeout(FX.client.rpc('frnxup_create_page', {
+          p_name: name,
+          p_slug: slug,
+          p_category: category,
+          p_about: about
+        }), 'Saving your Page');
         if (error) throw error;
-        if (!data?.id) throw new Error('The Page was saved, but Frnxup did not return its Page ID. Refresh Your Pages to check it.');
-        FX.setActivePage(data.id);
-        message.textContent = 'Your Page has been created. Opening its dashboard…';
-        message.classList.add('is-success');
-        location.href = `/Pages/dashboard.html?id=${encodeURIComponent(data.id)}`;
+        const created = Array.isArray(data) ? data[0] : data;
+        const pageId = created?.id || created?.page_id || (typeof created === 'string' ? created : null);
+        if (!pageId) throw new Error('Frnxup did not confirm the new Page ID. Your entries have been kept. Open Your Pages to check whether it was saved before trying again.');
+
+        FX.setActivePage(pageId);
+        setCreateMessage('Your Page has been created successfully. Opening its dashboard…', 'success');
+        button.textContent = 'Created';
+        setTimeout(() => { location.assign(`/Pages/dashboard.html?id=${encodeURIComponent(pageId)}`); }, 450);
       } catch (error) {
-        let text = error.message || 'Your Page could not be created.';
-        if (error.code === '23505') text = 'That personalized Page link is already in use. Choose another link.';
-        else if (error.code === '42501') text = 'Supabase denied Page creation. Check that the Pages SQL migration and frnxup_pages INSERT policy have been applied.';
-        else if (error.code === '23514') text = 'One of the Page details does not meet the database requirements. Check the name and link format.';
-        message.textContent = text;
-        message.classList.add('is-error');
-      } finally {
+        setCreateMessage(explainCreateError(error), 'error');
+        submitting = false;
         button.disabled = false;
+        button.removeAttribute('aria-busy');
         button.textContent = 'Create Page';
       }
+    });
+
+    // Preflight auth status after the handler is already live. This only informs
+    // the user; submission still performs its own fresh session check.
+    requireMember().then(() => {
+      if (!submitting) setCreateMessage('Your Page details are ready.');
+    }).catch(error => {
+      if (!submitting) setCreateMessage(`${error.message || 'Sign in is required.'} You can complete the form; your entries will remain here.`, 'error');
     });
   }
 
   async function boot() {
     const path = location.pathname.toLowerCase();
-    if (path.endsWith('/pages/create.html')) await setupCreatePage();
+    if (path.endsWith('/pages/create.html')) setupCreatePage();
     else if (path.endsWith('/pages/invitations.html')) await renderInvitations();
     else if (path.endsWith('/pages/followed.html')) await renderFollowedPages();
     else if (path.endsWith('/pages/index.html') || path.endsWith('/pages/')) await renderOwnedPages();
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => boot().catch(error => FX.toast(error.message)), { once: true });
-  else boot().catch(error => FX.toast(error.message));
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => boot().catch(error => window.FX?.toast?.(error.message)), { once: true });
+  else boot().catch(error => window.FX?.toast?.(error.message));
 })();
