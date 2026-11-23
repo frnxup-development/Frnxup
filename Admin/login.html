@@ -24,6 +24,42 @@ button{width:100%;border:0;border-radius:11px;background:var(--green);color:#042
   const nextParam=new URLSearchParams(location.search).get('next');
   const destination=nextParam&&nextParam.startsWith('/Admin/')&&!nextParam.includes('login.html')?nextParam:'/Admin/index.html';
   const setMessage=m=>{msg.textContent=m};
+  let adminMfaPromise=null;
+  async function ensureMfa(){
+    if(!client?.auth?.mfa)return false;
+    const {data:aal,error:aalError}=await client.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(aalError)throw aalError;
+    if(aal?.currentLevel==='aal2'||aal?.nextLevel!=='aal2')return false;
+    if(adminMfaPromise)return adminMfaPromise;
+    const {data:factorData,error:factorError}=await client.auth.mfa.listFactors();
+    if(factorError)throw factorError;
+    const factors=[...(factorData?.phone||[]).filter(f=>f.status==='verified'),...(factorData?.totp||[]).filter(f=>f.status==='verified')];
+    if(!factors.length)throw new Error('This administrator account requires a second verification factor, but none is available. Contact the platform owner.');
+    let panel=document.getElementById('admin-mfa-panel');
+    if(!panel){
+      panel=document.createElement('section');panel.id='admin-mfa-panel';
+      panel.style.cssText='border:1px solid #263b31;border-radius:14px;padding:17px;margin-top:16px;background:#08130f';
+      panel.innerHTML='<div class="eyebrow">SECOND-STEP VERIFICATION</div><h2 style="font-size:20px;margin:8px 0">Verify administrator access</h2><p id="admin-mfa-description">Enter the code sent to your verified phone.</p><label for="admin-mfa-factor">Verification method</label><select id="admin-mfa-factor" style="width:100%;padding:12px;border-radius:9px;background:#08130f;color:#f5faf7;border:1px solid #263b31"></select><div id="admin-mfa-channel-wrap"><label for="admin-mfa-channel">Send code using</label><select id="admin-mfa-channel" style="width:100%;padding:12px;border-radius:9px;background:#08130f;color:#f5faf7;border:1px solid #263b31"><option value="whatsapp">WhatsApp (recommended)</option><option value="sms">SMS</option></select></div><label for="admin-mfa-code">6-digit code</label><input id="admin-mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000"><button id="admin-mfa-verify" type="button">Verify and continue</button><button id="admin-mfa-resend" type="button" style="background:#263b31;color:#f5faf7;margin-top:9px">Send code again</button><div id="admin-mfa-message" class="message" aria-live="polite"></div><button id="admin-mfa-signout" type="button" style="background:transparent;color:#a8b8af;text-decoration:underline;margin-top:4px">Sign out</button>';
+      form.insertAdjacentElement('afterend',panel);
+      const select=panel.querySelector('#admin-mfa-factor');
+      factors.forEach((factor,index)=>{const option=document.createElement('option');option.value=factor.id;option.textContent=factor.factor_type==='phone'?`Phone ${String(factor.phone||'').replace(/(\+?\d{2,4})\d+(\d{2})$/,'$1••••$2')}`:`Authenticator app ${index+1}`;select.appendChild(option)});
+    }
+    form.hidden=true;panel.hidden=false;
+    const select=panel.querySelector('#admin-mfa-factor'),channelWrap=panel.querySelector('#admin-mfa-channel-wrap'),channel=panel.querySelector('#admin-mfa-channel'),code=panel.querySelector('#admin-mfa-code'),status=panel.querySelector('#admin-mfa-message'),verify=panel.querySelector('#admin-mfa-verify'),resend=panel.querySelector('#admin-mfa-resend');
+    const getFactor=()=>factors.find(f=>f.id===select.value)||factors[0];
+    const updateMethod=()=>{const f=getFactor(),phone=f.factor_type==='phone';channelWrap.hidden=!phone;panel.querySelector('#admin-mfa-description').textContent=phone?`A 6-digit code will be sent to ${String(f.phone||'your verified phone').replace(/(\+?\d{2,4})\d+(\d{2})$/,'$1••••$2')}.`:'Open your authenticator app and enter the current code.';status.textContent=''};
+    select.onchange=updateMethod;updateMethod();
+    adminMfaPromise=new Promise(resolve=>{
+      let challengeId=null,busy=false;
+      const send=async()=>{if(busy)return;busy=true;resend.disabled=true;try{const f=getFactor(),options={factorId:f.id};if(f.factor_type==='phone')options.channel=channel.value||'whatsapp';const {data,error}=await client.auth.mfa.challenge(options);if(error)throw error;challengeId=data.id;status.textContent=f.factor_type==='phone'?`Code sent using ${channel.value==='whatsapp'?'WhatsApp':'SMS'}. Check your phone.`:'Enter the current code from your authenticator app.';status.style.color='#20c783'}catch(error){status.textContent=error.message||'Could not send a verification code. Try SMS.';status.style.color='#ffb7a9'}finally{busy=false;resend.disabled=false}};
+      resend.onclick=send;
+      verify.onclick=async()=>{if(!/^\d{6}$/.test(code.value.trim())){status.textContent='Enter the 6-digit code.';status.style.color='#ffb7a9';return}if(!challengeId){status.textContent='Send a code first.';status.style.color='#ffb7a9';return}if(busy)return;busy=true;verify.disabled=true;try{const f=getFactor();const {error}=await client.auth.mfa.verify({factorId:f.id,challengeId,code:code.value.trim()});if(error)throw error;const {data:confirmed,error:confirmedError}=await client.auth.mfa.getAuthenticatorAssuranceLevel();if(confirmedError)throw confirmedError;if(confirmed?.currentLevel!=='aal2')throw new Error('Frnxup could not confirm administrator MFA.');panel.hidden=true;form.hidden=false;resolve(true)}catch(error){status.textContent=error.message||'The code is incorrect or expired.';status.style.color='#ffb7a9'}finally{busy=false;verify.disabled=false}};
+      panel.querySelector('#admin-mfa-signout').onclick=async()=>{await client.auth.signOut({scope:'local'});location.reload()};
+      if(factors.length===1)select.disabled=true;
+      if(getFactor().factor_type==='phone')send();else status.textContent='Enter the current code from your authenticator app.';
+    }).finally(()=>{adminMfaPromise=null});
+    return adminMfaPromise;
+  }
   function requireStaffCredentials(){
     staffFields.hidden=false;staffId.required=true;staffPassword.required=true;
     btn.textContent='Verify staff credentials';
@@ -48,7 +84,7 @@ button{width:100%;border:0;border-radius:11px;background:var(--green);color:#042
     if(!client)return;
     const {data:{session},error}=await client.auth.getSession();
     if(error||!session?.user)return;
-    try{await checkAccess();}catch(e){setMessage(e.message||'Administrator access could not be verified.');}
+    try{await ensureMfa();await checkAccess();}catch(e){setMessage(e.message||'Administrator access could not be verified.');}
   }
   verifyExisting();
   form.addEventListener('submit',async event=>{
@@ -64,6 +100,7 @@ button{width:100%;border:0;border-radius:11px;background:var(--green);color:#042
         if(session?.user)await client.auth.signOut();
         const {error}=await client.auth.signInWithPassword({email,password:publicPassword});if(error)throw error;
       }
+      await ensureMfa();
       const access=await window.FX.admin('verify_access');
       if(!access?.ok||!['owner','admin','moderator'].includes(access.role)||access.account_status!=='active')throw new Error('This Frnxup account has not been authorized as an administrator or moderator.');
       // Owner is exempt: once the normal Frnxup owner role is verified, open
