@@ -27,15 +27,15 @@
   function checkEnabled() {
     if (FX.settings?.market_enabled === false) {
       const main = $('main');
-      if (main) main.insertAdjacentHTML('afterbegin','<div class="market-empty">Frnxup-Market is temporarily unavailable. Please check again later.</div>');
+      if (main) { const host = document.createElement('div'); host.className = 'market-empty'; main.prepend(host); FXStates.render(host, 'unavailable', { title: 'Marketplace is temporarily unavailable', message: 'Marketplace has been disabled by Frnxup administrators.' }); }
       return false;
     }
     return true;
   }
   async function fetchMedia(listingId) {
     const {data,error} = await FX.client.from('market_listing_media').select('id,storage_path,sort_order').eq('listing_id',listingId).order('sort_order');
-    if (error) return [];
-    return Promise.all((data||[]).map(async m=>({...m,url:await FX.mediaUrl(m.storage_path)})));
+    if (error) throw error;
+    return Promise.all((data||[]).map(async m=>{const {data:urlData,error:urlError}=await FX.client.storage.from('frnxup-media').createSignedUrl(m.storage_path,3600);if(urlError)throw urlError;return {...m,url:urlData?.signedUrl||''};}));
   }
   function cardMarkup(listing, media, own=false) {
     const image = media[0]?.url;
@@ -53,7 +53,8 @@
   }
   async function loadBrowse() {
     const host = $('#market-listing-grid');
-    if (!FX.client) { if(host)host.innerHTML='<div class="market-empty">Connect your Supabase project in js/config.js to load Marketplace listings.</div>'; return; }
+    if (!FX.client) { if(host)FXStates.render(host,'configuration'); return; }
+    if (host && host.dataset.fxHasContent !== 'true') FXStates.loading(host,{title:'Loading Marketplace',message:'Fetching available listings and filters.'});
     const mine = query.get('mine')==='1';
     const saved = query.get('saved')==='1';
     const inbox = query.get('inbox')==='1';
@@ -63,8 +64,9 @@
       await loadInbox(); return;
     }
     $('#market-main-results').hidden = false; $('#market-inbox-panel').hidden = true;
-    const {data:user} = await FX.client.auth.getUser();
-    if (mine && !user?.user) { FX.showAuthNotice('Sign in to manage your Marketplace listings.'); host.innerHTML='<div class="market-empty">Sign in to view your listings.</div>'; return; }
+    const {data:user,error:userError} = await FX.client.auth.getUser();
+    if (userError) { FXStates.fail(host,userError,{retry:loadBrowse,title:'Marketplace sign-in status could not be checked'}); return; }
+    if ((mine || saved) && !user?.user) { FXStates.render(host,'auth',{title:mine?'Sign in to manage your listings':'Sign in to view saved items',message:'Your Marketplace account is needed to open this collection.',href:'/Auth/index.html?next='+encodeURIComponent(location.pathname+location.search)}); return; }
     if (mine) $('#market-section-title').textContent = 'My listings';
     else if (saved) $('#market-section-title').textContent = 'Saved items';
     const q = $('#market-q')?.value.trim() || '';
@@ -73,7 +75,7 @@
     const condition = $('#market-condition')?.value || '';
     let request = FX.client.from('market_listings').select('id,seller_id,title,description,category,price,condition,location_name,status,featured_until,created_at,view_count').order('featured_until',{ascending:false,nullsFirst:false}).order('created_at',{ascending:false}).limit(100);
     if (mine) request=request.eq('seller_id',user.user.id);
-    else if(saved){if(!user?.user){FX.showAuthNotice('Sign in to view your saved Marketplace items.');host.innerHTML='<div class="market-empty">Sign in to view your saved items.</div>';return}const {data:savedRows,error:savedError}=await FX.client.from('market_saved_listings').select('listing_id').eq('user_id',user.user.id);if(savedError){host.innerHTML=`<div class="market-empty">${esc(savedError.message)}</div>`;return}const ids=(savedRows||[]).map(x=>x.listing_id);if(!ids.length){host.innerHTML='<div class="market-empty">You have not saved any Marketplace items.</div>';$('#market-result-count').textContent='0 items';return}request=request.in('id',ids).eq('status','published')}
+    else if(saved){const {data:savedRows,error:savedError}=await FX.client.from('market_saved_listings').select('listing_id').eq('user_id',user.user.id);if(savedError){FXStates.fail(host,savedError,{retry:loadBrowse});return}const ids=(savedRows||[]).map(x=>x.listing_id);if(!ids.length){FXStates.empty(host,{title:'No saved Marketplace items',message:'Items you save will appear in this collection.'});$('#market-result-count').textContent='0 items';return}request=request.in('id',ids).eq('status','published')}
     else request=request.eq('status','published');
     if (category) request=request.eq('category',category);
     if (condition) request=request.eq('condition',condition);
@@ -83,29 +85,30 @@
     if (sort==='price_asc') request=request.order('price',{ascending:true});
     if (sort==='price_desc') request=request.order('price',{ascending:false});
     const {data,error}=await request;
-    if(error){host.innerHTML=`<div class="market-empty">${esc(error.message)}. Run the Frnxup-Market SQL migration in Supabase.</div>`;$('#market-result-count').textContent='Marketplace data is not available';return}
+    if(error){FXStates.fail(host,error,{retry:loadBrowse});$('#market-result-count').textContent='Marketplace data is not available';return}
     const rows=data||[]; $('#market-result-count').textContent=`${rows.length} item${rows.length===1?'':'s'} found`;
-    if(!rows.length){host.innerHTML=`<div class="market-empty">${mine?'You have not listed anything yet.':'No matching items yet. Try another category or location.'}${mine?'<br><br><a class="market-btn market-btn-primary" href="/Market/sell.html">＋ Sell your first item</a>':''}</div>`;return}
-    host.innerHTML=(await Promise.all(rows.map(async row=>cardMarkup(row,await fetchMedia(row.id),mine)))).join('');
+    if(!rows.length){FXStates.empty(host,{title:mine?'You have not listed anything yet':'No matching items found',message:mine?'Create your first Marketplace listing to get started.':'Try another category, search term or location.'});return}
+    try { host.innerHTML=(await Promise.all(rows.map(async row=>cardMarkup(row,await fetchMedia(row.id),mine)))).join('');FXStates.loaded(host); } catch(mediaError) { FXStates.fail(host,mediaError,{retry:loadBrowse,title:'Marketplace photos could not be loaded'}); return; }
     if(FX.user) FX.trackActivity('market_browse','market','/Market/index.html',{mine,category,condition,location:locationText});
   }
   async function loadInbox() {
     const host=$('#market-inbox-list');
-    if (!FX.client) { host.innerHTML='<div class="market-empty">Connect Supabase to view your Marketplace inbox.</div>'; return; }
+    if (!FX.client) { FXStates.render(host,'configuration'); return; }
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host,{title:'Loading Marketplace inbox',message:'Checking purchase requests and seller messages.'});
     const user=await FX.loadUser();
-    if(!user){FX.showAuthNotice('Sign in to view your Marketplace inbox.');host.innerHTML='<div class="market-empty">Sign in to view messages and purchase requests.</div>';return}
+    if(!user){FXStates.render(host,'auth',{title:'Sign in to view your Marketplace inbox',message:'Purchase requests and seller conversations are available after you sign in.',href:'/Auth/index.html?next='+encodeURIComponent(location.pathname+location.search)});return}
     const [received,sent]=await Promise.all([
       FX.client.from('market_inquiries').select('*').eq('seller_id',user.id).order('created_at',{ascending:false}).limit(100),
       FX.client.from('market_inquiries').select('*').eq('buyer_id',user.id).order('created_at',{ascending:false}).limit(100)
     ]);
-    if(received.error||sent.error){host.innerHTML=`<div class="market-empty">${esc(received.error?.message||sent.error?.message)}</div>`;return}
+    if(received.error||sent.error){FXStates.fail(host,received.error||sent.error,{retry:loadInbox});return}
     const rows=[...(received.data||[]).map(x=>({...x,box:'received'})),...(sent.data||[]).map(x=>({...x,box:'sent'}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-    if(!rows.length){host.innerHTML='<div class="market-empty">No Marketplace messages or purchase requests yet.</div>';return}
+    if(!rows.length){FXStates.empty(host,{title:'No Marketplace messages yet',message:'Purchase requests and seller conversations will appear here.'});return}
     const listings=new Map(); const profiles=new Map();
     const listingIds=[...new Set(rows.map(x=>x.listing_id))], userIds=[...new Set(rows.map(x=>x.box==='received'?x.buyer_id:x.seller_id))];
-    if(listingIds.length){const {data}=await FX.client.from('market_listings').select('id,title,price').in('id',listingIds);(data||[]).forEach(x=>listings.set(x.id,x));}
-    if(userIds.length){const {data}=await FX.client.from('profiles').select('id,username,display_name').in('id',userIds);(data||[]).forEach(x=>profiles.set(x.id,x));}
-    host.innerHTML=rows.map(row=>{const person=profiles.get(row.box==='received'?row.buyer_id:row.seller_id);const listing=listings.get(row.listing_id);const canRespond=row.box==='received'&&row.status==='pending';return `<article class="market-inquiry"><div class="market-inquiry-head"><b>${row.box==='received'?'From':'To'} ${esc(person?.display_name||person?.username||'Frnxup member')}</b><span class="market-condition">${row.request_type==='purchase'?'Purchase request':'Message'} · ${esc(row.status)}</span></div><p><b>${esc(listing?.title||'Item listing')}</b> · ${money(listing?.price)}</p><p>${esc(row.message)}</p><small>${dateLabel(row.created_at)}</small>${canRespond?`<div class="market-card-actions"><button class="market-btn market-btn-primary" data-inquiry-status="accepted" data-inquiry-id="${row.id}">Accept</button><button class="market-btn market-btn-secondary" data-inquiry-status="declined" data-inquiry-id="${row.id}">Decline</button></div>`:''}</article>`}).join('');
+    if(listingIds.length){const {data,error}=await FX.client.from('market_listings').select('id,title,price').in('id',listingIds);if(error){FXStates.fail(host,error,{retry:loadInbox,title:'Marketplace item details could not be loaded'});return}(data||[]).forEach(x=>listings.set(x.id,x));}
+    if(userIds.length){const {data,error}=await FX.client.from('profiles').select('id,username,display_name').in('id',userIds);if(error){FXStates.fail(host,error,{retry:loadInbox,title:'Marketplace member details could not be loaded'});return}(data||[]).forEach(x=>profiles.set(x.id,x));}
+    host.innerHTML=rows.map(row=>{const person=profiles.get(row.box==='received'?row.buyer_id:row.seller_id);const listing=listings.get(row.listing_id);const canRespond=row.box==='received'&&row.status==='pending';return `<article class="market-inquiry"><div class="market-inquiry-head"><b>${row.box==='received'?'From':'To'} ${esc(person?.display_name||person?.username||'Frnxup member')}</b><span class="market-condition">${row.request_type==='purchase'?'Purchase request':'Message'} · ${esc(row.status)}</span></div><p><b>${esc(listing?.title||'Item listing')}</b> · ${money(listing?.price)}</p><p>${esc(row.message)}</p><small>${dateLabel(row.created_at)}</small>${canRespond?`<div class="market-card-actions"><button class="market-btn market-btn-primary" data-inquiry-status="accepted" data-inquiry-id="${row.id}">Accept</button><button class="market-btn market-btn-secondary" data-inquiry-status="declined" data-inquiry-id="${row.id}">Decline</button></div>`:''}</article>`}).join('');FXStates.loaded(host);
   }
   async function updateListingStatus(id,status) {
     const {error}=await FX.client.from('market_listings').update({status}).eq('id',id);
@@ -119,7 +122,7 @@
       const status=e.target.closest('[data-listing-status]');if(status){status.disabled=true;try{await updateListingStatus(status.dataset.listingId,status.dataset.listingStatus)}catch(err){toast(err.message);status.disabled=false}return}
       const response=e.target.closest('[data-inquiry-status]');if(response){response.disabled=true;const {error}=await FX.client.from('market_inquiries').update({status:response.dataset.inquiryStatus}).eq('id',response.dataset.inquiryId);if(error)toast(error.message);else{toast('Request updated.');loadInbox()}return}
     });
-    loadBrowse();
+    return loadBrowse();
   }
 
   function renderPhotoPreview(files) {
@@ -166,7 +169,7 @@
         const {error:mediaError}=await FX.client.from('market_listing_media').insert(records);if(mediaError)throw mediaError;
         const {error:publishError}=await FX.client.from('market_listings').update({status:'published'}).eq('id',listingId);if(publishError)throw publishError;
         toast('Your item is now listed on Frnxup-Market.');location.href=`/Market/item.html?id=${encodeURIComponent(listingId)}`;
-      }catch(err){if(listingId)await FX.client.from('market_listings').delete().eq('id',listingId);if(uploaded.length)await FX.client.storage.from('frnxup-media').remove(uploaded);message.textContent=err.message;button.disabled=false}
+      }catch(err){if(listingId)await FX.client.from('market_listings').delete().eq('id',listingId);if(uploaded.length)await FX.client.storage.from('frnxup-media').remove(uploaded);FXStates.failUpload(message,err,{retry:()=>$('#market-sell-form').requestSubmit()});button.disabled=false}
     });
   }
   async function contactSeller(type) {
@@ -177,11 +180,11 @@
     $('#market-contact-modal').dataset.type=type;$('#market-contact-modal').classList.add('open');$('#market-contact-modal').setAttribute('aria-hidden','false');$('#market-contact-message').focus();
   }
   async function loadItem() {
-    const id=query.get('id');const host=$('#market-item-detail');if(!FX.client){host.innerHTML='<div class="market-empty">Connect Supabase to load this item.</div>';return}if(!id){host.innerHTML='<div class="market-empty">No item was selected.</div>';return}
+    const id=query.get('id');const host=$('#market-item-detail');if(!FX.client){FXStates.render(host,'configuration');return}if(!id){FXStates.render(host,'unavailable',{title:'No Marketplace item selected',message:'Open an item from the Marketplace to see its details.'});return}if(host.dataset.fxHasContent!=='true')FXStates.loading(host,{title:'Loading item details',message:'Fetching the listing, seller and photos.'});
     const {data:item,error}=await FX.client.from('market_listings').select('*').eq('id',id).maybeSingle();
-    if(error||!item){host.innerHTML=`<div class="market-empty">${esc(error?.message||'This item is unavailable or has been removed.')}</div>`;return}
-    if(item.status!=='published'&&item.seller_id!==FX.user?.id){host.innerHTML='<div class="market-empty">This item is no longer available.</div>';return}
-    const user=await FX.loadUser();const media=await fetchMedia(id);const {data:seller}=await FX.client.from('profiles').select('id,username,display_name,avatar_path').eq('id',item.seller_id).maybeSingle();
+    if(error){FXStates.fail(host,error,{retry:loadItem});return;}if(!item){FXStates.render(host,'unavailable',{title:'This item is unavailable',message:'It may have been removed or is no longer public.'});return}
+    if(item.status!=='published'&&item.seller_id!==FX.user?.id){FXStates.render(host,'unavailable',{title:'This item is no longer available',message:'The seller has hidden, sold or removed this listing.'});return}
+    const user=await FX.loadUser();let media;try{media=await fetchMedia(id)}catch(mediaError){FXStates.fail(host,mediaError,{retry:loadItem,title:'Marketplace photos could not be loaded'});return}const {data:seller,error:sellerError}=await FX.client.from('profiles').select('id,username,display_name,avatar_path').eq('id',item.seller_id).maybeSingle();if(sellerError){FXStates.fail(host,sellerError,{retry:loadItem,title:'Seller information could not be loaded'});return}
     selectedContact={...item,seller_id:item.seller_id};
     if(!user||user.id!==item.seller_id)FX.client.rpc('frnxup_market_increment_view',{p_listing_id:id});
     const avatar=seller?.avatar_path?await FX.mediaUrl(seller.avatar_path):'';
@@ -191,6 +194,7 @@
     <div class="market-item-actions"><button class="market-btn market-btn-primary" id="market-request-buy">Request to buy</button><button class="market-btn market-btn-secondary" id="market-message-seller">Send seller a message</button><button class="market-btn market-btn-secondary" id="market-save-item">♡ Save item</button><button class="market-btn market-btn-secondary" id="market-report-item">⚑ Report listing</button></div>
     <div class="market-boost-panel"><h3>🚀 Boost this item</h3><p>Boosted items receive sponsored placement in Marketplace. 1 week ₦200 · 2 weeks ₦400 · 3 weeks ₦600 · 4 weeks / month ₦800. Requests are reviewed by Frnxup admins.</p><select id="market-boost-weeks"><option value="1">1 week — ₦200</option><option value="2">2 weeks — ₦400</option><option value="3">3 weeks — ₦600</option><option value="4">4 weeks / month — ₦800</option></select><input id="market-boost-reference" maxlength="160" placeholder="Payment reference (optional)"><button class="market-btn market-btn-primary" id="market-request-boost">Request boost</button></div>
     <small style="display:block;color:var(--muted);margin-top:12px;line-height:1.5">Arrange inspection, collection and payment directly with the seller. Never pay before you are satisfied that the item and seller are genuine.</small></aside>`;
+    FXStates.loaded(host);
     if(user?.id===item.seller_id){$('#market-request-buy').hidden=true;$('#market-message-seller').hidden=true;$('#market-save-item').hidden=true;}
     $('#market-item-hero').dataset.main=first;
     host.addEventListener('click',e=>{const thumb=e.target.closest('[data-item-photo]');if(thumb){const n=Number(thumb.dataset.itemPhoto);$('#market-item-hero').innerHTML=`<img src="${esc(media[n]?.url||'')}" alt="${esc(item.title)}">`;host.querySelectorAll('[data-item-photo]').forEach(x=>x.classList.toggle('active',x===thumb));}});
@@ -198,7 +202,7 @@
     $('#market-save-item').onclick=async()=>{const u=await FX.loadUser();if(!u){FX.showAuthNotice('Sign in to save this item.');return}const {error}=await FX.client.from('market_saved_listings').upsert({user_id:u.id,listing_id:id},{onConflict:'user_id,listing_id'});if(error)toast(error.message);else{toast('Item saved.');FX.trackActivity('market_item_saved','market_listing',id)}};
     $('#market-report-item').onclick=async()=>{const u=await FX.loadUser();if(!u){FX.showAuthNotice('Sign in to report a listing.');return}const reason=prompt('Tell Frnxup why this listing should be reviewed:');if(!reason||reason.trim().length<5)return;const {error}=await FX.client.from('market_reports').insert({listing_id:id,reporter_id:u.id,reason:reason.trim()});if(error)toast(error.message);else toast('Report sent to the Frnxup moderation team.')};
     $('#market-request-boost').onclick=async()=>{const u=await FX.loadUser();if(!u){FX.showAuthNotice('Sign in to request a listing boost.');return}if(FX.settings?.market_boosts_enabled===false){toast('Marketplace boosts are temporarily disabled.');return}const weeks=Number($('#market-boost-weeks').value);const amount=weeks*200;if(!confirm(`Submit a ${weeks}-week boost request for ₦${amount.toLocaleString()}? The boost begins after admin payment review.`))return;const {error}=await FX.client.from('market_boosts').insert({listing_id:id,payer_id:u.id,duration_weeks:weeks,amount_ngn:amount,payment_reference:$('#market-boost-reference').value.trim(),status:'pending_review'});if(error)toast(error.message);else toast('Boost request submitted for admin review.')};
-    $('#market-contact-form').onsubmit=async e=>{e.preventDefault();const u=await FX.loadUser();if(!u){FX.showAuthNotice('Sign in to contact the seller.');return}const type=$('#market-contact-modal').dataset.type;const message=$('#market-contact-message').value.trim();if(message.length<2)return;const btn=$('#market-contact-submit');btn.disabled=true;try{const {error}=await FX.client.from('market_inquiries').insert({listing_id:id,buyer_id:u.id,seller_id:item.seller_id,request_type:type,message,status:'pending'});if(error)throw error;$('#market-contact-modal').classList.remove('open');toast(type==='purchase'?'Purchase request sent to seller.':'Message sent to seller.')}catch(err){$('#market-contact-feedback').textContent=err.message}finally{btn.disabled=false}};
+    $('#market-contact-form').onsubmit=async e=>{e.preventDefault();const u=await FX.loadUser();if(!u){FX.showAuthNotice('Sign in to contact the seller.');return}const type=$('#market-contact-modal').dataset.type;const message=$('#market-contact-message').value.trim();if(message.length<2)return;const btn=$('#market-contact-submit');btn.disabled=true;try{const {error}=await FX.client.from('market_inquiries').insert({listing_id:id,buyer_id:u.id,seller_id:item.seller_id,request_type:type,message,status:'pending'});if(error)throw error;$('#market-contact-modal').classList.remove('open');toast(type==='purchase'?'Purchase request sent to seller.':'Message sent to seller.')}catch(err){FXStates.fail($('#market-contact-feedback'),err,{retry:()=>$('#market-contact-form').requestSubmit(),title:'Your message could not be sent'})}finally{btn.disabled=false}};
     document.querySelector('[data-close-contact]').onclick=()=>{$('#market-contact-modal').classList.remove('open');$('#market-contact-modal').setAttribute('aria-hidden','true')};
     await FX.trackActivity('market_item_view','market_listing',id,{title:item.title});
   }
@@ -207,9 +211,9 @@
     try {
       await FX.loadUser(); await FX.loadSettings();
       const page=document.body.dataset.marketPage;
-      if(page==='browse'){if(checkEnabled())bindBrowse()}
-      else if(page==='sell'){if(checkEnabled())initSell()}
-      else if(page==='item'){if(checkEnabled())loadItem()}
-    } catch(error) { const host=$('#market-listing-grid')||$('#market-item-detail')||$('#market-sell-message');if(host)host.textContent=error.message; }
+      if(page==='browse'){if(checkEnabled())await bindBrowse()}
+      else if(page==='sell'){if(checkEnabled())await initSell()}
+      else if(page==='item'){if(checkEnabled())await loadItem()}
+    } catch(error) { const page=document.body.dataset.marketPage;const host=page==='browse'&&query.get('inbox')==='1'?$('#market-inbox-list'):page==='item'?$('#market-item-detail'):page==='sell'?$('#market-sell-message'):$('#market-listing-grid');if(host)FXStates.fail(host,error,{retry:()=>page==='browse'?(query.get('inbox')==='1'?loadInbox():loadBrowse()):page==='item'?loadItem():initSell()}); }
   });
 })();
