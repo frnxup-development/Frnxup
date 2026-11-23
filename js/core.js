@@ -116,6 +116,19 @@
   function safeNextPath() {
     return location.pathname + location.search + location.hash;
   }
+  async function mfaSessionReadyForDatabase() {
+    if (!client?.auth?.mfa?.getAuthenticatorAssuranceLevel) return true;
+    try {
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError || !sessionData?.session?.user) return true;
+      const { data: aal, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+      // This is only a UI preflight. Supabase RLS is the authoritative MFA
+      // enforcement layer. A disabled/unavailable optional MFA endpoint must
+      // never block accounts that have not enrolled a verified factor.
+      if (error || !aal) return true;
+      return !(aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2');
+    } catch (_) { return true; }
+  }
   const FX = {
     client, configured, user: null, profile: null, settings: {},
     qs: (selector, rootNode = document) => rootNode.querySelector(selector),
@@ -131,6 +144,7 @@
     relative(value) { if (!value) return ''; const elapsed = Math.max(0, Date.now() - new Date(value).getTime()); const minutes = Math.floor(elapsed / 60000); if (minutes < 1) return 'just now'; if (minutes < 60) return `${minutes}m ago`; const hours = Math.floor(minutes / 60); if (hours < 24) return `${hours}h ago`; return `${Math.floor(hours / 24)}d ago`; },
     async loadSettings() {
       if (!client) return this.settings;
+      if (!(await mfaSessionReadyForDatabase())) return this.settings;
       if (this._settingsLoaded) return this.settings;
       if (this._settingsPromise) return this._settingsPromise;
       this._settingsPromise = (async () => {
@@ -250,6 +264,9 @@
     },
     async loadProfile() {
       if (!client || !this.user) return null;
+      // Never issue profile reads on an AAL1 session when the account has
+      // opted into MFA. This also protects background callers of loadProfile.
+      if (!(await mfaSessionReadyForDatabase())) return null;
       const userId = this.user.id;
       if (this._profileLoadedUserId === userId) return this.profile;
       if (this._profilePromise && this._profilePromiseUserId === userId) return this._profilePromise;
@@ -736,6 +753,21 @@
     if (!user) {
       location.replace(loginDestination());
       return;
+    }
+
+    // Step up opted-in members before exposing any protected member page.
+    // The matching restrictive RLS migration enforces this on database access too.
+    try {
+      const { data: aal, error: aalError } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+      // Only redirect for a positive AAL1 -> AAL2 result. If the optional MFA
+      // endpoint is unavailable, keep ordinary sessions working; RLS remains
+      // responsible for protecting tables for users who actually enrolled MFA.
+      if (!aalError && aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+        location.replace(loginDestination());
+        return;
+      }
+    } catch (_) {
+      // Do not lock out non-MFA members because an optional MFA preflight failed.
     }
 
     // Verify the authoritative profile status before revealing a protected page.

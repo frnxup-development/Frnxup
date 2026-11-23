@@ -58,6 +58,155 @@
     }
   };
 
+  // Enrolled phone/authenticator factors are required before a member is
+  // allowed to continue from an AAL1 session to the Frnxup member area.
+  let loginMfaPromise = null;
+  async function runLoginMfaGate() {
+    if (!FX.client?.auth?.mfa) return false;
+    const { data: aal, error: aalError } = await FX.client.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalError) {
+      // Phone security is opt-in. Projects that have not enabled Supabase MFA,
+      // and accounts without a verified factor, must retain ordinary password login.
+      // If a verified factor can be positively identified despite the AAL lookup
+      // failure, stop with a clear message rather than silently skipping it.
+      try {
+        const { data: fallbackFactors, error: fallbackError } = await FX.client.auth.mfa.listFactors();
+        const enrolled = !fallbackError && [
+          ...(fallbackFactors?.phone || []), ...(fallbackFactors?.totp || [])
+        ].some((factor) => factor.status === 'verified');
+        if (enrolled) throw new Error('Your additional security factor is enrolled, but Frnxup could not check its status. Please try again shortly.');
+      } catch (factorLookupError) {
+        if (factorLookupError instanceof Error && factorLookupError.message.startsWith('Your additional security factor')) throw factorLookupError;
+        // An unavailable MFA endpoint is not a reason to lock out an account
+        // that has not enabled optional phone security.
+      }
+      return false;
+    }
+    if (aal?.currentLevel === 'aal2' || aal?.nextLevel !== 'aal2') return false;
+    if (loginMfaPromise) return loginMfaPromise;
+
+    const { data: factorData, error: factorError } = await FX.client.auth.mfa.listFactors();
+    if (factorError) throw new Error('Frnxup needs to check your enrolled second factor, but the security service is temporarily unavailable. Please try again.');
+    const factors = [
+      ...(factorData?.phone || []).filter((factor) => factor.status === 'verified'),
+      ...(factorData?.totp || []).filter((factor) => factor.status === 'verified')
+    ];
+    // AAL can briefly be stale after a user removes a factor. No verified factor
+    // means MFA is not opted in, so continue with the normal login flow.
+    if (!factors.length) return false;
+
+    const loginForm = $('#login-form');
+    let panel = $('#login-mfa-panel');
+    if (!panel) {
+      panel = document.createElement('section');
+      panel.id = 'login-mfa-panel';
+      panel.className = 'card';
+      panel.style.cssText = 'padding:18px;margin-top:14px';
+      panel.innerHTML = `
+        <div class="auth-heading"><span class="auth-eyebrow">SECOND-STEP VERIFICATION</span><h2 style="font-size:22px">Verify it is you</h2><p id="login-mfa-description">Enter the code sent to your verified phone.</p></div>
+        <div class="field" id="login-mfa-factor-wrap"><label for="login-mfa-factor">Verification method</label><select id="login-mfa-factor"></select></div>
+        <div class="field" id="login-mfa-channel-wrap"><label for="login-mfa-channel">Send code using</label><select id="login-mfa-channel"><option value="whatsapp">WhatsApp (recommended)</option><option value="sms">SMS</option></select></div>
+        <div class="field"><label for="login-mfa-code">6-digit code</label><input id="login-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000"></div>
+        <button class="button primary full" id="login-mfa-verify" type="button">Verify and continue</button>
+        <button class="button subtle full" id="login-mfa-resend" type="button" style="margin-top:8px">Send code again</button>
+        <p id="login-mfa-msg" class="status-line" aria-live="polite"></p>
+        <button class="plain-link" id="login-mfa-signout" type="button">Sign out</button>`;
+      loginForm?.insertAdjacentElement('afterend', panel);
+      const factorSelect = panel.querySelector('#login-mfa-factor');
+      factors.forEach((factor, index) => {
+        const option = document.createElement('option');
+        option.value = factor.id;
+        option.textContent = factor.factor_type === 'phone' ? `Phone ${String(factor.phone || '').replace(/(\+?\d{2,4})\d+(\d{2})$/, '$1••••$2')}` : `Authenticator app ${index + 1}`;
+        option.dataset.type = factor.factor_type;
+        factorSelect.appendChild(option);
+      });
+    }
+
+    if (loginForm) loginForm.hidden = true;
+    panel.hidden = false;
+    const factorSelect = panel.querySelector('#login-mfa-factor');
+    const channelWrap = panel.querySelector('#login-mfa-channel-wrap');
+    const channelSelect = panel.querySelector('#login-mfa-channel');
+    const description = panel.querySelector('#login-mfa-description');
+    const msg = panel.querySelector('#login-mfa-msg');
+    const codeInput = panel.querySelector('#login-mfa-code');
+    const verifyButton = panel.querySelector('#login-mfa-verify');
+    const resendButton = panel.querySelector('#login-mfa-resend');
+    const selectedFactor = () => factors.find((factor) => factor.id === factorSelect.value) || factors[0];
+    const updateMethod = () => {
+      const factor = selectedFactor();
+      const isPhone = factor.factor_type === 'phone';
+      channelWrap.hidden = !isPhone;
+      description.textContent = isPhone ? `A 6-digit code will be sent to ${String(factor.phone || 'your verified phone').replace(/(\+?\d{2,4})\d+(\d{2})$/, '$1••••$2')}.` : 'Open your authenticator app and enter the current 6-digit code.';
+      msg.textContent = '';
+    };
+    factorSelect.onchange = updateMethod;
+    updateMethod();
+
+    loginMfaPromise = new Promise((resolve, reject) => {
+      let challengeId = null;
+      let busy = false;
+      const send = async () => {
+        if (busy) return;
+        busy = true;
+        resendButton.disabled = true;
+        try {
+          const factor = selectedFactor();
+          const options = { factorId: factor.id };
+          if (factor.factor_type === 'phone') options.channel = channelSelect.value || 'whatsapp';
+          const { data, error } = await FX.client.auth.mfa.challenge(options);
+          if (error) throw error;
+          challengeId = data.id;
+          msg.textContent = factor.factor_type === 'phone'
+            ? `Code sent using ${channelSelect.value === 'whatsapp' ? 'WhatsApp' : 'SMS'}. Check your phone.`
+            : 'Open your authenticator app and enter the current code.';
+          msg.dataset.kind = 'success';
+        } catch (error) {
+          msg.textContent = error?.message || 'Could not send a verification code. Try SMS or contact support.';
+          msg.dataset.kind = 'error';
+        } finally {
+          busy = false;
+          resendButton.disabled = false;
+        }
+      };
+      resendButton.onclick = send;
+      verifyButton.onclick = async () => {
+        const code = codeInput.value.trim();
+        if (!/^\d{6}$/.test(code)) { msg.textContent = 'Enter the 6-digit verification code.'; msg.dataset.kind = 'error'; return; }
+        if (!challengeId) { msg.textContent = 'Send a verification code first.'; msg.dataset.kind = 'error'; return; }
+        if (busy) return;
+        busy = true;
+        verifyButton.disabled = true;
+        try {
+          const factor = selectedFactor();
+          const { error } = await FX.client.auth.mfa.verify({ factorId: factor.id, challengeId, code });
+          if (error) throw error;
+          const { data: verifiedAal, error: verifiedAalError } = await FX.client.auth.mfa.getAuthenticatorAssuranceLevel();
+          if (verifiedAalError) throw verifiedAalError;
+          if (verifiedAal?.currentLevel !== 'aal2') throw new Error('Frnxup could not confirm the second verification step. Please try again.');
+          panel.hidden = true;
+          if (loginForm) loginForm.hidden = false;
+          resolve(true);
+        } catch (error) {
+          msg.textContent = error?.message || 'The code is incorrect or expired. Try again.';
+          msg.dataset.kind = 'error';
+        } finally {
+          busy = false;
+          verifyButton.disabled = false;
+        }
+      };
+      panel.querySelector('#login-mfa-signout').onclick = async () => {
+        await FX.client.auth.signOut({ scope: 'local' });
+        location.replace('/Auth/index.html');
+      };
+      if (factors.length === 1) factorSelect.disabled = true;
+      // Start with WhatsApp for phone factors; members can switch to SMS if needed.
+      if (selectedFactor().factor_type === 'phone') send();
+      else msg.textContent = 'Enter the code from your authenticator app.';
+    }).finally(() => { loginMfaPromise = null; });
+    return loginMfaPromise;
+  }
+
   const accountStatusFromUrl = new URLSearchParams(location.search).get('accountStatus');
   if (accountStatusFromUrl === 'banned' || accountStatusFromUrl === 'suspended') {
     try {
@@ -245,8 +394,24 @@
   // A member who is already signed in does not need to see the access forms.
   if (accountStatusFromUrl !== 'banned' && accountStatusFromUrl !== 'suspended' && ($('#login-form') || signupForm)) {
     if (typeof FX.loadUser === 'function') {
-      FX.loadUser().then(user => {
-        if (user) location.replace(nextPath());
+      FX.loadUser().then(async (user) => {
+        if (!user) return;
+        try {
+          if ($('#login-form')) {
+            await runLoginMfaGate();
+          } else if (FX.client?.auth?.mfa) {
+            const { data: aal, error: aalError } = await FX.client.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (aalError) throw aalError;
+            if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+              location.replace(`/Auth/index.html?next=${encodeURIComponent(nextPath())}`);
+              return;
+            }
+          }
+          await FX.loadProfile();
+          location.replace(nextPath());
+        } catch (error) {
+          setMessage('#login-msg', error?.message || 'Frnxup could not verify your second security factor.', 'error');
+        }
       }).catch(() => {});
     }
   }
@@ -300,13 +465,20 @@
         });
         if (sessionError) throw sessionError;
 
+        // Complete MFA before reading profiles: the opt-in RLS policy blocks
+        // AAL1 reads for accounts that have a verified second factor.
+        await runLoginMfaGate();
         const { data: current, error: userError } = await FX.client.auth.getUser();
         if (userError || !current?.user) throw userError || new Error('Your sign-in could not be confirmed. Please try again.');
         const { data: accountProfile, error: statusError } = await FX.client
           .from('profiles').select('account_status').eq('id', current.user.id).maybeSingle();
-        if (statusError || !accountProfile) {
+        if (statusError) {
+          const diagnostic = statusError.code ? ` (code: ${statusError.code})` : '';
+          throw new Error(`Your password was accepted, but Frnxup could not verify your account status${diagnostic}. Please try again. If this continues, contact frnxup@gmail.com.`);
+        }
+        if (!accountProfile) {
           await FX.client.auth.signOut();
-          throw new Error('Frnxup could not verify this account status. Please check your connection and try again.');
+          throw new Error('Frnxup could not find the account profile linked to this login. Contact frnxup@gmail.com for help.');
         }
         if (accountProfile.account_status !== 'active') {
           await FX.client.auth.signOut();
