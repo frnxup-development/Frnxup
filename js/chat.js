@@ -117,10 +117,10 @@
       avatar_url: paths.get(person.id) ? await FX.mediaUrl(paths.get(person.id)) : ''
     })));
     return `<section class="people-suggestions">
-      <div class="suggestions-heading"><h2>People you may know <span aria-label="Suggestions based on your network">i</span></h2><a href="/Friends/suggestions.html" aria-label="See all suggestions">•••</a></div>
-      <div class="suggestion-track">${rows.map(person => {
+      <div class="suggestions-heading"><h2>People you may know <span aria-label="Suggestions based on your network">i</span></h2><div class="suggestion-heading-actions"><a href="/Friends/suggestions.html" aria-label="See all suggestions">See all</a><button type="button" data-suggestion-scroll="prev" aria-label="Scroll suggestions left">‹</button><button type="button" data-suggestion-scroll="next" aria-label="Scroll suggestions right">›</button></div></div>
+      <div class="suggestion-track-wrap"><div class="suggestion-track">${rows.map(person => {
         const name = person.display_name || person.username || 'Frnxup member';
-        const count = Number(person.mutual_friends || 0);
+        const count = Number(person.mutual_count || person.mutual_friends || 0);
         return `<article class="suggestion-card" data-suggestion="${person.id}">
           <button class="suggestion-dismiss" data-dismiss-suggestion="${person.id}" type="button" aria-label="Hide suggestion">×</button>
           ${avatar(name, person.avatar_url, 'suggestion-avatar')}
@@ -128,7 +128,7 @@
           <small class="suggestion-mutual">${count} mutual friend${count === 1 ? '' : 's'}</small>
           <button class="suggestion-add" data-add-person="${person.id}" type="button">＋ Add Friend</button>
         </article>`;
-      }).join('')}</div>
+      }).join('')}</div></div>
     </section>`;
   }
 
@@ -290,7 +290,6 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     await FX.loadUser();
-    await FX.loadProfile();
     if (!FX.user) {
       const next = encodeURIComponent(location.pathname + location.search);
       const notice = `<div class="empty"><a href="/Auth/index.html?next=${next}">Sign in</a> to view conversations and send messages.</div>`;
@@ -365,6 +364,12 @@
         if (dismiss) {
           const card = dismiss.closest('.suggestion-card');
           card?.remove();
+          return;
+        }
+        const scrollButton = event.target.closest('[data-suggestion-scroll]');
+        if (scrollButton) {
+          const track = $('#conversation-list .suggestion-track');
+          if (track) track.scrollBy({ left: (scrollButton.dataset.suggestionScroll === 'prev' ? -1 : 1) * Math.max(250, track.clientWidth * 0.78), behavior: 'smooth' });
         }
       });
       return;

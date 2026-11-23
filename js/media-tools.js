@@ -36,7 +36,7 @@
     if (!item) return;
     lightboxLayer.querySelector('.fx-lightbox-title').textContent = title;
     lightboxLayer.querySelector('.fx-lightbox-stage').innerHTML = item.type === 'video'
-      ? `<video controls autoplay playsinline src="${esc(item.url)}"></video>`
+      ? `<video controls autoplay muted playsinline preload="metadata" src="${esc(item.url)}"></video>`
       : `<img src="${esc(item.url)}" alt="Photo ${index + 1}">`;
     lightboxLayer.querySelector('.fx-lightbox-count').textContent = `${index + 1} / ${items.length}`;
     lightboxLayer.querySelector('.fx-lightbox-prev').disabled = items.length < 2;
@@ -81,11 +81,13 @@
     galleries.set(String(key), clean);
     const visible = clean.slice(0, 4);
     const countClass = clean.length === 1 ? 'one' : clean.length === 2 ? 'two' : clean.length === 3 ? 'three' : 'four';
-    return `<div class="fx-collage ${countClass}" data-gallery-title="${esc(title)}">${visible.map((item, index) => {
+    const videoClass = clean.length === 1 && clean[0].type === 'video' ? 'fx-single-video' : '';
+    return `<div class="fx-collage ${countClass} ${videoClass}" data-gallery-title="${esc(title)}">${visible.map((item, index) => {
       const media = item.type === 'video'
-        ? `<video src="${esc(item.url)}" muted playsinline preload="metadata"></video><span class="fx-video-mark">▶</span>`
-        : `<img loading="lazy" src="${esc(item.url)}" alt="Post photo ${index + 1}">`;
+        ? `<video class="fx-inline-post-video" src="${esc(item.url)}" muted autoplay controls playsinline preload="metadata" aria-label="Post video. Use controls to pause or turn sound on."></video>`
+        : `<img loading="lazy" src="${esc(item.url)}" alt="Photo ${index + 1}">`;
       const more = index === 3 && clean.length > 4 ? `<span class="fx-collage-more">+${clean.length - 4}</span>` : '';
+      if (item.type === 'video') return `<div class="fx-collage-tile fx-video-tile" data-fx-gallery="${esc(key)}" data-fx-index="${index}">${media}${more}</div>`;
       return `<button type="button" class="fx-collage-tile" data-fx-gallery="${esc(key)}" data-fx-index="${index}" aria-label="Preview media ${index + 1}">${media}${more}</button>`;
     }).join('')}</div><div class="fx-media-save-row"><button type="button" class="fx-save-gallery" data-fx-save-gallery="${esc(key)}">↓ Preview & save photos</button><small>${clean.length} ${clean.length === 1 ? 'item' : 'items'} · Tap to preview</small></div>`;
   }
@@ -158,7 +160,12 @@
 
   document.addEventListener('click', event => {
     const tile = event.target.closest('[data-fx-gallery]');
-    if (tile) { openGallery(tile.dataset.fxGallery, Number(tile.dataset.fxIndex), tile.closest('.fx-collage')?.dataset.galleryTitle || 'Photo gallery'); return; }
+    if (tile) {
+      // Keep native inline video controls interactive instead of opening the lightbox.
+      if (event.target.closest('.fx-inline-post-video')) return;
+      openGallery(tile.dataset.fxGallery, Number(tile.dataset.fxIndex), tile.closest('.fx-collage')?.dataset.galleryTitle || 'Photo gallery');
+      return;
+    }
     const saveButton = event.target.closest('[data-fx-save-gallery]');
     if (saveButton) {
       const items = galleries.get(saveButton.dataset.fxSaveGallery) || [];

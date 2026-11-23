@@ -2,12 +2,18 @@
   const closeMenus = () => document.querySelectorAll('.post-menu').forEach(menu => menu.remove());
 
   const sharePost = async postId => {
-    const url = `${location.origin}/Posts/view.html?id=${encodeURIComponent(postId)}`;
+    const target = new URL('/Posts/view.html', location.origin);
+    target.searchParams.set('id', postId);
+    const url = target.toString();
     if (navigator.share) {
-      try { await navigator.share({ title: 'Frnxup post', url }); return; }
+      try { await navigator.share({ title: 'Frnxup post', text: 'See this post on Frnxup', url }); return; }
       catch (error) { if (error?.name === 'AbortError') return; }
     }
-    await navigator.clipboard.writeText(url);
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
+    else {
+      const field = document.createElement('textarea'); field.value = url; field.style.position = 'fixed'; field.style.opacity = '0'; document.body.append(field); field.select();
+      const copied = document.execCommand('copy'); field.remove(); if (!copied) throw new Error('Copy is unavailable in this browser.');
+    }
     FX.toast('Post link copied.');
   };
 
