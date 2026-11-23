@@ -1,0 +1,97 @@
+/* Frnxup Friends hub: isolated styles so the page stays styled even if app.css is replaced. */
+.fx-friends-page{max-width:900px!important}
+.fx-friends-hub{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+  width:100%;
+  min-width:0;
+  margin:18px 0 24px;
+}
+.fx-friends-hub-card{
+  box-sizing:border-box;
+  display:grid!important;
+  grid-template-columns:48px minmax(0,1fr) 18px;
+  align-items:center;
+  gap:13px;
+  width:100%;
+  min-width:0;
+  min-height:112px;
+  padding:18px;
+  overflow:hidden;
+  border:1px solid var(--line,#e6ecf6);
+  border-radius:var(--radius,17px);
+  background:var(--surface,#fff);
+  color:var(--text,#151c2e)!important;
+  text-decoration:none!important;
+  box-shadow:var(--shadow,0 8px 24px rgba(35,75,140,.06));
+  transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.fx-friends-hub-card:visited{color:var(--text,#151c2e)!important;text-decoration:none!important}
+.fx-friends-hub-card:hover,.fx-friends-hub-card:focus-visible{
+  border-color:var(--blue,#287cf0);
+  box-shadow:0 10px 26px rgba(35,75,140,.12);
+  transform:translateY(-2px);
+  outline:none;
+}
+.fx-friends-hub-icon{
+  display:grid;
+  place-items:center;
+  width:48px;
+  height:48px;
+  border-radius:15px;
+  background:var(--message-avatar-bg,#e9eef5);
+  color:var(--blue,#287cf0);
+  font-size:27px;
+  font-weight:900;
+  line-height:1;
+}
+.fx-friends-hub-card>span:nth-child(2){
+  display:grid;
+  gap:5px;
+  min-width:0;
+  align-content:center;
+}
+.fx-friends-hub-card b{
+  display:block;
+  margin:0;
+  color:var(--text,#151c2e);
+  font:800 16px/1.3 Manrope,'DM Sans',sans-serif;
+  overflow-wrap:anywhere;
+}
+.fx-friends-hub-card small{
+  display:block;
+  margin:0;
+  color:var(--muted,#7d879b);
+  font:400 12px/1.5 'DM Sans',sans-serif;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.fx-friends-hub-card>strong{
+  display:block;
+  justify-self:end;
+  color:var(--muted,#7d879b);
+  font-size:25px;
+  line-height:1;
+}
+.dark .fx-friends-hub-card{
+  background:var(--surface,#111a29);
+  border-color:var(--line,#26354b);
+  color:var(--text,#f4f7ff)!important;
+}
+.dark .fx-friends-hub-card b{color:var(--text,#f4f7ff)}
+.dark .fx-friends-hub-card small{color:var(--muted,#a0aec3)}
+.dark .fx-friends-hub-icon{background:var(--message-avatar-bg,#26354a);color:var(--blue,#3b8dff)}
+@media(max-width:700px){
+  .fx-friends-page{padding-left:18px!important;padding-right:18px!important}
+  .fx-friends-hub{grid-template-columns:minmax(0,1fr);gap:11px;margin-top:16px}
+  .fx-friends-hub-card{min-height:96px;padding:15px;grid-template-columns:46px minmax(0,1fr) 16px;gap:12px}
+  .fx-friends-hub-icon{width:44px;height:44px;border-radius:13px;font-size:25px}
+  .fx-friends-hub-card b{font-size:16px}
+  .fx-friends-hub-card small{font-size:12px;line-height:1.45}
+}
+@media(prefers-reduced-motion:reduce){
+  .fx-friends-hub-card{transition:none}
+  .fx-friends-hub-card:hover,.fx-friends-hub-card:focus-visible{transform:none}
+}
