@@ -280,9 +280,9 @@ Deno.serve(async(req)=>{
     if(updateError){if(body.status==='banned'&&target.account_status!=='banned'){try{await clearBannedIdentities(target.id)}catch(_){}}throw updateError;}
     if(body.status==='active')await clearBannedIdentities(target.id);
     const notice=body.status==='banned'
-      ? 'Your Frnxup account has been permanently banned. This account cannot use Frnxup. You may submit an appeal at /Auth/appeal.html. Contact support at frnxup@gmail.com.'
+      ? 'Your Frnxup account has been permanently banned. This account cannot use Frnxup. Contact support at frnxup@gmail.com.'
       : body.status==='suspended'
-        ? 'Your Frnxup account has been suspended by an administrator. You cannot use Frnxup while the suspension remains active. Submit an appeal at /Auth/appeal.html or contact support at frnxup@gmail.com.'
+        ? 'Your Frnxup account has been suspended by an administrator. You cannot use Frnxup while the suspension remains active. To appeal, return to the login page and enter the correct password for this suspended account. The secure appeal button will appear only after Frnxup verifies your credentials. You can also contact frnxup@gmail.com.'
         : 'Your Frnxup account has been reactivated. You can sign in and use Frnxup again.';
     const notificationSent=await notifyMember(target.id,body.status==='banned'?'Frnxup account banned':body.status==='suspended'?'Frnxup account suspended':'Frnxup account reactivated',notice);
     await log('set_member_status','profile',body.user_id,{status:body.status,previous_status:target.account_status,notification_sent:notificationSent});
