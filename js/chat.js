@@ -123,7 +123,7 @@
         const count = Number(person.mutual_count || person.mutual_friends || 0);
         return `<article class="suggestion-card" data-suggestion="${person.id}">
           <button class="suggestion-dismiss" data-dismiss-suggestion="${person.id}" type="button" aria-label="Hide suggestion">×</button>
-          ${avatar(name, person.avatar_url, 'suggestion-avatar')}
+          <a class="avatar suggestion-avatar" href="/Dashboard/profile.html?id=${encodeURIComponent(person.id)}" aria-label="View ${FX.esc(name)} profile"><span class="suggestion-avatar-fallback">${FX.esc(name.trim().slice(0, 2).toUpperCase())}</span>${person.avatar_url ? `<img src="${FX.esc(person.avatar_url)}" alt="${FX.esc(name)} profile picture" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</a>
           <b class="suggestion-name">${FX.esc(name)}</b>
           <small class="suggestion-mutual">${count} mutual friend${count === 1 ? '' : 's'}</small>
           <button class="suggestion-add" data-add-person="${person.id}" type="button">＋ Add Friend</button>

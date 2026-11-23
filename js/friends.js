@@ -3,9 +3,9 @@
   const view = document.body.dataset.friendsView || 'hub';
 
   const initials = profile => (profile?.display_name || profile?.username || 'F').trim().slice(0, 2).toUpperCase();
-  async function avatar(profile, size = 'sm') {
+  async function avatar(profile, size = 'lg') {
     const photo = profile?.avatar_path ? await FX.mediaUrl(profile.avatar_path) : '';
-    return `<span class="avatar ${size} fx-friend-avatar">${photo ? `<img src="${FX.esc(photo)}" alt="${FX.esc(profile?.display_name || profile?.username || 'Member')} profile picture">` : FX.esc(initials(profile))}</span>`;
+    return `<span class="avatar ${size} fx-friend-avatar"><span class="fx-avatar-fallback">${FX.esc(initials(profile))}</span>${photo ? `<img src="${FX.esc(photo)}" alt="${FX.esc(profile?.display_name || profile?.username || 'Member')} profile picture" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
   }
   async function personRow(profile, actions = '') {
     const name = profile?.display_name || profile?.username || 'Frnxup member';
@@ -76,7 +76,7 @@
       const name = profile.display_name || profile.username || 'Frnxup member';
       const photo = profile.avatar_path ? await FX.mediaUrl(profile.avatar_path) : '';
       const shared = Number(profile.shared_interests || profile.shared_count || 0);
-      return `<article class="fx-person-suggestion"><a class="fx-person-suggestion-avatar" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}">${photo ? `<img src="${FX.esc(photo)}" alt="${FX.esc(name)} profile picture">` : FX.esc(initials(profile))}</a><div class="fx-person-suggestion-copy"><b>${FX.esc(name)}</b><small>@${FX.esc(profile.username || 'member')}${shared ? ` · ${shared} shared interests` : ''}</small></div><a class="button subtle" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}">Profile</a><button class="button primary" data-add="${profile.id}" type="button">Add</button></article>`;
+      return `<article class="fx-person-suggestion"><a class="fx-person-suggestion-avatar" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}"><span class="fx-avatar-fallback">${FX.esc(initials(profile))}</span>${photo ? `<img src="${FX.esc(photo)}" alt="${FX.esc(name)} profile picture" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</a><div class="fx-person-suggestion-copy"><b>${FX.esc(name)}</b><small>@${FX.esc(profile.username || 'member')}${shared ? ` · ${shared} shared interests` : ''}</small></div><a class="button subtle" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}">Profile</a><button class="button primary" data-add="${profile.id}" type="button">Add</button></article>`;
     }));
     host.innerHTML = rows.join('') || '<div class="empty">No suggestions yet. Invite people you know to join Frnxup.</div>';
   }
