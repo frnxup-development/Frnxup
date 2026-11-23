@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadPost() {
     const { data: post, error } = await FX.client.from('posts')
-      .select('id,user_id,page_id,body,media_path,media_type,visibility,location_label,status,created_at,profiles!posts_user_id_fkey(username,display_name,avatar_path),post_reactions(user_id,reaction),repost_of')
+      .select('id,user_id,page_id,body,media_path,media_type,visibility,location_label,status,created_at,profiles!posts_user_id_fkey(username,display_name),post_reactions(user_id,reaction),repost_of')
       .eq('id', postId).eq('status', 'published').maybeSingle();
     if (error || !post) {
       $('#post-detail').innerHTML = '<div class="empty">This post is unavailable or private.</div>';
@@ -43,14 +43,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(post.page_id){const {data}=await FX.client.from('frnxup_pages').select('name,slug,avatar_path').eq('id',post.page_id).maybeSingle();authorPage=data||null;}
     else {const {data}=await FX.client.from('frnxup_pages').select('name,slug,avatar_path').eq('owner_user_id',post.user_id).eq('status','active').order('created_at',{ascending:false}).limit(1).maybeSingle();authorPage=data||null;}
     const shownName=post.page_id?(authorPage?.name||name):name;
-    const authorHref=post.page_id&&authorPage?`/Pages/view.html?slug=${encodeURIComponent(authorPage.slug)}`:`/Dashboard/profile.html?id=${encodeURIComponent(post.user_id)}`;
-    const userAvatar=post.profiles?.avatar_path?await FX.mediaUrl(post.profiles.avatar_path):'';
-    const pageAvatar=post.page_id&&authorPage?.avatar_path?await FX.mediaUrl(authorPage.avatar_path):'';
-    const authorAvatar=post.page_id?pageAvatar:userAvatar;
+    const authorHref=authorPage?`/Pages/view.html?slug=${encodeURIComponent(authorPage.slug)}`:`/Dashboard/profile.html?id=${encodeURIComponent(post.user_id)}`;
+    const authorAvatar=authorPage?.avatar_path?await FX.mediaUrl(authorPage.avatar_path):'';
     $('#post-detail').innerHTML = `<article class="card post-card" data-post="${post.id}" data-owner="${post.user_id}">
       <div class="post-header">
-        <a class="avatar fx-post-author-avatar" href="${authorHref}" aria-label="View ${FX.esc(shownName)} profile"><span class="fx-avatar-fallback">${FX.esc(shownName.slice(0,2).toUpperCase())}</span>${authorAvatar?`<img src="${FX.esc(authorAvatar)}" alt="${FX.esc(shownName)} profile picture" loading="lazy" decoding="async" onerror="this.remove()">`:''}</a>
-        <div class="post-head-copy"><b><a href="${authorHref}">${FX.esc(shownName)}</a></b><small>${post.page_id?'Frnxup Page':`@${FX.esc(post.profiles?.username || 'member')}`} · ${FX.esc(FX.relative(post.created_at))} · ${FX.esc(post.visibility)}</small>${!post.page_id&&authorPage?`<a class="fx-post-page-badge" href="/Pages/view.html?slug=${encodeURIComponent(authorPage.slug)}">▣ ${FX.esc(authorPage.name)} · Frnxup Page</a>`:''}</div>
+        <a class="avatar" href="${authorHref}">${authorAvatar?`<img src="${FX.esc(authorAvatar)}" alt="">`:FX.esc(shownName.slice(0, 2).toUpperCase())}</a>
+        <div class="post-head-copy"><b><a href="${authorHref}">${FX.esc(shownName)}</a></b><small>${post.page_id?'Frnxup Page':`@${FX.esc(post.profiles?.username || 'member')}`} · ${FX.esc(FX.relative(post.created_at))} · ${FX.esc(post.visibility)}</small>${authorPage?`<a class="fx-post-page-badge" href="${authorHref}">▣ ${FX.esc(authorPage.name)} · Frnxup Page</a>`:''}</div>
         <button class="post-more" data-post-menu="${post.id}" aria-label="Post options" title="Post options">•••</button>
       </div>
       ${post.body ? `<div class="post-text">${FX.esc(post.body)}</div>` : ''}
@@ -64,18 +62,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadPost();
     };
     $('#share-post').onclick = async () => {
-      const target = new URL('/Posts/view.html', location.origin);
-      target.searchParams.set('id', postId);
-      const url = target.toString();
+      const url = location.href;
       if (navigator.share) {
-        try { await navigator.share({ title: 'Frnxup post', text: 'See this post on Frnxup', url }); return; }
+        try { await navigator.share({ title: 'Frnxup post', url }); return; }
         catch (error) { if (error?.name === 'AbortError') return; }
       }
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
-      else {
-        const field = document.createElement('textarea'); field.value = url; field.style.position = 'fixed'; field.style.opacity = '0'; document.body.append(field); field.select();
-        const copied = document.execCommand('copy'); field.remove(); if (!copied) throw new Error('Copy is unavailable in this browser.');
-      }
+      await navigator.clipboard.writeText(url);
       FX.toast('Post link copied.');
     };
     if (FX.user) $('#bookmark-post').onclick = async () => {
