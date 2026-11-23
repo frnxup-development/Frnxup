@@ -290,3 +290,65 @@ body a:not(.brand):not(.fx-sidebar-brand){font-size:15px!important}
 
 .fx-active-page-banner{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;padding:9px 14px;background:#e7f4ee;color:#0a503b;border-bottom:1px solid #b6dfcb;font-size:14px;font-weight:700}.fx-active-page-banner a{color:#075fbd;font-weight:900}.fx-active-page-banner button{border:0;background:transparent;color:#0a503b;font-weight:900;cursor:pointer}.dark .fx-active-page-banner{background:#12392f;color:#d7ffed;border-color:#245b49}.dark .fx-active-page-banner button{color:#d7ffed}
 
+
+
+/* Friends hub and independent friend-management pages. */
+.fx-friends-page{max-width:900px!important}
+.fx-back-link{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;color:var(--muted);text-decoration:none;font-weight:700}
+.fx-friends-hub{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.fx-friends-hub-card{min-width:0;min-height:112px;padding:19px;display:grid;grid-template-columns:48px minmax(0,1fr) 18px;align-items:center;gap:13px;text-decoration:none;transition:transform .15s,border-color .15s}
+.fx-friends-hub-card:hover{transform:translateY(-2px);border-color:var(--blue)}
+.fx-friends-hub-icon{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--message-avatar-bg);color:var(--blue);font-size:25px;font-weight:900}
+.fx-friends-hub-card>span:nth-child(2){min-width:0;display:grid;gap:5px}
+.fx-friends-hub-card b{font:800 17px Manrope,sans-serif}
+.fx-friends-hub-card small{color:var(--muted);font-size:13px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+.fx-friends-hub-card>strong{color:var(--muted);font-size:25px}
+.fx-friends-list-page{max-width:820px!important}
+.fx-friends-list-card{padding:10px;overflow:hidden}
+.fx-friends-list{display:flex;flex-direction:column;gap:9px;min-width:0}
+.fx-friend-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2)}
+.fx-friend-identity{display:flex;align-items:center;gap:12px;min-width:0;flex:1;text-decoration:none}
+.fx-friend-avatar{flex:0 0 auto}
+.fx-friend-avatar img{width:100%;height:100%;display:block;border-radius:50%;object-fit:cover}
+.fx-friend-copy{display:grid;gap:4px;min-width:0}
+.fx-friend-copy b{font-size:15px;overflow-wrap:anywhere}
+.fx-friend-copy small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.fx-friend-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:0 0 auto;flex-wrap:wrap}
+.fx-friend-actions .button{white-space:nowrap;padding:9px 12px}
+.fx-pending-label{color:var(--muted);font-size:12px}
+.fx-people-results{display:flex;flex-direction:column;gap:10px}
+.fx-person-suggestion{display:grid;grid-template-columns:64px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);min-width:0}
+.fx-person-suggestion-avatar{width:60px;height:60px;display:grid;place-items:center;border-radius:50%;overflow:hidden;background:var(--message-avatar-bg);color:var(--text);font-size:19px;font-weight:800;text-decoration:none}
+.fx-person-suggestion-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.fx-person-suggestion-copy{min-width:0;display:grid;gap:4px}
+.fx-person-suggestion-copy b{overflow-wrap:anywhere}
+.fx-person-suggestion-copy small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+
+/* Larger, photo-first suggestions that remain touch-scrollable on phones. */
+.suggestions-heading{gap:10px}
+.suggestion-heading-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.suggestion-heading-actions>a{color:var(--muted);text-decoration:none;font-size:12px!important;font-weight:700;letter-spacing:0}
+.suggestion-heading-actions>button{width:30px;height:30px;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--text);font-size:22px;line-height:1;display:grid;place-items:center}
+.suggestion-track-wrap{position:relative;min-width:0}
+.suggestion-track{display:flex;gap:13px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;scroll-snap-type:x mandatory;scrollbar-width:thin;cursor:grab}
+.suggestion-track:active{cursor:grabbing}
+.suggestion-card{flex:0 0 254px;min-width:0}
+.suggestion-avatar{width:108px!important;height:108px!important;min-width:108px!important;margin:0 auto 13px!important;border-radius:50%!important;overflow:hidden!important;font-size:25px!important}
+.suggestion-avatar img{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%}
+.suggestion-name{max-width:100%;overflow-wrap:anywhere}
+.fx-inline-post-video{width:100%;height:100%;display:block;object-fit:contain;background:#02050a}
+.fx-collage.one.fx-single-video{height:auto;max-height:640px;min-height:220px;aspect-ratio:16/9;grid-template-rows:1fr}
+.fx-collage.one .fx-video-tile{cursor:default}
+.fx-video-tile video{object-fit:contain!important}
+@media(max-width:700px){
+  .fx-friends-hub{grid-template-columns:1fr;gap:10px}
+  .fx-friends-hub-card{min-height:98px;padding:15px}
+  .fx-friend-row{align-items:flex-start;flex-wrap:wrap;padding:11px}
+  .fx-friend-identity{flex-basis:100%}
+  .fx-friend-actions{width:100%;justify-content:flex-end}
+  .fx-person-suggestion{grid-template-columns:54px minmax(0,1fr) auto;gap:9px;padding:10px}
+  .fx-person-suggestion-avatar{width:52px;height:52px}
+  .fx-person-suggestion .button.subtle{display:none}
+  .suggestion-card{flex-basis:246px;min-height:286px}
+  .suggestion-avatar{width:106px!important;height:106px!important;min-width:106px!important}
+}
