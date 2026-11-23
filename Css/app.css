@@ -352,3 +352,35 @@ body a:not(.brand):not(.fx-sidebar-brand){font-size:15px!important}
   .suggestion-card{flex-basis:246px;min-height:286px}
   .suggestion-avatar{width:106px!important;height:106px!important;min-width:106px!important}
 }
+
+
+/* Prominent member photos across friend requests, discovery and post authors. */
+.fx-friend-row{align-items:center;gap:16px}
+.fx-friend-avatar.avatar.lg{width:86px;height:86px;min-width:86px;font-size:22px;border:2px solid var(--line);box-shadow:0 2px 10px #0002}
+.fx-friend-avatar,.fx-person-suggestion-avatar,.fx-post-author-avatar{position:relative}
+.fx-avatar-fallback{position:absolute;inset:0;display:grid;place-items:center}
+.fx-friend-avatar img,.fx-post-author-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:50%}
+.fx-friend-copy b{font-size:16px}
+.fx-friend-copy small{font-size:13px}
+.fx-person-suggestion{grid-template-columns:88px minmax(0,1fr) auto auto;gap:13px}
+.fx-person-suggestion-avatar{width:84px;height:84px;font-size:22px;border:2px solid var(--line);box-shadow:0 2px 10px #0002}
+.fx-person-suggestion-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:50%}
+
+.suggestion-card{flex-basis:270px}
+.suggestion-avatar{width:132px!important;height:132px!important;min-width:132px!important;margin:0 auto 14px!important;border:3px solid var(--line)!important;box-shadow:0 5px 18px #0003!important}
+.suggestion-avatar{position:relative}
+.suggestion-avatar-fallback{position:absolute;inset:0;display:grid;place-items:center;font-size:27px;font-weight:800}
+.suggestion-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block;border-radius:50%}
+.post-header>.avatar{width:68px;height:68px;min-width:68px;font-size:19px;border:2px solid var(--line);box-shadow:0 2px 10px #0002}
+.post-header>.avatar img{width:100%;height:100%;object-fit:cover;object-position:center;border-radius:50%}
+.fx-post-author-avatar{flex:0 0 auto}
+@media(max-width:700px){
+  .fx-friend-avatar.avatar.lg{width:80px;height:80px;min-width:80px}
+  .fx-person-suggestion{grid-template-columns:80px minmax(0,1fr);gap:10px}
+  .fx-person-suggestion-avatar{width:76px;height:76px}
+  .fx-person-suggestion .button.subtle{display:inline-flex;grid-column:1/2}
+  .fx-person-suggestion .button.primary{grid-column:2/3}
+  .suggestion-card{flex-basis:258px;min-height:300px}
+  .suggestion-avatar{width:126px!important;height:126px!important;min-width:126px!important}
+  .post-header>.avatar{width:60px;height:60px;min-width:60px}
+}
