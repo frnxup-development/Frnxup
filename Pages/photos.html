@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="/js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080d17">
+  <title>Photos · Frnxup Page</title>
+  <link rel="stylesheet" href="/Css/app.css">
+  <link rel="stylesheet" href="/Pages/css/pages.css">
+  <link rel="stylesheet" href="/Pages/css/page-media.css?v=20261123-2">
+</head>
+<body data-page-media-filter="photos">
+  <div data-frnxup-shell></div>
+  <main class="page-media-wrap">
+    <header class="page-media-header">
+      <a id="page-media-back" href="/Pages/dashboard.html">‹ Page dashboard</a>
+      <div class="page-media-identity">
+        <div class="page-media-avatar" id="page-media-avatar">F</div>
+        <div><h1 id="page-media-title">Photos</h1><small id="page-media-slug">Page media</small></div>
+      </div>
+      <p id="page-media-description">Photographs published by this Page.</p>
+    </header>
+    <nav class="page-media-tabs" aria-label="Page media sections">
+      <a data-page-media-route="all" href="/Pages/all.html">All</a>
+      <a data-page-media-route="photos" href="/Pages/photos.html">Photos</a>
+      <a data-page-media-route="reels" href="/Pages/reels.html">Reels</a>
+      <a data-page-media-route="mentions" href="/Pages/mentions.html">Mentions</a>
+    </nav>
+    <section id="page-media-list" class="page-media-grid" aria-live="polite">
+      <div class="pages-empty">Loading Page content…</div>
+    </section>
+  </main>
+  <div id="fx-toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="/js/layout.js"></script>
+  <script src="/js/media-tools.js"></script>
+  <script src="/Pages/js/page-media.js?v=20261123-2"></script>
+</body>
+</html>
