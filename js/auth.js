@@ -58,10 +58,21 @@
     }
   };
 
+  const accountStatusFromUrl = new URLSearchParams(location.search).get('accountStatus');
+  if (accountStatusFromUrl === 'banned' || accountStatusFromUrl === 'suspended') {
+    setMessage('#login-msg', FX.accountRestrictionMessage(accountStatusFromUrl), 'error');
+  }
+  if (new URLSearchParams(location.search).get('appealSubmitted') === '1') {
+    setMessage('#login-msg', 'Your account appeal was submitted securely. The Frnxup team will review it. You will be contacted through your verified email.', 'success');
+  }
+
   const readableSignupError = (error) => {
     const message = String(error?.message || error || '').trim();
     const lower = `${error?.code || ''} ${message}`.toLowerCase();
 
+    if (lower.includes('permanently banned from frnxup') || lower.includes('banned_account_identities') || lower.includes('account permanently banned')) {
+      return 'This email, phone number or username is associated with an account permanently banned from Frnxup. Contact frnxup support at frnxup@gmail.com.';
+    }
     if (lower.includes('frnxup registration is temporarily disabled') || lower.includes('registration is temporarily disabled')) {
       return 'New account registration is temporarily disabled by Frnxup administrators.';
     }
@@ -84,7 +95,7 @@
       return 'Frnxup has not received a response yet. Your entries are still here. Check your email or try logging in before submitting again.';
     }
     if (lower.includes('database error saving new user') || lower.includes('error creating user') || lower.includes('trigger')) {
-      return 'Frnxup could not finish setting up your member profile. The account was not confirmed as created. Please try again later; if this continues, contact Frnxup support.';
+      return 'Frnxup could not register this account. The email, phone number or username may be blocked by an account safety restriction, or the signup service may be temporarily unavailable. Contact Frnxup support at frnxup@gmail.com if you believe this is a mistake.';
     }
     if (message) return message.slice(0, 240);
     return 'Unable to create your account. Your entries are still here; please try again.';
@@ -265,6 +276,26 @@
         const { data: current, error } = await FX.client.auth.getUser();
         if (error) throw error;
         if (!current.user) throw new Error('Your sign-in could not be confirmed. Please try again.');
+
+        // Email/password login goes directly through Supabase Auth, so confirm
+        // the authoritative Frnxup profile state before granting website access.
+        const { data: accountProfile, error: statusError } = await FX.client
+          .from('profiles').select('account_status').eq('id', current.user.id).maybeSingle();
+        if (statusError || !accountProfile) {
+          await FX.client.auth.signOut();
+          throw new Error('Frnxup could not verify this account status. Please check your connection and try again.');
+        }
+        if (accountProfile.account_status !== 'active') {
+          const message = FX.accountRestrictionMessage(accountProfile.account_status);
+          await FX.client.auth.signOut();
+          setMessage('#login-msg', message, 'error');
+          if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.textContent = originalLabel;
+          }
+          return;
+        }
         try {
           await FX.client.rpc('frnxup_log_activity', {
             p_action: 'sign_in',

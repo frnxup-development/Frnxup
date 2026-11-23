@@ -179,7 +179,7 @@
             this.user = null;
             this.profile = null;
             this.sessionPresent = false;
-            if (requiresAccountSession(location.pathname)) location.replace(loginDestination());
+            if (requiresAccountSession(location.pathname) && !FX._forcedAccessRedirect) location.replace(loginDestination());
           }
         });
         return this.user;
@@ -219,6 +219,35 @@
       try { return await this._loadUserPromise; }
       finally { this._loadUserPromise = null; }
     },
+    accountRestrictionMessage(status) {
+      if (status === 'banned') return 'This account is banned from using Frnxup, contact Frnxup support at frnxup@gmail.com.';
+      if (status === 'suspended') return 'This account has been suspended by Frnxup administrators. Submit an appeal at /Auth/appeal.html or contact Frnxup support at frnxup@gmail.com.';
+      return 'This account cannot currently access Frnxup. Contact support at frnxup@gmail.com.';
+    },
+    async blockRestrictedAccount(status) {
+      const state = status === 'banned' ? 'banned' : 'suspended';
+      this._forcedAccessRedirect = true;
+      this.user = null;
+      this.profile = null;
+      this.sessionPresent = false;
+      this._fastSessionReady = false;
+      this._profileLoadedUserId = null;
+      try { sessionStorage.setItem('frnxup_account_restricted', state); } catch (_) {}
+      try { if (client) await client.auth.signOut(); } catch (_) {}
+      const target = `/Auth/index.html?accountStatus=${encodeURIComponent(state)}`;
+      if (!(location.pathname === '/Auth/index.html' && new URLSearchParams(location.search).get('accountStatus') === state)) {
+        location.replace(target);
+      }
+      return null;
+    },
+    async verifyAccountStatus() {
+      if (!client || !this.user) return null;
+      const userId = this.user.id;
+      const { data, error } = await client.from('profiles').select('account_status').eq('id', userId).maybeSingle();
+      if (error || !data) return null;
+      if (data.account_status !== 'active') return this.blockRestrictedAccount(data.account_status);
+      return data.account_status;
+    },
     async loadProfile() {
       if (!client || !this.user) return null;
       const userId = this.user.id;
@@ -234,6 +263,10 @@
         if (this.user?.id === userId) {
           this.profile = result && !result.error ? (result.data || null) : null;
           if (result) this._profileLoadedUserId = userId;
+          if (this.profile?.account_status && this.profile.account_status !== 'active') {
+            await this.blockRestrictedAccount(this.profile.account_status);
+            return null;
+          }
         }
         return this.profile;
       })();
@@ -666,7 +699,7 @@
         FX._fastSessionReady = false;
         FX._profileLoadedUserId = null;
         FX.profile = null;
-        if (requiresAccountSession(location.pathname)) location.replace(loginDestination());
+        if (requiresAccountSession(location.pathname) && !FX._forcedAccessRedirect) location.replace(loginDestination());
       } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         FX.user = session?.user || null;
         FX.profile = null;
@@ -705,16 +738,24 @@
       return;
     }
 
-    // The session is present. Reveal the page immediately; profile, site settings,
-    // feed and other content requests continue asynchronously after this point.
+    // Verify the authoritative profile status before revealing a protected page.
+    // The database also enforces this status through restrictive RLS policies.
+    await FX.loadProfile();
+    if (!FX.user) return;
     if (window.__frnxupAuthGateTimer) clearTimeout(window.__frnxupAuthGateTimer);
     document.documentElement.classList.remove('fx-auth-pending');
     FX.trackActivity('page_view', 'page', location.pathname, {
       title: String(document.title || '').slice(0, 120)
     });
 
+    // Re-check periodically so a member suspended while already online is signed
+    // out promptly; RLS blocks their data access immediately after the DB change.
+    if (!window.__FRNXUP_ACCOUNT_STATUS_MONITOR) {
+      window.__FRNXUP_ACCOUNT_STATUS_MONITOR = setInterval(() => FX.verifyAccountStatus().catch(() => {}), 45000);
+    }
+
     // Maintenance status is non-critical and must never delay first paint.
-    FX.loadProfile().then(() => {
+    Promise.resolve(FX.profile).then(() => {
       if (FX.settings.maintenance_mode === true && !['owner', 'admin'].includes(FX.profile?.role)) {
         if (!document.querySelector('.maintenance-banner')) {
           const banner = document.createElement('div');
