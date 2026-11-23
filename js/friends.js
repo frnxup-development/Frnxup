@@ -11,60 +11,67 @@
     const name = profile?.display_name || profile?.username || 'Frnxup member';
     return `<div class="fx-friend-row"><a class="fx-friend-identity" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}">${await avatar(profile)}<span class="fx-friend-copy"><b>${FX.esc(name)}</b><small>@${FX.esc(profile?.username || 'member')}</small></span></a><div class="fx-friend-actions">${actions}</div></div>`;
   }
-  function setEmpty(id, message) { const host = $(id); if (host) host.innerHTML = `<div class="empty">${FX.esc(message)}</div>`; }
+  function setEmpty(id, message) { const host = $(id); if (host) FXStates.empty(host, { title: 'Nothing to show yet', message }); }
+  function setError(id, error, retry) { const host = $(id); if (host) FXStates.fail(host, error, { retry }); }
 
   async function renderMyFriends() {
     const host = $('#my-friends');
     if (!host) return;
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Loading your friends', message: 'Checking your Frnxup connections.' });
     const { data: friendships, error } = await FX.client.from('friendships').select('user_a,user_b').or(`user_a.eq.${FX.user.id},user_b.eq.${FX.user.id}`);
-    if (error) return setEmpty('#my-friends', error.message);
+    if (error) return setError('#my-friends', error, renderMyFriends);
     const ids = (friendships || []).map(row => row.user_a === FX.user.id ? row.user_b : row.user_a);
     if (!ids.length) return setEmpty('#my-friends', 'Your friends will appear here. Find people and send a friend request to get started.');
     const { data: profiles, error: profileError } = await FX.client.from('profiles').select('id,username,display_name,avatar_path').in('id', ids).order('display_name');
-    if (profileError) return setEmpty('#my-friends', profileError.message);
+    if (profileError) return setError('#my-friends', profileError, renderMyFriends);
     const rows = await Promise.all((profiles || []).map(profile => personRow(profile, `<a class="button subtle" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}">Profile</a><button class="button danger" data-remove-friend="${profile.id}" type="button">Remove</button>`)));
-    host.innerHTML = rows.join('') || '<div class="empty">Your friends will appear here.</div>';
+    host.innerHTML = rows.join('') || '<div class="empty">Your friends will appear here.</div>'; FXStates.loaded(host);
   }
 
   async function renderRequests() {
     const host = $('#friend-requests');
     if (!host) return;
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Loading friend requests', message: 'Checking requests sent to you.' });
     const { data, error } = await FX.client.from('friend_requests')
       .select('id,sender_id,created_at,profiles!friend_requests_sender_id_fkey(id,username,display_name,avatar_path)')
       .eq('receiver_id', FX.user.id).eq('status', 'pending').order('created_at', { ascending: false });
-    if (error) return setEmpty('#friend-requests', error.message);
+    if (error) return setError('#friend-requests', error, renderRequests);
     const rows = await Promise.all((data || []).map(row => personRow(row.profiles, `<button class="button primary" data-accept="${row.id}" type="button">Accept</button><button class="button subtle" data-decline="${row.id}" type="button">Decline</button>`)));
-    host.innerHTML = rows.join('') || '<div class="empty">No new friend requests.</div>';
+    host.innerHTML = rows.join('') || '<div class="empty">No new friend requests.</div>'; FXStates.loaded(host);
   }
 
   async function renderSentRequests() {
     const host = $('#sent-requests');
     if (!host) return;
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Loading sent requests', message: 'Checking requests you have sent.' });
     const { data, error } = await FX.client.from('friend_requests')
       .select('id,receiver_id,created_at,profiles!friend_requests_receiver_id_fkey(id,username,display_name,avatar_path)')
       .eq('sender_id', FX.user.id).eq('status', 'pending').order('created_at', { ascending: false });
-    if (error) return setEmpty('#sent-requests', error.message);
+    if (error) return setError('#sent-requests', error, renderSentRequests);
     const rows = await Promise.all((data || []).map(row => personRow(row.profiles, `<span class="fx-pending-label">Pending</span><button class="button subtle" data-cancel="${row.id}" type="button">Cancel</button>`)));
-    host.innerHTML = rows.join('') || '<div class="empty">You have no pending sent requests.</div>';
+    host.innerHTML = rows.join('') || '<div class="empty">You have no pending sent requests.</div>'; FXStates.loaded(host);
   }
 
   async function renderBlocked() {
     const host = $('#blocked-members');
     if (!host) return;
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Loading blocked members', message: 'Checking your blocked member list.' });
     const { data: profiles, error } = await FX.client.rpc('frnxup_blocked_members');
-    if (error) return setEmpty('#blocked-members', `${error.message}. Apply Supabase/migrations/20261123_blocked_members_list.sql to enable this list.`);
+    if (error) return setError('#blocked-members', error, renderBlocked);
     if (!profiles?.length) return setEmpty('#blocked-members', 'You have not blocked anyone.');
     const rows = await Promise.all(profiles.map(profile => personRow(profile, `<button class="button primary" data-unblock="${profile.id}" type="button">Unblock</button>`)));
-    host.innerHTML = rows.join('') || '<div class="empty">You have not blocked anyone.</div>';
+    host.innerHTML = rows.join(''); FXStates.loaded(host);
   }
 
   async function renderSuggestions() {
     const host = $('#people-results');
     if (!host || !FX.client) return;
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Finding people', message: 'Loading member suggestions.' });
     const { data, error } = await FX.client.rpc('frnxup_friend_suggestions', { p_limit: 30 });
-    if (error) return setEmpty('#people-results', error.message);
+    if (error) return setError('#people-results', error, renderSuggestions);
     const ids = (data || []).map(profile => profile.id);
-    const { data: profiles } = ids.length ? await FX.client.from('profiles').select('id,avatar_path').in('id', ids) : { data: [] };
+    const { data: profiles, error: profileError } = ids.length ? await FX.client.from('profiles').select('id,avatar_path').in('id', ids) : { data: [], error: null };
+    if (profileError) return setError('#people-results', profileError, renderSuggestions);
     const paths = new Map((profiles || []).map(profile => [profile.id, profile.avatar_path]));
     await renderPeople((data || []).map(profile => ({ ...profile, avatar_path: paths.get(profile.id) || '' })));
   }
@@ -78,16 +85,18 @@
       const shared = Number(profile.shared_interests || profile.shared_count || 0);
       return `<article class="fx-person-suggestion"><a class="fx-person-suggestion-avatar" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}"><span class="fx-avatar-fallback">${FX.esc(initials(profile))}</span>${photo ? `<img src="${FX.esc(photo)}" alt="${FX.esc(name)} profile picture" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</a><div class="fx-person-suggestion-copy"><b>${FX.esc(name)}</b><small>@${FX.esc(profile.username || 'member')}${shared ? ` · ${shared} shared interests` : ''}</small></div><a class="button subtle" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}">Profile</a><button class="button primary" data-add="${profile.id}" type="button">Add</button></article>`;
     }));
-    host.innerHTML = rows.join('') || '<div class="empty">No suggestions yet. Invite people you know to join Frnxup.</div>';
+    host.innerHTML = rows.join('') || '<div class="empty">No suggestions yet. Invite people you know to join Frnxup.</div>'; FXStates.loaded(host);
   }
 
   async function searchPeople(value) {
     const q = String(value || '').trim().replace(/[(),]/g, ' ');
     if (!q) return;
     $('#people-search').value = q;
+    const host = $('#people-results');
+    if (host && host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Searching Frnxup members', message: `Looking for "${q}".` });
     const { data, error } = await FX.client.from('profiles').select('id,username,display_name,avatar_path')
       .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).neq('id', FX.user.id).limit(30);
-    if (error) return setEmpty('#people-results', error.message);
+    if (error) return setError('#people-results', error, () => searchPeople(value));
     await renderPeople(data || []);
   }
 
@@ -114,12 +123,12 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
-    await FX.loadUser();
+    try { await FX.loadUser(); } catch (error) { const host=$('#my-friends')||$('#friend-requests')||$('#people-results')||document.querySelector('main'); if(host)FXStates.fail(host,error,{retry:()=>location.reload(),title:'Friends could not be initialized'}); return; }
+    if (!FX.client) { const host=$('#my-friends')||$('#friend-requests')||$('#people-results')||document.querySelector('main'); if(host)FXStates.render(host,'configuration'); return; }
     if (!FX.user) {
-      FX.toast('Sign in to use Friends.');
       const next = encodeURIComponent(location.pathname + location.search);
-      const main = document.querySelector('main');
-      if (main) main.insertAdjacentHTML('afterbegin', `<div class="auth-state-notice">Sign in to manage your connections. <a href="/Auth/index.html?next=${next}">Sign in</a></div>`);
+      const host = $('#my-friends') || $('#friend-requests') || $('#people-results') || document.querySelector('main');
+      if (host) FXStates.render(host,'auth',{title:'Sign in to manage your connections',message:'Your friends, requests and suggestions are available after you sign in.',href:`/Auth/index.html?next=${next}`});
       return;
     }
     if (view === 'suggestions') {

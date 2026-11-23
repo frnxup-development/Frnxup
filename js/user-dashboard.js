@@ -18,15 +18,17 @@
     const el = $(target);
     if (el) el.textContent = message || 'Something went wrong. Please try again.';
   };
+  const countQueryErrors = [];
   const countRows = async (table, configure) => {
     let query = FX.client.from(table).select('*', {count: 'exact', head: true});
     query = configure(query);
     const {count, error} = await query;
-    if (error) return null;
+    if (error) { countQueryErrors.push(error); return null; }
     return count || 0;
   };
 
   async function loadStats() {
+    countQueryErrors.length = 0;
     const id = FX.user.id;
     const [friends, posts, groups, alerts, messages] = await Promise.all([
       countRows('friendships', q => q.or(`user_a.eq.${id},user_b.eq.${id}`)),
@@ -39,14 +41,23 @@
     $('#fx-stat-posts').textContent = posts === null ? '—' : countLabel(posts);
     $('#fx-stat-groups').textContent = groups === null ? '—' : countLabel(groups);
     $('#fx-stat-unread').textContent = alerts === null ? '—' : countLabel(alerts);
-    $('#fx-top-notifications').textContent = alerts === null ? '0' : countLabel(alerts);
-    $('#fx-side-notifications').textContent = alerts === null ? '0' : countLabel(alerts);
-    $('#fx-top-messages').textContent = messages === null ? '0' : countLabel(messages);
-    $('#fx-side-messages').textContent = messages === null ? '0' : countLabel(messages);
+    $('#fx-top-notifications').textContent = alerts === null ? '—' : countLabel(alerts);
+    $('#fx-side-notifications').textContent = alerts === null ? '—' : countLabel(alerts);
+    $('#fx-top-messages').textContent = messages === null ? '—' : countLabel(messages);
+    $('#fx-side-messages').textContent = messages === null ? '—' : countLabel(messages);
+    let stateHost = $('#fx-stats-state');
+    if (countQueryErrors.length) {
+      if (!stateHost) { stateHost = document.createElement('div'); stateHost.id = 'fx-stats-state'; $('.fx-stats')?.insertAdjacentElement('afterend', stateHost); }
+      FXStates.fail(stateHost, countQueryErrors[0], { retry: loadStats, title: 'Some dashboard statistics could not be loaded', message: 'Frnxup could not retrieve every account count. The unavailable values are shown as dashes, not zero.' });
+    } else if (stateHost) { stateHost.remove(); }
+
   }
 
   async function loadCompletion(profile) {
-    const {data: details} = await FX.client.from('profile_details').select('education,occupation,interests').eq('profile_id', FX.user.id).maybeSingle();
+    const {data: details, error} = await FX.client.from('profile_details').select('education,occupation,interests').eq('profile_id', FX.user.id).maybeSingle();
+    let stateHost = $('#fx-completion-state');
+    if (error) { if (!stateHost) { stateHost = document.createElement('div'); stateHost.id = 'fx-completion-state'; $('.fx-completion-widget')?.append(stateHost); } FXStates.fail(stateHost, error, { retry: () => loadCompletion(profile), title: 'Profile completion could not be checked' }); return; }
+    if (stateHost) stateHost.remove();
     const checks = [
       !!profile.display_name,
       !!profile.username,
@@ -66,18 +77,13 @@
       .select('id,actor_id,type,title,body,created_at,read_at')
       .eq('user_id', FX.user.id).order('created_at', {ascending: false}).limit(5);
     const host = $('#fx-activity-list');
-    if (error) {
-      host.innerHTML = '<div class="fx-loading">Activity is temporarily unavailable.</div>';
-      return;
-    }
-    if (!data?.length) {
-      host.innerHTML = '<div class="fx-loading">No new activity yet. Your community updates will appear here.</div>';
-      return;
-    }
+    if (error) { FXStates.fail(host,error,{retry:loadActivity}); return; }
+    if (!data?.length) { FXStates.empty(host,{title:'No recent activity',message:'Your community updates will appear here when something happens.'}); return; }
     const actorIds = [...new Set(data.map(x => x.actor_id).filter(Boolean))];
     let actors = new Map();
     if (actorIds.length) {
-      const {data: profiles} = await FX.client.from('profiles').select('id,display_name,username,avatar_path').in('id', actorIds);
+      const {data: profiles, error: profileError} = await FX.client.from('profiles').select('id,display_name,username,avatar_path').in('id', actorIds);
+      if (profileError) { FXStates.fail(host, profileError, { retry: loadActivity, title: 'Activity member details could not be loaded' }); return; }
       actors = new Map((profiles || []).map(p => [p.id, p]));
     }
     host.innerHTML = data.map(row => {
@@ -85,26 +91,28 @@
       const text = row.body || row.title || 'You have a new Frnxup update.';
       const icon = /message|chat/i.test(row.type) ? '✉' : /friend/i.test(row.type) ? '♧' : /like|reaction/i.test(row.type) ? '♥' : '●';
       return `<div class="fx-activity-item ${row.read_at ? '' : 'unread'}"><span class="fx-activity-icon">${icon}</span><div class="fx-activity-copy"><b>${esc(actor?.display_name || actor?.username || row.title || 'Frnxup')}</b> ${esc(text)}<small>${esc(FX.relative(row.created_at))}</small></div></div>`;
-    }).join('');
+    }).join('');FXStates.loaded(host);
   }
 
   async function loadTrending() {
     const host = $('#fx-trending');
     const {data, error} = await FX.client.from('rooms').select('id,name,category,member_count')
       .eq('status', 'active').eq('visibility', 'public').order('member_count', {ascending: false}).limit(6);
-    if (error || !data?.length) return;
+    if (error) { FXStates.fail(host,error,{retry:loadTrending}); return; }
+    if (!data?.length) { FXStates.empty(host,{title:'No trending topics yet',message:'Popular room topics will appear here as communities grow.'}); return; }
     const tags = [...new Set(data.map(room => room.category || room.name).filter(Boolean))].slice(0, 6);
-    host.innerHTML = `<a class="fx-topic" href="/Rooms/index.html">#Frnxup</a>` + tags.map(tag => `<a class="fx-topic" href="/Rooms/index.html">#${esc(tag.replace(/\s+/g, ''))}</a>`).join('');
+    host.innerHTML = `<a class="fx-topic" href="/Rooms/index.html">#Frnxup</a>` + tags.map(tag => `<a class="fx-topic" href="/Rooms/index.html">#${esc(tag.replace(/\s+/g, ''))}</a>`).join('');FXStates.loaded(host);
   }
 
   async function loadOwnPosts() {
     const host = $('#fx-own-posts');
     const {data, error} = await FX.client.from('posts').select('id,body,media_path,media_type,created_at')
       .eq('user_id', FX.user.id).is('page_id', null).eq('status', 'published').order('created_at', {ascending: false}).limit(3);
-    if (error) { host.innerHTML = '<div class="fx-loading">Your posts could not be loaded right now.</div>'; return; }
-    if (!data?.length) { host.innerHTML = '<div class="fx-loading">You have not published a post yet. Share your first update above.</div>'; return; }
+    if (error) { FXStates.fail(host,error,{retry:loadOwnPosts}); return; }
+    if (!data?.length) { FXStates.empty(host,{title:'You have not published a post yet',message:'Share your first update to start your personal feed.'}); return; }
     const ids = data.map(post => post.id);
-    const {data: rows} = await FX.client.from('post_media').select('post_id,media_path,media_type,sort_order').in('post_id', ids).order('sort_order', {ascending: true});
+    const {data: rows, error: mediaError} = await FX.client.from('post_media').select('post_id,media_path,media_type,sort_order').in('post_id', ids).order('sort_order', {ascending: true});
+    if (mediaError) { FXStates.fail(host, mediaError, { retry: loadOwnPosts, title: 'Your post photos and videos could not be loaded' }); return; }
     const byPost = new Map();
     (rows || []).forEach(row => { if (!byPost.has(row.post_id)) byPost.set(row.post_id, []); byPost.get(row.post_id).push(row); });
     data.forEach(post => { if (!byPost.has(post.id) && post.media_path) byPost.set(post.id, [{post_id: post.id, media_path: post.media_path, media_type: post.media_type || 'image', sort_order: 1}]); });
@@ -115,11 +123,13 @@
       const media = (byPost.get(post.id) || []).map(item => ({url: urlMap.get(item.media_path), type: item.media_type, name: `frnxup-${post.id}-${item.sort_order}.${(item.media_path?.split('.').pop() || (item.media_type === 'video' ? 'mp4' : 'jpg')).toLowerCase()}`})).filter(item => item.url);
       const collage = window.FXMediaTools?.collage(media, `dashboard-${post.id}`, 'Your post media') || '';
       return `<article class="fx-own-post"><div class="fx-own-post-head"><span class="avatar">${esc(initials(ownProfile?.display_name || ownProfile?.username))}</span><div><b>${esc(ownProfile?.display_name || ownProfile?.username || 'You')}</b><small>${esc(FX.relative(post.created_at))}</small></div></div>${post.body ? `<div class="fx-own-post-body">${esc(post.body)}</div>` : ''}${collage}</article>`;
-    }).join('');
+    }).join('');FXStates.loaded(host);
   }
 
   async function updateProfileImage(kind, file) {
     if (!file) return;
+    let stateHost = $('.fx-profile-upload-state');
+    if (!stateHost) { stateHost = document.createElement('div'); stateHost.className = 'fx-profile-upload-state'; const anchor = $('.fx-profile-bar') || $('#fx-cover'); anchor?.insertAdjacentElement('afterend', stateHost); }
     try {
       const path = await FX.upload(file, kind === 'cover' ? 'covers' : 'avatars');
       const field = kind === 'cover' ? 'cover_path' : 'avatar_path';
@@ -136,9 +146,10 @@
         await setAvatar($('#fx-composer-avatar'), path, ownProfile.display_name || ownProfile.username);
       }
       await loadCompletion(ownProfile);
+      FXStates.clearUpload(stateHost);
       FX.toast(kind === 'cover' ? 'Cover photo updated.' : 'Profile photo updated.');
     } catch (error) {
-      FX.toast(error.message || 'Unable to update this photo.');
+      FXStates.failUpload(stateHost,error,{retry:()=>updateProfileImage(kind,file)});
     }
   }
 
@@ -193,12 +204,12 @@
       document.querySelector('.fx-upload-preview[data-for="fx-post-file"]')?.replaceChildren();
       closePostModal();
       FX.toast(uploaded.length > 1 ? 'Your photo collage has been published.' : 'Your post has been published.');
-      showError('');
+      showError('');FXStates.clearUpload('#fx-post-message');
       await Promise.all([loadOwnPosts(), loadStats()]);
     } catch (error) {
       if (postId) await FX.client.from('posts').delete().eq('id', postId);
       if (uploaded.length) await FX.client.storage.from('frnxup-media').remove(uploaded.map(item => item.media_path));
-      showError(error.message);
+      FXStates.failUpload('#fx-post-message',error,{retry:()=>$('#fx-post-form').requestSubmit()});
     } finally {
       submit.disabled = false;
     }
@@ -227,7 +238,7 @@
   async function init() {
     if (!FX.client || !FX.configured) {
       const host = document.querySelector('.fx-dashboard-content');
-      if (host) host.insertAdjacentHTML('afterbegin', '<p class="auth-state-notice">Frnxup could not connect to the account service. Please check the site configuration or your connection, then refresh.</p>');
+      if (host) FXStates.render(host,'configuration');
       return;
     }
     await FX.loadUser();
@@ -292,5 +303,5 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => init().catch(error => { const host = $('.fx-dashboard-content') || $('main'); if (host) FXStates.fail(host,error,{retry:init}); }));
 })();

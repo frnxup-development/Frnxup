@@ -36,17 +36,18 @@
         <span class="grow"><b>${FX.esc(name)}</b><small>@${FX.esc(person.username || 'member')}</small></span>
         <span class="friend-select-mark">${picked ? '✓' : '+'}</span>
       </button>`;
-    }).join('') || '<div class="empty">No matching friends found.</div>';
+    }).join('');
+    if (!rows.length) FXStates.empty(host, { title: 'No matching friends found', message: 'Try a different name or invite someone to Frnxup.' }); else FXStates.loaded(host);
   }
 
   async function searchFriends() {
     const host = $('#chat-friend-results');
     const q = $('#chat-friend-search').value.trim().replace(/[(),]/g, ' ');
-    host.innerHTML = '<div class="empty">Searching your friends…</div>';
+    FXStates.loading(host, { title: 'Finding your friends', message: 'Searching your connections.' });
     try {
       const ids = await friendIds();
       if (!ids.length) {
-        host.innerHTML = '<div class="empty">Add friends before starting a one-to-one or group conversation.</div>';
+        FXStates.empty(host, { title: 'Add friends to start a chat', message: 'Your friends will appear here when you have connections.' });
         return;
       }
       let query = FX.client.from('profiles').select('id,username,display_name,avatar_path').in('id', ids).order('display_name').limit(50);
@@ -61,7 +62,7 @@
       renderSelected();
       renderFriendRows(rows);
     } catch (error) {
-      host.innerHTML = `<div class="empty">${FX.esc(error.message)}</div>`;
+      FXStates.fail(host, error, { retry: searchFriends });
     }
   }
 
@@ -262,11 +263,12 @@
 
   async function loadConversations() {
     const host = $('#conversation-list');
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Loading your conversations', message: 'Checking your Frnxup inbox.' });
     const { data, error } = await FX.client.from('conversation_members')
       .select('conversation_id,joined_at,conversations(id,kind,title,last_message_at,conversation_members(user_id,profiles(username,display_name,avatar_path)))')
       .eq('user_id', FX.user.id);
     if (error) {
-      host.innerHTML = `<div class="empty">${FX.esc(error.message)}</div>`;
+      FXStates.fail(host, error, { retry: loadConversations });
       return;
     }
     const byId = new Map();
@@ -275,11 +277,12 @@
     const ids = rows.map(row => row.id);
     let latest = new Map();
     if (ids.length) {
-      const { data: messages } = await FX.client.from('messages')
+      const { data: messages,error:messagesError } = await FX.client.from('messages')
         .select('id,conversation_id,body,media_type,sender_id,created_at,deleted_at')
         .in('conversation_id', ids)
         .order('created_at', { ascending: false })
         .limit(Math.max(200, ids.length * 5));
+      if(messagesError){FXStates.fail(host,messagesError,{retry:loadConversations,title:'Conversation previews could not be loaded'});return;}
       (messages || []).forEach(message => { if (!latest.has(message.conversation_id)) latest.set(message.conversation_id, message); });
     }
     const suggestionMarkup = await loadSuggestions();
@@ -299,11 +302,11 @@
       </a>`;
     }));
     if (rendered.length) {
-      host.innerHTML = rendered.slice(0, 2).join('') + suggestionMarkup + rendered.slice(2).join('');
+      host.innerHTML = rendered.slice(0, 2).join('') + suggestionMarkup + rendered.slice(2).join(''); FXStates.loaded(host);
     } else {
-      host.innerHTML = (suggestionMarkup || '') + '<div class="messages-empty">No conversations yet. Start a private message with one friend or create a group chat.</div>';
+      FXStates.empty(host, { title: 'No conversations yet', message: 'Start a private message with a friend or create a group chat.' });
     }
-    if (!suggestionMarkup && !rendered.length) host.innerHTML = '<div class="messages-empty">No conversations or friend suggestions yet.</div>';
+    if (!suggestionMarkup && !rendered.length) FXStates.empty(host, { title: 'Your inbox is empty', message: 'New conversations and friend suggestions will appear here.' });
     setupSuggestionCarousel(host);
   }
 
@@ -322,15 +325,16 @@
   }
 
   async function loadChat() {
+    const chatHost=$('#chat-messages');if(chatHost?.dataset.fxHasContent!=='true')FXStates.loading(chatHost,{title:'Opening conversation',message:'Checking this conversation and its members.'});
     const { data: conversation, error } = await FX.client.from('conversations')
       .select('id,kind,title,created_by,conversation_members(user_id,role,profiles(username,display_name,avatar_path))')
       .eq('id', cid).single();
     if (error) {
-      FX.toast(error.message);
+      FXStates.fail($('#chat-messages'), error, { retry: loadChat });
       return;
     }
     if (conversation.kind === 'group' && FX.settings.groups_enabled === false) {
-      $('#chat-messages').innerHTML = '<div class="empty">Group chats are temporarily disabled by Frnxup administrators.</div>';
+      FXStates.render($('#chat-messages'),'unavailable',{title:'Group chats are temporarily disabled',message:'Frnxup administrators have temporarily turned off group conversations.'});
       $('#message-input').disabled = true;
       $('#send-message').disabled = true;
       $('#group-tools').hidden = true;
@@ -360,15 +364,17 @@
 
   async function loadMessages() {
     const host = $('#chat-messages');
+    if (host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Loading messages', message: 'Fetching this conversation.' });
     const { data, error } = await FX.client.from('messages')
       .select('id,body,media_path,media_type,created_at,sender_id,reply_to,edited_at,deleted_at,profiles!messages_sender_id_fkey(username,display_name),message_receipts(user_id,read_at)')
       .eq('conversation_id', cid).order('created_at', { ascending: true }).limit(500);
     if (error) {
-      host.innerHTML = `<div class="empty">${FX.esc(error.message)}</div>`;
+      FXStates.fail(host, error, { retry: loadMessages });
       return;
     }
     const urls = await Promise.all((data || []).map(message => FX.mediaUrl(message.media_path)));
     const messageMap = new Map((data || []).map(message => [message.id, message]));
+    if (!(data || []).length) { FXStates.empty(host, { title: 'Start the conversation', message: 'There are no messages in this chat yet.' }); return; }
     host.innerHTML = (data || []).map((message, index) => {
       const own = message.sender_id === FX.user.id;
       const text = message.deleted_at ? 'This message was deleted' : message.body;
@@ -411,23 +417,23 @@
       document.querySelector('.fx-upload-preview[data-for="message-file"]')?.replaceChildren();
       $('#reply-context').textContent = '';
       replyTo = null;
+      FXStates.clearUpload('#reply-context');
       loadMessages();
     } catch (error) {
-      FX.toast(error.message);
+      FXStates.failUpload('#reply-context',error,{retry:()=>sendMessage(file)});
     }
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
-    await FX.loadUser();
+    try { await FX.loadUser(); } catch(initError) { const host=$('#conversation-list')||$('#chat-messages');if(host)FXStates.fail(host,initError,{retry:()=>location.reload(),title:'Messaging could not be initialized'});return; }
     if (!FX.user) {
       const next = encodeURIComponent(location.pathname + location.search);
-      const notice = `<div class="empty"><a href="/Auth/index.html?next=${next}">Sign in</a> to view conversations and send messages.</div>`;
-      if ($('#conversation-list')) $('#conversation-list').innerHTML = notice;
-      else if ($('#chat-messages')) $('#chat-messages').innerHTML = notice;
+      const host=$('#conversation-list')||$('#chat-messages');
+      if(host)FXStates.render(host,'auth',{title:'Sign in to view messages',message:'Your conversations and message history are available after you sign in.',href:`/Auth/index.html?next=${next}`});
       return;
     }
     if (FX.settings.messaging_enabled === false) {
-      FX.toast('Messaging is temporarily disabled by administrators.');
+      const host=$('#conversation-list')||$('#chat-messages');if(host)FXStates.render(host,'unavailable',{title:'Messaging is temporarily disabled',message:'Frnxup administrators have temporarily turned off messaging.'});
       return;
     }
 

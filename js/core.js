@@ -31,8 +31,32 @@
     }
   };
 
+  // Observe Supabase transport failures globally as well as inside each widget.
+  // Local components still classify individual 401/403/404 responses themselves.
+  const observedFetch = async (input, init) => {
+    const requestUrl = typeof input === 'string' ? input : (input?.url || '');
+    const isSupabaseRequest = !!cfg.SUPABASE_URL && requestUrl.startsWith(cfg.SUPABASE_URL);
+    try {
+      const response = await window.fetch(input, init);
+      if (isSupabaseRequest && (response.status >= 500 || response.status === 429)) {
+        window.__frnxupTransportFailed = true;
+        window.FXStates?.banner('server', 'Frnxup is having trouble responding. Some content may be temporarily unavailable.');
+      } else if (isSupabaseRequest && response.ok && window.__frnxupTransportFailed) {
+        window.__frnxupTransportFailed = false;
+        window.FXStates?.banner('online', 'Connection restored. Frnxup is responding again.', 3500);
+      }
+      return response;
+    } catch (error) {
+      if (isSupabaseRequest) {
+        window.__frnxupTransportFailed = true;
+        window.FXStates?.banner(navigator.onLine === false ? 'offline' : 'connection', navigator.onLine === false ? 'You are offline. Frnxup will retry when your connection returns.' : 'Frnxup could not reach its service. Check your connection and try again.');
+      }
+      throw error;
+    }
+  };
   const client = configured && window.supabase ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
-    auth: { storage: authStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    auth: { storage: authStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    global: { fetch: observedFetch }
   }) : null;
 
   // A member's saved session is read locally first so the app does not wait for
@@ -309,6 +333,327 @@
     async admin(action, params = {}) { let staffToken = null; try { staffToken = sessionStorage.getItem('frnxup_admin_staff_session'); } catch (_) {} return this.invoke('admin-control', { ...params, action, staff_session_token: staffToken }); }
   };
   window.FX = FX;
+  // Unified, theme-aware content state manager. Feature pages render real states
+  // instead of treating connection failures as empty collections.
+  const FXStates = (() => {
+    const base = '/Asset/States/';
+    const icons = {
+      loading: 'loading.gif', offline: 'offline.gif', connection: 'connection.gif',
+      server: 'server.gif', slow: 'slow.gif', empty: 'empty.gif', unavailable: 'unavailable.gif',
+      permission: 'permission.gif', auth: 'permission.gif', image: 'image.gif', video: 'video.gif',
+      upload: 'upload.gif', success: 'success.gif', configuration: 'server.gif'
+    };
+    const copy = {
+      loading: ['Loading your content…', 'Frnxup is checking for the latest updates.'],
+      offline: ['You are offline', 'Your device has no internet connection. Check your network and try again.'],
+      connection: ['Could not connect to Frnxup', 'The request did not reach the Frnxup service. Your existing content has been kept.'],
+      server: ['Frnxup service is temporarily unavailable', 'The server returned an error. Please try again shortly.'],
+      slow: ['Your connection is taking longer than expected', 'The request timed out before the content could finish loading.'],
+      empty: ['Nothing here yet', 'There is no content to show in this section right now.'],
+      unavailable: ['This content is unavailable', 'The requested content could not be found or loaded.'],
+      permission: ['Access is restricted', 'Your account does not have permission to view this content.'],
+      auth: ['Your sign-in needs attention', 'Your session may have expired. Sign in again to continue.'],
+      image: ['Image could not be loaded', 'The image file may have been moved or is temporarily unavailable.'],
+      video: ['Video could not be loaded', 'The video file may have been moved or is temporarily unavailable.'],
+      upload: ['Upload could not be completed', 'Check your connection and file, then try uploading again.'],
+      success: ['Connection restored', 'Frnxup is connected again.'],
+      configuration: ['Frnxup is not connected', 'The website has not been configured with its Supabase connection details.']
+    };
+    const retryRecords = new Map();
+    const retryDelays = [3000, 7000, 15000];
+    let banner = null;
+    let bannerTimer = null;
+
+    function el(target) {
+      if (!target) return null;
+      if (typeof target === 'string') return document.querySelector(target);
+      return target.nodeType === 1 ? target : null;
+    }
+    function text(value, fallback = '') { return String(value ?? fallback); }
+    function stateMarkup(type, options = {}) {
+      const key = icons[type] ? type : 'unavailable';
+      const [defaultTitle, defaultMessage] = copy[key];
+      const reducedMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      const iconFile = reducedMotion ? icons[key].replace(/\.gif$/, '.png') : icons[key];
+      const title = FX.esc(text(options.title, defaultTitle));
+      const message = FX.esc(text(options.message, defaultMessage));
+      const detail = options.detail ? `<small class="fx-state-detail">${FX.esc(options.detail)}</small>` : '';
+      const button = options.retry ? `<button type="button" class="fx-state-retry" data-fx-state-retry>${FX.esc(options.retryLabel || 'Try again')}</button>` : '';
+      const href = options.href ? `<a class="fx-state-link" href="${FX.esc(options.href)}">${FX.esc(options.linkLabel || 'Sign in')}</a>` : '';
+      return `<section class="fx-state-card${options.compact ? ' is-compact' : ''}${options.inline ? ' is-inline' : ''}" data-fx-state-card="${key}" role="${['offline','connection','server','slow','permission','auth','unavailable'].includes(key) ? 'alert' : 'status'}" aria-live="${['offline','connection','server','slow','permission','auth','unavailable'].includes(key) ? 'assertive' : 'polite'}"><img class="fx-state-gif" src="${base}${iconFile}" alt="" width="88" height="88" loading="eager" decoding="async"><div class="fx-state-copy"><b>${title}</b><span>${message}</span>${detail}${button}${href}</div></section>`;
+    }
+    function render(target, type, options = {}) {
+      const host = el(target);
+      if (!host) return null;
+      const key = icons[type] ? type : 'unavailable';
+      const preserve = options.preserve === true || (host.dataset.fxHasContent === 'true' && ['offline','connection','server','slow'].includes(key));
+      host.dataset.fxState = key;
+      if (preserve) {
+        let warning = host.querySelector(':scope > .fx-state-warning');
+        if (!warning) {
+          warning = document.createElement('div');
+          warning.className = 'fx-state-warning';
+          host.prepend(warning);
+        }
+        warning.innerHTML = stateMarkup(key, { ...options, compact: true, inline: true });
+      } else {
+        host.innerHTML = stateMarkup(key, options);
+      }
+      return host;
+    }
+    function loading(target, options = {}) { return render(target, 'loading', options); }
+    function empty(target, options = {}) { return render(target, 'empty', options); }
+    function success(target, options = {}) {
+      const host = render(target, 'success', { title: options.title || copy.success[0], message: options.message || copy.success[1], compact: options.compact !== false });
+      if (host) setTimeout(() => { if (host.dataset.fxState === 'success') { host.replaceChildren(); delete host.dataset.fxState; } }, options.duration || 3200);
+      return host;
+    }
+    function loaded(target) {
+      const host = el(target);
+      if (!host) return;
+      host.dataset.fxHasContent = 'true';
+      delete host.dataset.fxState;
+      host.querySelectorAll(':scope > .fx-state-warning').forEach(node => node.remove());
+      const record = retryRecords.get(host);
+      if (record) {
+        if (record.timer) clearTimeout(record.timer);
+        record.count = 0;
+        record.failed = false;
+      }
+    }
+    function clearUpload(target) {
+      const original = el(target);
+      if (!original) return;
+      const host = ['P','SPAN','SMALL','LABEL'].includes(original.tagName) ? original.nextElementSibling : original;
+      if (host?.matches('[data-fx-upload-state-slot]')) host.remove();
+      else if (host) { host.replaceChildren(); delete host.dataset.fxState; }
+      const record = host ? retryRecords.get(host) : null;
+      if (record?.timer) clearTimeout(record.timer);
+      if (record) { record.failed = false; record.count = 0; record.timer = null; }
+      if (['P','SPAN','SMALL','LABEL'].includes(original.tagName)) original.textContent = '';
+    }
+    function classify(error) {
+      const message = text(error?.message || error, '').toLowerCase();
+      const code = text(error?.code, '').toUpperCase();
+      const status = Number(error?.status || error?.statusCode || error?.context?.status || 0);
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+      if (/invalid api key|supabase.*not configured|missing.*supabase|configuration.*missing|schema cache|relation .* does not exist|function .* does not exist|could not find the .* function|bucket .* not found|table .* not found/.test(message) || ['42P01','42883','PGRST202','PGRST205'].includes(code)) return 'configuration';
+      if (status === 401 || /jwt|token.*expired|session.*expired|not authenticated/.test(message) || code === 'PGRST301') return 'auth';
+      if (status === 403 || code === '42501' || /permission denied|not allowed|row-level security|insufficient privilege|forbidden/.test(message)) return 'permission';
+      if (status >= 500 || status === 429 || /^5\d\d$/.test(code) || /internal server|bad gateway|service unavailable|gateway timeout|rate limit|too many requests/.test(message)) return 'server';
+      if (error?.name === 'AbortError' || error?.name === 'TimeoutError' || /timeout|timed out|deadline exceeded/.test(message)) return 'slow';
+      if (/failed to fetch|network error|network request|load failed|connection refused|could not connect|connection.*failed|network.*failed|internet disconnected|fetch failed|offline/.test(message)) return 'connection';
+      return 'unavailable';
+    }
+    function retryable(type) { return ['offline','connection','server','slow'].includes(type); }
+    function scheduleRetry(host, callback, type) {
+      if (!callback || !retryable(type)) return;
+      let record = retryRecords.get(host);
+      if (!record) { record = { count: 0, timer: null, callback, failed: true }; retryRecords.set(host, record); }
+      record.callback = callback;
+      record.failed = true;
+      if (record.timer || record.count >= retryDelays.length || (type === 'offline' && navigator.onLine === false)) return;
+      const delay = retryDelays[record.count++];
+      record.timer = setTimeout(async () => {
+        record.timer = null;
+        if (!record.failed || !record.callback) return;
+        if (navigator.onLine === false) return;
+        try { await record.callback({ automatic: true }); }
+        catch (_) { /* The retried operation renders its own actual state. */ }
+      }, delay);
+    }
+    function fail(target, error, options = {}) {
+      const host = el(target);
+      if (!host) return null;
+      const type = classify(error);
+      const [title, message] = copy[type];
+      const friendly = options.message || message;
+      const retry = typeof options.retry === 'function' ? options.retry : null;
+      if (retry) {
+        const record = retryRecords.get(host) || { count: 0, timer: null, callback: retry, failed: true };
+        record.callback = retry;
+        record.failed = retryable(type);
+        retryRecords.set(host, record);
+      }
+      render(host, type, {
+        title: options.title || title,
+        message: friendly,
+        detail: options.showDetail ? (error?.message || '') : '',
+        retry: !!retry,
+        retryLabel: options.retryLabel || 'Try again',
+        href: type === 'auth' ? '/Auth/index.html?next=' + encodeURIComponent(location.pathname + location.search) : null
+      });
+      if (retry) scheduleRetry(host, retry, type);
+      return type;
+    }
+    function failInline(target, error, options = {}) {
+      const original = el(target);
+      if (!original) return null;
+      const host = ['P','SPAN','SMALL','LABEL'].includes(original.tagName) ? (() => {
+        original.textContent = '';
+        let slot = original.nextElementSibling?.matches('[data-fx-upload-state-slot]') ? original.nextElementSibling : null;
+        if (!slot) { slot = document.createElement('div'); slot.dataset.fxUploadStateSlot = 'true'; slot.className = 'fx-upload-state-slot'; original.insertAdjacentElement('afterend', slot); }
+        return slot;
+      })() : original;
+      const type = classify(error);
+      const [title, message] = copy[type];
+      const retry = typeof options.retry === 'function' ? options.retry : null;
+      if (retry) { const record = retryRecords.get(host) || { count: 0, timer: null, callback: retry, failed: retryable(type) }; record.callback = retry; record.failed = retryable(type); retryRecords.set(host, record); }
+      render(host, type, { title: options.title || title, message: options.message || message, detail: options.showDetail ? (error?.message || '') : '', retry: !!retry, retryLabel: options.retryLabel || 'Try again' });
+      if (retry) scheduleRetry(host, retry, type);
+      return type;
+    }
+    function failUpload(target, error, options = {}) {
+      const original = el(target);
+      if (!original) return null;
+      let host = original;
+      // Message placeholders are often <p>/<span>; put the card in a valid sibling div.
+      if (['P', 'SPAN', 'SMALL', 'LABEL'].includes(original.tagName)) {
+        original.textContent = '';
+        host = original.nextElementSibling?.matches('[data-fx-upload-state-slot]') ? original.nextElementSibling : null;
+        if (!host) {
+          host = document.createElement('div');
+          host.dataset.fxUploadStateSlot = 'true';
+          host.className = 'fx-upload-state-slot';
+          original.insertAdjacentElement('afterend', host);
+        }
+      }
+      const kind = classify(error);
+      const retry = typeof options.retry === 'function' ? options.retry : null;
+      if (retry) {
+        const record = retryRecords.get(host) || { count: 0, timer: null, callback: retry, failed: true };
+        record.callback = retry;
+        record.failed = retryable(kind);
+        retryRecords.set(host, record);
+      }
+      render(host, 'upload', {
+        title: options.title || 'Upload could not be completed',
+        message: options.message || (kind === 'permission' ? 'Frnxup could not save this file because access was denied. Check your account permissions and try again.' : kind === 'auth' ? 'Your sign-in may have expired. Sign in again, then retry the upload.' : kind === 'offline' ? copy.offline[1] : kind === 'slow' ? copy.slow[1] : kind === 'server' ? copy.server[1] : 'The file was not saved. Check your connection and file, then try again.'),
+        detail: options.showDetail ? (error?.message || '') : '',
+        retry: !!retry,
+        retryLabel: options.retryLabel || 'Try upload again'
+      });
+      if (retry) scheduleRetry(host, retry, kind);
+      return kind;
+    }
+    async function run(target, task, options = {}) {
+      const host = el(target);
+      if (!host || typeof task !== 'function') return;
+      if (host.dataset.fxHasContent !== 'true') loading(host, options.loading || {});
+      try {
+        const result = await task();
+        loaded(host);
+        if (typeof options.render === 'function') await options.render(result, host);
+        if (options.emptyWhen && options.emptyWhen(result)) empty(host, options.empty || {});
+        return result;
+      } catch (error) {
+        fail(host, error, { ...options, retry: () => run(host, task, options) });
+        return undefined;
+      }
+    }
+    function showBanner(kind, message, duration = 0) {
+      if (!document.body) return;
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'fx-connectivity-banner';
+        banner.className = 'fx-connectivity-banner';
+        banner.setAttribute('role', 'status');
+        banner.setAttribute('aria-live', 'polite');
+        document.body.prepend(banner);
+      }
+      banner.dataset.kind = kind;
+      banner.textContent = message;
+      banner.classList.add('is-visible');
+      if (bannerTimer) clearTimeout(bannerTimer);
+      if (duration) bannerTimer = setTimeout(() => banner?.classList.remove('is-visible'), duration);
+    }
+    function retryFailed() {
+      retryRecords.forEach((record, host) => {
+        if (!host.isConnected || !record.failed || typeof record.callback !== 'function') return;
+        if (record.timer) clearTimeout(record.timer);
+        record.timer = null;
+        record.count = 0;
+        Promise.resolve(record.callback({ automatic: true })).catch(() => {});
+      });
+    }
+    function initConnectivity() {
+      if (!document.body) return;
+      if (navigator.onLine === false) showBanner('offline', 'You are offline. Frnxup will keep your loaded content and retry when you reconnect.');
+      window.addEventListener('offline', () => {
+        showBanner('offline', 'You are offline. Check your internet connection. Existing content is being kept.');
+        retryRecords.forEach((record, host) => { if (host.isConnected && record.failed) render(host, 'offline', { preserve: host.dataset.fxHasContent === 'true', retry: true }); });
+      });
+      window.addEventListener('online', () => {
+        showBanner('online', 'Connection restored. Refreshing sections that did not load…', 5000);
+        retryFailed();
+      });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initConnectivity, { once: true });
+    else initConnectivity();
+    document.addEventListener('click', event => {
+      const button = event.target.closest('[data-fx-state-retry]');
+      if (!button) return;
+      const host = button.closest('[data-fx-state]') || button.closest('[data-fx-state-card]')?.parentElement;
+      if (!host) return;
+      const record = retryRecords.get(host);
+      if (!record?.callback) return;
+      button.disabled = true;
+      button.textContent = 'Trying…';
+      record.count = 0;
+      Promise.resolve(record.callback({ automatic: false })).finally(() => { if (button.isConnected) button.disabled = false; });
+    });
+    function showMediaFailure(media) {
+      if (!(media instanceof HTMLImageElement || media instanceof HTMLVideoElement)) return;
+      if (media.dataset.fxStateAsset || /\/Asset\/States\//.test(media.currentSrc || media.src || '')) return;
+      if (media.dataset.fxMediaFailed === 'true') return;
+      media.dataset.fxMediaFailed = 'true';
+      const type = media instanceof HTMLVideoElement ? 'video' : 'image';
+      const fallback = document.createElement('div');
+      fallback.className = 'fx-media-fallback';
+      fallback.innerHTML = stateMarkup(type, { compact: true });
+      media.insertAdjacentElement('afterend', fallback);
+      media.hidden = true;
+    }
+    document.addEventListener('error', event => showMediaFailure(event.target), true);
+    // Catch media that failed before this shared listener was installed.
+    const scanFailedMedia = () => document.querySelectorAll('img,video').forEach(media => {
+      if (media instanceof HTMLImageElement && media.complete && media.naturalWidth === 0 && (media.currentSrc || media.src)) showMediaFailure(media);
+      else if (media instanceof HTMLVideoElement && media.error) showMediaFailure(media);
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scanFailedMedia, { once: true });
+    else scanFailedMedia();
+    return { render, loading, empty, loaded, success, fail, failInline, failUpload, clearUpload, classify, run, banner: showBanner, retryFailed };
+  })();
+  window.FXStates = FXStates;
+  FX.states = FXStates;
+  // Upgrade ordinary form/status messages too: connection and access failures
+  // become the same visual states, while validation feedback stays plain text.
+  const baseSetMessage = FX.setMessage.bind(FX);
+  FX.setMessage = function(target, message, kind = 'info') {
+    const original = typeof target === 'string' ? document.querySelector(target) : target;
+    const inlineTarget = original && ['P','SPAN','SMALL','LABEL'].includes(original.tagName);
+    const value = String(message ?? '');
+    const lower = value.toLowerCase();
+    const successMessage = kind === 'success' || (!/\bnot\b|\bno\b|\bcould not\b|\bfailed\b|\berror\b/.test(lower) && /\b(saved|sent|updated|created|published|completed|approved|unblocked|removed|deleted|confirmed|uploaded|added)\b/.test(lower));
+    const connectionFailure = kind === 'error' && /(offline|no internet|network|connection|failed to fetch|load failed|timeout|timed out|unavailable|permission denied|row-level security|forbidden|unauthorized|jwt|session.*expired|not authenticated|not found|server error|internal server)/.test(lower);
+    if (inlineTarget && (successMessage || connectionFailure)) {
+      baseSetMessage(target, value, kind);
+      if (successMessage) {
+        original.textContent = '';
+        const host = original.nextElementSibling?.matches('[data-fx-upload-state-slot]') ? original.nextElementSibling : (() => { const node=document.createElement('div');node.dataset.fxUploadStateSlot='true';node.className='fx-upload-state-slot';original.insertAdjacentElement('afterend',node);return node; })();
+        FXStates.success(host,{title:'Done',message:value,compact:true,duration:2800});
+      } else {
+        FXStates.failInline(original,new Error(value),{title:'This action could not be completed'});
+      }
+      return;
+    }
+    if (inlineTarget) FXStates.clearUpload(original);
+    baseSetMessage(target, message, kind);
+  };
+  const fxStateStyles = document.createElement('link');
+  fxStateStyles.rel = 'stylesheet';
+  fxStateStyles.href = '/Css/content-states.css?v=20261123-1';
+  document.head.appendChild(fxStateStyles);
 
   if (client?.auth?.onAuthStateChange) {
     client.auth.onAuthStateChange((event, session) => {
