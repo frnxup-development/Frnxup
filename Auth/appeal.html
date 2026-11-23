@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#123f34">
-  <title>Appeal an account restriction · Frnxup</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Secure account appeal · Frnxup</title>
   <link rel="icon" href="../Asset/frnxup-mark.svg">
   <link rel="stylesheet" href="../Css/app.css">
   <link rel="stylesheet" href="../Css/auth.css">
@@ -13,7 +15,7 @@
     .appeal-wrap{width:min(760px,100%);margin:0 auto}.appeal-brand{display:flex;align-items:center;gap:10px;margin:8px 0 18px;text-decoration:none;color:inherit;font-weight:800;font-size:22px}.appeal-brand img{width:42px;height:42px}
     .appeal-card{padding:clamp(18px,4vw,30px);border-radius:20px;background:var(--surface,#fff);border:1px solid var(--line,#dfe8e3);box-shadow:0 12px 36px #153d3010}
     .appeal-card h1{margin:0 0 8px;font-size:clamp(24px,4vw,32px)}.appeal-intro{color:var(--muted,#66756e);line-height:1.55;margin:0 0 22px}
-    .appeal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.appeal-grid .wide{grid-column:1/-1}.appeal-page label{display:block;font-weight:700;margin:0 0 7px}.appeal-page input,.appeal-page textarea{width:100%;padding:12px 13px;border:1px solid var(--line,#dfe8e3);border-radius:12px;background:var(--input-bg,#fff);color:inherit;font:inherit}.appeal-page textarea{min-height:150px;resize:vertical}.appeal-page input[type=file]{padding:9px}.appeal-help{display:block;color:var(--muted,#66756e);font-size:12px;line-height:1.45;margin-top:6px}.appeal-note{padding:13px 15px;border-radius:13px;background:var(--soft-green,#edf6f1);color:var(--text,#23483a);font-size:13px;line-height:1.5;margin:16px 0}.appeal-state{padding:12px;border-radius:12px;margin:12px 0;line-height:1.45}.appeal-state[data-kind=error]{background:#fff0ef;color:#9b2d28}.appeal-state[data-kind=success]{background:#e9f8ee;color:#176538}.appeal-state[data-kind=info]{background:#edf4ff;color:#244f8a}.appeal-page button{border:0;border-radius:12px;padding:12px 18px;background:#14764c;color:#fff;font:700 15px system-ui;cursor:pointer}.appeal-page button:disabled{opacity:.6;cursor:wait}.appeal-footer{color:var(--muted,#66756e);font-size:12px;text-align:center;margin:16px 0}.appeal-hidden{display:none!important}
+    .appeal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.appeal-grid .wide{grid-column:1/-1}.appeal-page label{display:block;font-weight:700;margin:0 0 7px}.appeal-page input,.appeal-page select,.appeal-page textarea{width:100%;padding:12px 13px;border:1px solid var(--line,#dfe8e3);border-radius:12px;background:var(--input-bg,#fff);color:inherit;font:inherit}.appeal-page textarea{min-height:150px;resize:vertical}.appeal-page input[type=file]{padding:9px}.appeal-help{display:block;color:var(--muted,#66756e);font-size:12px;line-height:1.45;margin-top:6px}.appeal-note{padding:13px 15px;border-radius:13px;background:var(--soft-green,#edf6f1);color:var(--text,#23483a);font-size:13px;line-height:1.5;margin:16px 0}.appeal-state{padding:12px;border-radius:12px;margin:12px 0;line-height:1.45}.appeal-state[hidden]{display:none!important}.appeal-state[data-kind=error]{background:#fff0ef;color:#9b2d28}.appeal-state[data-kind=success]{background:#e9f8ee;color:#176538}.appeal-state[data-kind=info]{background:#edf4ff;color:#244f8a}.appeal-page button{border:0;border-radius:12px;padding:12px 18px;background:#14764c;color:#fff;font:700 15px system-ui;cursor:pointer}.appeal-page button:disabled{opacity:.6;cursor:wait}.appeal-footer{color:var(--muted,#66756e);font-size:12px;text-align:center;margin:16px 0}.appeal-hidden{display:none!important}.appeal-history{margin-top:22px}.appeal-history-item{padding:12px 0;border-top:1px solid var(--line,#dfe8e3)}.appeal-history-item b,.appeal-history-item small{display:block}.appeal-history-item small{color:var(--muted,#66756e);margin-top:4px}.appeal-locked-actions{margin-top:16px}
     @media(max-width:600px){.appeal-grid{grid-template-columns:1fr}.appeal-grid .wide{grid-column:auto}}
   </style>
 </head>
@@ -21,139 +23,184 @@
   <main class="appeal-wrap">
     <a class="appeal-brand" href="/Auth/index.html"><img src="../Asset/frnxup-mark.svg" alt=""><span>Frnxup</span></a>
     <section class="appeal-card">
-      <h1>Appeal an account restriction</h1>
-      <p class="appeal-intro">This secure process is for Frnxup members whose accounts have been suspended or permanently banned. Verify the email address on the restricted account, then write your appeal letter.</p>
+      <h1>Appeal a suspended account</h1>
+      <p class="appeal-intro">This secure form is available only after Frnxup verifies the correct password for a suspended account. Your appeal and documents will be attached to that account.</p>
 
-      <section id="verify-panel">
-        <form id="verify-form">
-          <div class="field">
-            <label for="appeal-email">Email address registered to your Frnxup account</label>
-            <input id="appeal-email" type="email" autocomplete="email" required placeholder="you@example.com">
-          </div>
-          <button id="send-link" type="submit">Send secure verification link</button>
-          <p id="verify-message" class="appeal-state" aria-live="polite"></p>
-        </form>
-      </section>
+      <div id="appeal-state" class="appeal-state" role="status" aria-live="polite">Checking your secure appeal access…</div>
+      <div id="appeal-account" class="appeal-note appeal-hidden"></div>
 
-      <section id="appeal-panel" class="appeal-hidden">
-        <div id="account-summary" class="appeal-note"></div>
-        <form id="appeal-form">
+      <section id="appeal-form-section" class="appeal-hidden">
+        <form id="appeal-form" enctype="multipart/form-data">
           <div class="appeal-grid">
             <div class="wide field">
-              <label for="appeal-reason">Your appeal letter</label>
-              <textarea id="appeal-reason" name="reason" maxlength="3000" required placeholder="Explain what happened, why you believe the restriction should be reviewed, and any information that may help the Frnxup team."></textarea>
-              <small class="appeal-help">10–3,000 characters. Be truthful, specific and respectful. Do not include passwords or unnecessary identity numbers.</small>
+              <label for="appeal-reason">Your appeal letter <span aria-hidden="true">*</span></label>
+              <textarea id="appeal-reason" name="reason" minlength="10" maxlength="3000" required placeholder="Explain what happened, why you believe the suspension should be reviewed, and any relevant information that may help the Frnxup team."></textarea>
+              <small class="appeal-help">Required. 10–3,000 characters. Be truthful and specific. Do not include your password or write your full identity number in the letter.</small>
             </div>
             <div class="field">
-              <label for="appeal-portrait">Clear portrait photo (optional)</label>
-              <input id="appeal-portrait" name="portrait" type="file" accept="image/jpeg,image/png,image/webp">
-              <small class="appeal-help">A recent, clear face photo. JPG, PNG or WEBP; maximum 5 MB.</small>
+              <label for="appeal-portrait">Recent portrait photograph <span aria-hidden="true">*</span></label>
+              <input id="appeal-portrait" name="portrait" type="file" accept="image/jpeg,image/png,image/webp" required>
+              <small class="appeal-help">Required. JPG, PNG or WEBP; maximum 5 MB.</small>
             </div>
             <div class="field">
-              <label for="appeal-identity">Means of identification (optional)</label>
-              <input id="appeal-identity" name="identity" type="file" accept="image/jpeg,image/png,image/webp,application/pdf">
-              <small class="appeal-help">NIN slip/card, international passport, voter's card or driver's licence. One file, maximum 5 MB.</small>
+              <label for="appeal-identity-type">Means of identification <span aria-hidden="true">*</span></label>
+              <select id="appeal-identity-type" name="identity_type" required>
+                <option value="">Select identification type</option>
+                <option value="nin">National Identification Number (NIN) slip/card</option>
+                <option value="international_passport">International passport</option>
+                <option value="voters_card">Voter's card</option>
+                <option value="drivers_license">Driver's licence</option>
+                <option value="other_government_id">Other government-issued identification</option>
+              </select>
+              <small class="appeal-help">Choose the exact type of ID you are uploading.</small>
             </div>
-            <div class="wide field">
-              <label for="appeal-supporting">Additional supporting document (optional)</label>
-              <input id="appeal-supporting" name="supporting" type="file" accept="image/jpeg,image/png,image/webp,application/pdf">
-              <small class="appeal-help">For example, a relevant notice or other evidence. Maximum 5 MB.</small>
+            <div class="field wide">
+              <label for="appeal-identity">Upload selected identification <span aria-hidden="true">*</span></label>
+              <input id="appeal-identity" name="identity" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required>
+              <small class="appeal-help">Required. JPG, PNG, WEBP or PDF; maximum 5 MB. Mask nonessential numbers where possible, while keeping the name and photograph/details needed for review visible.</small>
+            </div>
+            <div class="field wide">
+              <label for="appeal-supporting">Additional supporting document <span aria-hidden="true">*</span></label>
+              <input id="appeal-supporting" name="supporting" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required>
+              <small class="appeal-help">Required. Upload a document or image relevant to your appeal, such as a notice, proof or other supporting evidence. Maximum 5 MB.</small>
             </div>
           </div>
-          <div class="appeal-note"><strong>Privacy:</strong> Only submit documents needed to verify your appeal. Files are stored in a private Frnxup storage bucket and are visible only to authorized administrators. Do not upload bank cards, passwords or unrelated personal records.</div>
-          <button id="submit-appeal" type="submit">Submit appeal securely</button>
-          <p id="appeal-message" class="appeal-state" aria-live="polite"></p>
+          <div class="appeal-note"><strong>Privacy and safety:</strong> Your files are stored in a private Frnxup storage bucket. Only authorized administrators can review them. Never upload bank cards, passwords, or unrelated personal records. Frnxup should retain identity documents only for the period needed to review the appeal.</div>
+          <button id="submit-appeal" type="submit">Submit complete appeal</button>
         </form>
-        <section id="appeal-history" class="appeal-history appeal-hidden" aria-live="polite">
-          <h2>Your appeal history</h2>
-          <div id="appeal-history-list"></div>
-        </section>
       </section>
-    </section>
-    <p class="appeal-footer">Need help? Contact <a href="mailto:frnxup@gmail.com">frnxup@gmail.com</a>. Submitting an appeal does not automatically restore access.</p>
-  </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+      <section id="appeal-history" class="appeal-history appeal-hidden" aria-live="polite">
+        <h2>Your appeal history</h2>
+        <div id="appeal-history-list"></div>
+      </section>
+      <div id="appeal-locked-actions" class="appeal-locked-actions appeal-hidden"><a class="button primary" href="/Auth/index.html">Return to Frnxup login</a></div>
+    </section>
+    <p class="appeal-footer">Need help? Contact <a href="mailto:frnxup@gmail.com">frnxup@gmail.com</a>.</p>
+  </main>
   <script src="../js/config.js"></script>
   <script>
     (() => {
       const cfg = window.FRNXUP_CONFIG || {};
-      const $ = (s) => document.querySelector(s);
-      const setMsg = (selector, text, kind = 'info') => { const el=$(selector); if(el){el.textContent=text;el.dataset.kind=kind;el.classList.toggle('appeal-hidden',!text);} };
-      if (!window.supabase || !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
-        setMsg('#verify-message','Frnxup could not connect to its appeal service. Please try again later.','error'); return;
-      }
-      const client = window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{
-        auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
-      });
-      let activeUser = null;
-      async function showVerifiedAccount(){
-        const {data:{session}} = await client.auth.getSession();
-        if(!session?.user) return;
-        const {data:profile,error} = await client.from('profiles').select('username,display_name,account_status').eq('id',session.user.id).maybeSingle();
-        if(error || !profile){setMsg('#verify-message','We could not verify the restricted Frnxup account. Contact frnxup@gmail.com.','error');return;}
-        activeUser=session.user;
-        $('#verify-panel').classList.add('appeal-hidden');
-        $('#appeal-panel').classList.remove('appeal-hidden');
-        $('#account-summary').textContent=`Verified account: @${profile.username} · Status: ${profile.account_status}. Your appeal will be attached to this account.`;
-        if(!['suspended','banned'].includes(profile.account_status)){
-          $('#appeal-form').classList.add('appeal-hidden');
-          $('#account-summary').textContent='This account is currently active. An appeal is not required. Return to Frnxup and sign in.';
+      const $ = (selector) => document.querySelector(selector);
+      const state = $('#appeal-state');
+      const formSection = $('#appeal-form-section');
+      const lockedActions = $('#appeal-locked-actions');
+      const ticketKey = 'frnxup_appeal_ticket';
+      const setState = (message, kind = 'info') => {
+        state.textContent = message;
+        state.dataset.kind = kind;
+        state.hidden = !message;
+      };
+      const getTicket = () => {
+        try { return sessionStorage.getItem(ticketKey) || ''; } catch (_) { return ''; }
+      };
+      const forgetTicket = () => {
+        try { sessionStorage.removeItem(ticketKey); } catch (_) {}
+      };
+      const callAppealService = async (body, ticket, isForm = false) => {
+        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) throw new Error('Frnxup appeal service is not configured. Please contact frnxup@gmail.com.');
+        const headers = { apikey: cfg.SUPABASE_ANON_KEY, 'x-frnxup-appeal-ticket': ticket };
+        if (!isForm) headers['Content-Type'] = 'application/json';
+        const response = await fetch(`${cfg.SUPABASE_URL}/functions/v1/account-appeal`, {
+          method: 'POST', headers, body: isForm ? body : JSON.stringify(body)
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.error) {
+          const error = new Error(data.error || 'Unable to process your appeal request.');
+          error.status = response.status;
+          throw error;
         }
-        await loadAppealHistory(session.user.id);
-      }
-      async function loadAppealHistory(userId){
-        const panel=$('#appeal-history'),list=$('#appeal-history-list');
-        const {data,error}=await client.from('account_appeals').select('status,review_note,created_at,reviewed_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(10);
-        if(error||!data?.length)return;
+        return data;
+      };
+      const renderHistory = (items) => {
+        if (!Array.isArray(items) || !items.length) return;
+        const panel = $('#appeal-history');
+        const list = $('#appeal-history-list');
         list.replaceChildren();
-        for(const item of data){
-          const card=document.createElement('div');card.className='appeal-history-item';
-          const status=document.createElement('b');status.textContent=item.status==='pending'?'Awaiting review':item.status==='reinstated'?'Approved — account reinstated':'Reviewed — restriction upheld';
-          const date=document.createElement('small');date.textContent=`Submitted ${new Date(item.created_at).toLocaleString()}`;
-          card.append(status,date);
-          if(item.review_note){const note=document.createElement('p');note.textContent=item.review_note;card.append(note);}
+        for (const item of items) {
+          const card = document.createElement('div');
+          card.className = 'appeal-history-item';
+          const title = document.createElement('b');
+          title.textContent = item.status === 'pending' ? 'Awaiting review' : item.status === 'reinstated' ? 'Approved — account reinstated' : 'Reviewed — restriction upheld';
+          const date = document.createElement('small');
+          date.textContent = `Submitted ${new Date(item.created_at).toLocaleString()}`;
+          card.append(title, date);
+          if (item.review_note) {
+            const note = document.createElement('p');
+            note.textContent = item.review_note;
+            card.append(note);
+          }
           list.append(card);
         }
         panel.classList.remove('appeal-hidden');
-        if(data.some(item=>item.status==='pending')){
-          const button=$('#submit-appeal');button.disabled=true;button.textContent='Appeal awaiting review';
-          setMsg('#appeal-message','Your appeal is already with the Frnxup team. Please wait for a decision before submitting another appeal.','info');
+      };
+
+      async function initialise() {
+        const ticket = getTicket();
+        if (!ticket) {
+          setState('This appeal page is locked. To access it, return to Frnxup login and enter the correct password for your suspended account. The secure appeal button will appear only after Frnxup verifies that account.', 'error');
+          lockedActions.classList.remove('appeal-hidden');
+          return;
+        }
+        try {
+          const data = await callAppealService({ action: 'verify' }, ticket);
+          $('#appeal-account').textContent = `Verified suspended account: @${data.account.username}. Your appeal will be linked to this account.`;
+          $('#appeal-account').classList.remove('appeal-hidden');
+          formSection.classList.remove('appeal-hidden');
+          renderHistory(data.history);
+          if ((data.history || []).some(item => item.status === 'pending')) {
+            for (const control of $('#appeal-form').elements) control.disabled = true;
+            setState('Your previous appeal is already awaiting review. You cannot submit another appeal until the Frnxup team completes its review.', 'info');
+          } else {
+            setState('Your suspended account has been verified. Complete every required field and submit all three documents below.', 'success');
+          }
+        } catch (error) {
+          forgetTicket();
+          setState(error.message || 'Your secure appeal access could not be verified. Return to login and try again.', 'error');
+          lockedActions.classList.remove('appeal-hidden');
         }
       }
-      $('#verify-form').addEventListener('submit',async(event)=>{
+
+      $('#appeal-form').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const button=$('#send-link'); const email=$('#appeal-email').value.trim().toLowerCase();
-        if(!email) return;
-        button.disabled=true;button.textContent='Sending…';
-        try{
-          const {error}=await client.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:`${location.origin}/Auth/appeal.html`}});
-          if(error) throw error;
-          setMsg('#verify-message','A secure verification link has been sent to the email address, if it belongs to an existing Frnxup account. Open the link on this device to continue.','success');
-        }catch(error){setMsg('#verify-message',error?.message||'Unable to send the verification link.','error');}
-        finally{button.disabled=false;button.textContent='Send secure verification link';}
+        const form = $('#appeal-form');
+        if (!form.reportValidity()) return;
+        const ticket = getTicket();
+        if (!ticket) {
+          setState('Your secure appeal access has expired. Return to Frnxup login and verify the suspended account again.', 'error');
+          formSection.classList.add('appeal-hidden');
+          lockedActions.classList.remove('appeal-hidden');
+          return;
+        }
+        const button = $('#submit-appeal');
+        button.disabled = true;
+        button.textContent = 'Submitting securely…';
+        setState('Uploading your appeal and required documents securely…', 'info');
+        try {
+          const result = await callAppealService(new FormData(form), ticket, true);
+          forgetTicket();
+          formSection.classList.add('appeal-hidden');
+          setState(result.message || 'Your complete appeal has been submitted successfully.', 'success');
+          lockedActions.classList.remove('appeal-hidden');
+          lockedActions.querySelector('a').textContent = 'Return to Frnxup login';
+        } catch (error) {
+          if (error.status === 401) {
+            forgetTicket();
+            formSection.classList.add('appeal-hidden');
+            lockedActions.classList.remove('appeal-hidden');
+          }
+          setState(error.message || 'Unable to submit your appeal. Please try again.', 'error');
+        } finally {
+          button.disabled = false;
+          button.textContent = 'Submit complete appeal';
+        }
       });
-      $('#appeal-form').addEventListener('submit',async(event)=>{
-        event.preventDefault();
-        if(!activeUser) return setMsg('#appeal-message','Verify your email before submitting this appeal.','error');
-        const button=$('#submit-appeal');button.disabled=true;button.textContent='Submitting securely…';
-        try{
-          const form=new FormData($('#appeal-form'));
-          const {data:{session}}=await client.auth.getSession();
-          if(!session?.access_token)throw new Error('Your secure email verification has expired. Request a new verification link.');
-          const response=await fetch(`${cfg.SUPABASE_URL}/functions/v1/account-appeal`,{method:'POST',headers:{apikey:cfg.SUPABASE_ANON_KEY,Authorization:`Bearer ${session.access_token}`},body:form});
-          const data=await response.json().catch(()=>({}));
-          if(!response.ok||data?.error)throw new Error(data?.error||'Unable to submit your appeal.');
-          setMsg('#appeal-message',data?.message||'Your appeal has been submitted securely.','success');
-          $('#appeal-form').reset();
-          await client.auth.signOut();
-          activeUser=null;
-          setTimeout(()=>location.replace('/Auth/index.html?appealSubmitted=1'),1400);
-        }catch(error){setMsg('#appeal-message',error?.message||'Unable to submit your appeal.','error');}
-        finally{button.disabled=false;button.textContent='Submit appeal securely';}
+
+      initialise().catch(() => {
+        setState('Frnxup could not verify your appeal access. Return to login and try again.', 'error');
+        lockedActions.classList.remove('appeal-hidden');
       });
-      client.auth.onAuthStateChange((event,session)=>{if((event==='SIGNED_IN'||event==='INITIAL_SESSION')&&session?.user)showVerifiedAccount().catch(()=>{});});
-      showVerifiedAccount().catch(()=>{});
     })();
   </script>
 </body>
