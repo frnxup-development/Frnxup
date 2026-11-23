@@ -119,3 +119,76 @@
 .user-dashboard .fx-post-modal textarea{font-size:16px!important}
 
 .fx-page-mode-card[hidden]{display:none!important}
+
+/* Mobile/viewport-safe dashboard sidebar: scroll navigation, never the logout control. */
+.user-dashboard .fx-sidebar {
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.user-dashboard .fx-sidebar-brand,
+.user-dashboard #fx-page-mode-card,
+.user-dashboard .fx-grow-card,
+.user-dashboard .fx-logout {
+  flex: 0 0 auto;
+}
+.user-dashboard .fx-side-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  align-content: start;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff55 transparent;
+}
+.user-dashboard .fx-side-nav::-webkit-scrollbar { width: 5px; }
+.user-dashboard .fx-side-nav::-webkit-scrollbar-thumb {
+  background: #ffffff55;
+  border-radius: 8px;
+}
+.user-dashboard .fx-sidebar-spacer { display: none; }
+.user-dashboard .fx-grow-card { margin: 10px 0 8px; }
+.user-dashboard .fx-logout {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 12px 11px;
+  border: 1px solid #ffffff35;
+  border-radius: 11px;
+  background: #ffffff16;
+  color: #fff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.user-dashboard .fx-logout:hover,
+.user-dashboard .fx-logout:focus-visible {
+  background: #ffffff28;
+  outline: 2px solid #ffffffaa;
+  outline-offset: 2px;
+}
+.user-dashboard .fx-logout span {
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
+@media (max-height: 700px) {
+  .user-dashboard .fx-grow-card {
+    padding: 9px 10px;
+    margin: 6px 0;
+  }
+  .user-dashboard .fx-grow-icon { font-size: 24px; }
+  .user-dashboard .fx-grow-card h3 { margin: 4px 0 2px; font-size: 14px; }
+  .user-dashboard .fx-grow-card p { margin-bottom: 7px; }
+}
