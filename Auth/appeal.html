@@ -109,13 +109,28 @@
         if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) throw new Error('Frnxup appeal service is not configured. Please contact frnxup@gmail.com.');
         const headers = { apikey: cfg.SUPABASE_ANON_KEY, 'x-frnxup-appeal-ticket': ticket };
         if (!isForm) headers['Content-Type'] = 'application/json';
-        const response = await fetch(`${cfg.SUPABASE_URL}/functions/v1/account-appeal`, {
-          method: 'POST', headers, body: isForm ? body : JSON.stringify(body)
-        });
-        const data = await response.json().catch(() => ({}));
+        let response;
+        try {
+          response = await fetch(`${cfg.SUPABASE_URL}/functions/v1/account-appeal`, {
+            method: 'POST', headers, body: isForm ? body : JSON.stringify(body),
+            signal: AbortSignal.timeout(90000)
+          });
+        } catch (networkError) {
+          if (networkError?.name === 'TimeoutError' || networkError?.name === 'AbortError') {
+            throw new Error('The appeal upload timed out. Check your connection and try again; your selected files are still on this form.');
+          }
+          throw new Error('Frnxup could not reach the appeal service. Check your internet connection and try again.');
+        }
+        const raw = await response.text();
+        let data = {};
+        try { data = raw ? JSON.parse(raw) : {}; } catch (_) {
+          data = { error: `Appeal service returned an unexpected response (HTTP ${response.status}).` };
+        }
         if (!response.ok || data.error) {
-          const error = new Error(data.error || 'Unable to process your appeal request.');
+          const stageHint = data.stage ? ` (stage: ${data.stage})` : '';
+          const error = new Error(`${data.error || `Appeal service returned HTTP ${response.status}.`}${stageHint}`);
           error.status = response.status;
+          error.stage = data.stage || '';
           throw error;
         }
         return data;
