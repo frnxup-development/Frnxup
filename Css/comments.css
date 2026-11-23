@@ -1,0 +1,106 @@
+/* Frnxup conversation sheet — theme-aware Facebook-inspired comment layout. */
+.fx-comments-sheet{
+  --fx-comment-bubble:var(--surface-2);
+  --fx-comment-outline:var(--line);
+  margin:16px 0 30px;padding:0;overflow:visible;background:var(--surface);color:var(--text);
+  border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)
+}
+.fx-comments-handle{height:22px;display:flex;justify-content:center;align-items:center;padding-top:5px}
+.fx-comments-handle button{width:70px;height:22px;display:grid;place-items:center;padding:0;border:0;background:transparent;cursor:default}
+.fx-comments-handle span{display:block;width:48px;height:5px;border-radius:10px;background:var(--muted);opacity:.55}
+.fx-comments-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px 12px;border-bottom:1px solid var(--line)}
+.fx-comments-heading h2{margin:0;font:800 18px Manrope,Arial,sans-serif;color:var(--text)}
+.fx-comments-heading small{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
+.fx-comments-sort{font-size:11px;color:var(--muted);font-weight:700}
+.fx-comments-sheet .comments-list{display:grid;gap:15px;margin:0;padding:14px 13px 18px}
+.fx-comment-node{position:relative;min-width:0;margin:0;padding:0;border:0;background:transparent;border-radius:0;box-shadow:none}
+.fx-comment-node.context-open{z-index:25}
+.fx-comment-row{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.fx-comment-avatar{width:43px;height:43px;flex:0 0 43px;display:grid;place-items:center;overflow:hidden;border-radius:50%;border:1px solid var(--line);background:linear-gradient(135deg,#7b4dff,#198bd8);color:#fff;text-decoration:none;font-size:13px;font-weight:800}
+.fx-comment-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.fx-comment-main{position:relative;flex:1;min-width:0}
+.fx-comment-bubble{position:relative;display:block;max-width:100%;width:max-content;min-width:min(170px,100%);padding:9px 12px 10px;border-radius:20px;background:var(--fx-comment-bubble);color:var(--text);overflow-wrap:anywhere}
+.fx-comment-bubble.deleted{opacity:.76}
+.fx-comment-byline{display:flex;align-items:baseline;gap:5px;min-width:0;margin-bottom:3px;line-height:1.25}
+.fx-comment-byline>a{max-width:72%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);text-decoration:none;font-size:13px;font-weight:800}
+.fx-comment-byline time{color:var(--muted);font-size:11px;white-space:nowrap}
+.fx-comment-you{color:var(--blue);font-size:10px;font-weight:800;white-space:nowrap}
+.fx-comment-byline .comment-open-menu{margin-left:auto;flex:0 0 auto;width:25px;height:22px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:16px;line-height:1}
+.fx-comment-byline .comment-open-menu:hover{background:var(--line)}
+.fx-comment-bubble .comment-body{margin:0;color:var(--text);font-size:15px;line-height:1.42;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;touch-action:pan-y}
+.fx-comment-bubble .comment-body.deleted{font-style:italic;color:var(--muted)}
+.fx-comment-reaction-summary{display:flex;gap:4px;flex-wrap:wrap;margin:5px 0 0 8px}
+.fx-comment-reaction-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--muted);font-size:11px;box-shadow:0 1px 2px #0001}
+.fx-comment-reaction-chip b{font-size:10px}
+.fx-comment-reaction-chip.mine{border-color:var(--blue);color:var(--blue)}
+.fx-comment-tools{display:flex;align-items:center;gap:15px;min-height:28px;padding:2px 8px 0}
+.fx-comment-tools button{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:800;cursor:pointer}
+.fx-comment-reply{padding:3px 0!important}
+.fx-comment-reply:hover{color:var(--blue)}
+.fx-comment-reacted-label{font-size:10px;color:var(--blue);font-weight:700}
+.fx-comment-like{margin-left:auto!important;min-width:32px;height:30px;padding:0 6px!important;border-radius:16px!important;font-size:20px!important;line-height:1!important;touch-action:pan-y!important;user-select:none;-webkit-user-select:none}
+.fx-comment-like.active{color:var(--blue)!important}
+.fx-comment-like svg{display:block;width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.fx-comment-like:active{transform:scale(.94)}
+.fx-comment-children{position:relative;display:grid;gap:10px;margin:9px 0 0 26px;padding-left:13px;border-left:2px solid var(--fx-comment-outline)}
+.fx-comment-children .fx-comment-avatar{width:34px;height:34px;flex-basis:34px;font-size:11px}
+.fx-comment-children .fx-comment-row{gap:8px}
+.fx-comment-children .fx-comment-bubble{border-radius:17px;padding:8px 10px}
+.fx-comment-children .fx-comment-bubble .comment-body{font-size:14px}
+.fx-comment-node .comment-context-menu{position:absolute;z-index:50;top:28px;right:7px;left:auto;min-width:180px;max-width:calc(100vw - 70px);padding:7px;background:var(--surface);border:1px solid var(--line);border-radius:13px;box-shadow:0 12px 34px #0005}
+.fx-comment-node .comment-context-actions{display:grid;gap:2px}
+.fx-comment-node .comment-context-actions button{border:0;background:transparent;color:var(--text);padding:9px 10px;text-align:left;border-radius:8px;font-size:12px;cursor:pointer}
+.fx-comment-node .comment-context-actions button:hover{background:var(--surface-2)}
+.fx-comment-node .comment-context-actions .danger-action{color:#e45d70}
+.fx-comment-node .comment-context-actions button[data-restore-comment]{color:var(--blue)}
+.fx-comment-node.context-open .fx-comment-bubble{outline:1px solid var(--blue)}
+.fx-reaction-tray{position:absolute;z-index:65;right:0;bottom:calc(100% + 5px);display:flex;align-items:center;gap:3px;max-width:min(330px,calc(100vw - 46px));padding:7px 9px;border:1px solid var(--line);border-radius:30px;background:var(--surface);box-shadow:0 8px 26px #0004;transform-origin:90% 100%}
+.fx-reaction-tray[hidden]{display:none}
+.fx-reaction-tray.is-open{animation:fxReactionTrayIn .18s ease-out both}
+.fx-reaction-choice{width:34px;height:36px;flex:0 0 34px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text);font-size:25px;line-height:1;cursor:pointer;transition:transform .16s ease}
+.fx-reaction-tray.is-open .fx-reaction-choice{animation:fxReactionChoicePop .36s ease both}
+.fx-reaction-tray.is-open .fx-reaction-choice:nth-child(2){animation-delay:.025s}.fx-reaction-tray.is-open .fx-reaction-choice:nth-child(3){animation-delay:.05s}.fx-reaction-tray.is-open .fx-reaction-choice:nth-child(4){animation-delay:.075s}.fx-reaction-tray.is-open .fx-reaction-choice:nth-child(5){animation-delay:.1s}.fx-reaction-tray.is-open .fx-reaction-choice:nth-child(6){animation-delay:.125s}.fx-reaction-tray.is-open .fx-reaction-choice:nth-child(7){animation-delay:.15s}
+.fx-reaction-choice:hover,.fx-reaction-choice:focus-visible{transform:translateY(-7px) scale(1.28);background:var(--surface-2)}
+.fx-reaction-choice:active{transform:scale(1.18)}
+@keyframes fxReactionTrayIn{from{opacity:0;transform:translateY(8px) scale(.86)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fxReactionChoicePop{0%,100%{transform:translateY(0) scale(1)}45%{transform:translateY(-8px) scale(1.35)}}
+.fx-comment-composer{position:sticky;bottom:0;z-index:15;padding:10px 12px max(10px,env(safe-area-inset-bottom));border-top:1px solid var(--line);border-radius:0 0 18px 18px;background:var(--surface);box-shadow:0 -5px 18px #0000000a}
+.fx-comment-compose-row{display:flex;align-items:center;gap:8px;max-width:100%}
+.fx-compose-avatar{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:800}
+.fx-comment-compose-row textarea{display:block;flex:1;min-width:0;min-height:42px;max-height:120px;resize:vertical;padding:10px 14px;border:1px solid var(--line);border-radius:24px;outline:none;background:var(--surface-2);color:var(--text);font:inherit;font-size:14px;line-height:1.35}
+.fx-comment-compose-row textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 14%,transparent)}
+.fx-comment-compose-row textarea::placeholder{color:var(--muted)}
+.fx-comment-send{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;border:0;border-radius:50%;background:var(--blue);color:#fff;font-size:18px;font-weight:800}
+.fx-comment-send:disabled{opacity:.55}
+.fx-comment-composer .reply-context{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px;padding:7px 10px;border-radius:9px;background:var(--surface-2);color:var(--muted);font-size:11px}
+.fx-comment-composer .reply-context[hidden]{display:none}
+.fx-comment-composer .reply-context button{border:0;background:transparent;color:var(--blue);font-weight:800}
+.fx-comment-composer .comment-empty{padding:24px 14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center;font-size:13px}
+.fx-post-actions{align-items:center}
+.fx-post-like-wrap{position:relative}
+.fx-post-like{display:inline-flex;align-items:center;gap:6px;padding:3px 4px;border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:800;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.fx-post-like.active{color:var(--blue)}
+.fx-post-like-emoji{font-size:18px}
+.fx-post-like small{font-size:10px;color:var(--muted)}
+.fx-post-like-wrap .fx-reaction-tray{right:auto;left:0;bottom:calc(100% + 8px)}
+.fx-post-like-wrap .fx-reaction-choice{width:36px;flex-basis:36px;height:38px;font-size:26px}
+@media(max-width:700px){
+  body:has(.fx-comments-sheet){overflow:hidden}
+  body:has(.fx-comments-sheet)::before{content:"";position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.38)}
+  .fx-comments-sheet{position:fixed;left:0;right:0;bottom:0;z-index:80;width:100%;height:min(86dvh,780px);max-height:calc(100dvh - 112px);display:flex;flex-direction:column;margin:0;border:1px solid var(--line);border-bottom:0;border-radius:20px 20px 0 0;overflow:hidden;box-shadow:0 -14px 48px #0005}
+  .fx-comments-handle{flex:0 0 23px}
+  .fx-comments-handle button{cursor:pointer;touch-action:pan-y}
+  .fx-comments-sheet .comments-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:13px 10px 15px;gap:14px}
+  .fx-comment-avatar{width:39px;height:39px;flex-basis:39px}
+  .fx-comment-row{gap:8px}
+  .fx-comment-bubble{padding:8px 10px;border-radius:18px}
+  .fx-comment-bubble .comment-body{font-size:15px}
+  .fx-comment-children{margin-left:17px;padding-left:9px;gap:9px}
+  .fx-comment-children .fx-comment-avatar{width:30px;height:30px;flex-basis:30px}
+  .fx-comment-tools{gap:13px;min-height:26px}
+  .fx-comment-composer{position:relative;bottom:auto;flex:0 0 auto;margin:0;border-radius:0;padding-left:9px;padding-right:9px}
+  .fx-comment-compose-row textarea{font-size:14px;min-height:40px}
+  .fx-reaction-tray{gap:0;padding:6px 7px}
+  .fx-reaction-choice{width:32px;flex-basis:32px;font-size:23px}
+}
+@media(prefers-reduced-motion:reduce){.fx-reaction-tray.is-open,.fx-reaction-choice{animation:none!important;transition:none!important}}
