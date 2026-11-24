@@ -191,3 +191,35 @@
 body.fx-comments-open{overflow:hidden}
 @media(min-width:800px){.fx-unified-comments-modal{align-items:center;padding:24px}.fx-unified-comments-panel{border:1px solid var(--line);border-radius:22px;max-height:86vh}.fx-unified-comments-panel .fx-unified-thread{max-height:55vh}}
 @media(max-width:540px){.fx-unified-thread{padding:13px 10px}.fx-unified-comments-head{padding:12px}.fx-unified-compose-tools button{padding:6px 8px;font-size:10px}.fx-unified-contact{grid-template-columns:1fr}.fx-unified-contact>div{grid-column:auto}.fx-unified-children{margin-left:12px;padding-left:9px}.fx-unified-avatar{width:34px;height:34px;flex-basis:34px}.fx-unified-comment-text{font-size:13px}}
+
+
+/* Frnxup comments readability + voice notes + native contact picker refinement. */
+.fx-unified-comment-byline b{font-size:14px;font-weight:900;line-height:1.3}
+.fx-unified-comment-text{font-size:16.5px;font-weight:750;line-height:1.58;letter-spacing:.005em}
+.fx-unified-children .fx-unified-comment-text{font-size:15.5px;font-weight:750;line-height:1.55}
+.fx-unified-comment-bubble{padding:11px 14px}
+.fx-unified-comment-actions button{font-size:12px;font-weight:850;min-height:28px}
+.fx-unified-compose-top textarea{font-size:15px;font-weight:600;min-height:48px}
+.fx-unified-compose-tools button{font-size:12px;font-weight:850;min-height:36px;white-space:nowrap}
+.fx-unified-audio{width:min(460px,100%);padding:10px 12px}
+.fx-unified-audio-title{margin:0 0 7px;color:var(--text);font-size:13px;font-weight:850}
+.fx-unified-audio audio{display:block;width:100%;max-width:100%;min-height:38px}
+.fx-unified-voice-status{display:flex;align-items:center;gap:8px;margin-top:9px;padding:8px 11px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--text);font-size:12px;font-weight:800}
+.fx-unified-voice-status[hidden]{display:none}
+.fx-unified-record-dot{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#e23b4b;box-shadow:0 0 0 4px color-mix(in srgb,#e23b4b 16%,transparent);animation:fx-voice-pulse 1.2s infinite}
+.fx-unified-voice-status button{margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font-size:11px;font-weight:800}
+.fx-unified-voice-status button[hidden]{display:none}
+.fx-unified-contact>p{grid-column:1/-1;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+@keyframes fx-voice-pulse{50%{opacity:.45;transform:scale(.82)}}
+@media(min-width:700px){.fx-unified-comment-text{font-size:17px}.fx-unified-children .fx-unified-comment-text{font-size:16px}.fx-unified-comment-byline b{font-size:14.5px}}
+@media(max-width:540px){
+  .fx-unified-comment-text{font-size:16px;line-height:1.55;font-weight:750}
+  .fx-unified-children .fx-unified-comment-text{font-size:15px;line-height:1.5;font-weight:750}
+  .fx-unified-comment-byline b{font-size:14px}
+  .fx-unified-comment-bubble{padding:10px 12px;max-width:100%;min-width:0}
+  .fx-unified-comment-main{gap:8px}
+  .fx-unified-compose-tools{gap:6px}
+  .fx-unified-compose-tools button{flex:1 1 auto;min-width:0;padding:8px 9px;font-size:11px}
+  .fx-unified-audio{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.fx-unified-record-dot{animation:none}}
