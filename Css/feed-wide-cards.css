@@ -1,0 +1,111 @@
+/* Frnxup wide, Facebook-inspired feed cards.
+   Theme-aware colours preserve the visitor's current light/dark preference. */
+
+.feed-col{min-width:0;width:100%}
+#feed-list{display:block;width:100%;min-width:0}
+#feed-list>.post-card{
+  width:100%;min-width:0;padding:0;margin:0 0 14px;overflow:hidden;
+  border-radius:14px;background:var(--surface);border:1px solid var(--line);
+  box-shadow:0 3px 14px rgba(20,35,55,.07)
+}
+#feed-list>.post-card .post-header{padding:15px 18px 9px;gap:11px}
+#feed-list>.post-card .post-header .avatar{width:46px;height:46px}
+#feed-list>.post-card .post-head-copy b{font-size:15px!important;line-height:1.3}
+#feed-list>.post-card .post-head-copy small{font-size:12px!important;line-height:1.4;margin-top:3px}
+#feed-list>.post-card .post-more{flex:0 0 36px}
+#feed-list>.post-card .fx-post-page-badge{margin-top:4px}
+#feed-list>.post-card .post-text,
+#feed-list>.post-card .fx-post-caption:not(.fx-feed-reel-caption){
+  display:block;padding:0 18px;margin:7px 0 15px;font-size:clamp(17px,1.9vw,21px)!important;
+  line-height:1.55!important;overflow-wrap:anywhere
+}
+#feed-list>.fx-post-card-text .post-text{padding:0 18px 18px;margin:7px 0 0;font-size:clamp(19px,2.1vw,24px)!important;line-height:1.6!important}
+#feed-list>.post-card .fx-post-caption .fx-caption-toggle{font-size:14px;min-height:30px}
+
+/* Image sets and single photographs use the whole content width. */
+#feed-list>.fx-post-card-image .fx-collage{
+  width:100%;margin:0;max-height:none;border-radius:0;gap:3px;
+  height:clamp(340px,66vw,900px)
+}
+#feed-list>.fx-post-card-image .fx-collage.one{
+  display:block;height:auto;max-height:none;aspect-ratio:auto;border-radius:0
+}
+#feed-list>.fx-post-card-image .fx-collage.one .fx-collage-tile{
+  display:block;width:100%;height:auto;min-height:0;cursor:zoom-in
+}
+#feed-list>.fx-post-card-image .fx-collage.one .fx-collage-tile img{
+  display:block;width:100%;height:auto;max-height:1000px;object-fit:contain;background:var(--surface-2)
+}
+#feed-list>.fx-post-card-image .fx-collage:not(.one) .fx-collage-tile img{object-fit:cover}
+
+/* Ordinary videos remain distinct from Reels and expand edge-to-edge. */
+#feed-list>.post-card .fx-feed-video-card{
+  width:100%;height:auto;max-height:none;aspect-ratio:auto;margin:0;border-radius:0;background:#05070a;overflow:hidden
+}
+#feed-list>.post-card .fx-feed-video-card video{
+  display:block;width:100%;height:auto;max-height:90svh;aspect-ratio:auto;object-fit:contain;background:#05070a
+}
+#feed-list>.post-card .fx-feed-video-card .fx-feed-video-sound{right:14px;bottom:14px;top:auto}
+
+/* Reels keep their vertical format while using the full width of the post card. */
+#feed-list>.fx-post-card-reel{padding:0}
+#feed-list>.fx-post-card-reel .fx-feed-reel-media{
+  width:100%;max-width:none;height:min(88svh,calc(100vw * 1.77778));min-height:420px;
+  aspect-ratio:9/16;margin:0;border-radius:0;box-shadow:none
+}
+#feed-list>.fx-post-card-reel .fx-feed-reel-video{width:100%;height:100%;object-fit:cover}
+
+/* Familiar, easy-to-tap action strip below each post. */
+#feed-list>.post-card .post-actions{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;
+  align-items:center;padding:11px 10px;margin:0;border-top:1px solid var(--line)
+}
+#feed-list>.post-card .post-actions button{
+  display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:42px;
+  border:0;border-radius:8px;background:transparent;color:var(--muted);
+  font-size:13px!important;font-weight:800;padding:7px 3px;white-space:nowrap
+}
+#feed-list>.post-card .post-actions button:hover{background:var(--surface-2)}
+#feed-list>.post-card .post-actions button.active{color:#e24d68}
+#feed-list>.post-card .poll-widget{margin:12px 18px 16px}
+
+@media(min-width:701px){
+  .page{max-width:1500px}
+  .two-col{grid-template-columns:minmax(0,1fr) 300px;gap:22px}
+  #feed-list>.post-card{margin-bottom:16px}
+  #feed-list>.fx-post-card-image .fx-collage{height:clamp(420px,48vw,900px)}
+  #feed-list>.fx-post-card-reel .fx-feed-reel-media{height:min(88svh,900px);max-width:100%}
+}
+
+@media(max-width:700px){
+  /* Full-bleed mobile feed, with headings and controls still comfortably inset. */
+  main.page{width:100%;max-width:none;margin:0;padding:0}
+  main.page>.page-heading{padding:17px 15px 12px;margin:0}
+  main.page>.two-col{display:block;width:100%;margin:0}
+  main.page>.two-col>.feed-col{width:100%;min-width:0}
+  main.page>.two-col>.aside-col{margin:16px 12px}
+  .fx-home-composer,.fx-home-stories{margin:10px 10px 14px;border-radius:13px}
+  .fx-feed-heading{margin:18px 14px 9px}
+  .fx-feed-filters{padding:4px 14px 12px;margin:0 0 8px}
+  #feed-list>.post-card{
+    width:100%;margin:0 0 8px;border-radius:0;border-left:0;border-right:0;
+    box-shadow:none
+  }
+  #feed-list>.post-card .post-header{padding:13px 15px 8px}
+  #feed-list>.post-card .post-header .avatar{width:44px;height:44px}
+  #feed-list>.post-card .post-text,
+  #feed-list>.post-card .fx-post-caption:not(.fx-feed-reel-caption){padding-left:15px;padding-right:15px;margin:7px 0 13px;font-size:19px!important;line-height:1.55!important}
+  #feed-list>.fx-post-card-text .post-text{padding:0 15px 18px;margin:7px 0 0;font-size:21px!important}
+  #feed-list>.fx-post-card-image .fx-collage{height:clamp(320px,100vw,760px);border-radius:0;margin:0}
+  #feed-list>.fx-post-card-image .fx-collage.one .fx-collage-tile img{max-height:1000px}
+  #feed-list>.post-card .fx-feed-video-card video{max-height:88svh}
+  #feed-list>.fx-post-card-reel .fx-feed-reel-media{height:min(88svh,calc(100vw * 1.77778));min-height:360px}
+  #feed-list>.post-card .post-actions{padding:8px 6px;gap:2px}
+  #feed-list>.post-card .post-actions button{font-size:13px!important;min-height:44px}
+  #feed-list>.post-card .poll-widget{margin:12px 15px 16px}
+}
+
+@media(max-width:380px){
+  #feed-list>.post-card .post-actions button{font-size:12px!important;gap:3px}
+  #feed-list>.post-card .post-header{padding-left:12px;padding-right:12px}
+}
