@@ -12,6 +12,12 @@
   ];
   const ALLOWED_CONTEXTS = new Set(['post','reel','room','group']);
   let activeModal = null;
+  const ROOT_PAGE_SIZE = 25;
+  const REPLY_PAGE_SIZE = 20;
+  const DISCUSSION_CACHE_TTL = 90 * 1000;
+  const discussionCache = new Map();
+  const signedMediaCache = new Map();
+  const profileCache = new Map();
 
   function toast(message) { window.FX?.toast?.(message); }
   function bodyMarkup(text) {
@@ -49,8 +55,12 @@
 
   function shellMarkup(title) {
     return `<section class="fx-unified-comments" aria-label="${esc(title)}">
-      <header class="fx-unified-comments-head"><div><h2>${esc(title)}</h2><small data-fx-comment-count>Loading comments…</small></div><label class="fx-unified-sort">Discussion</label></header>
-      <div class="fx-unified-thread" data-fx-comment-list><div class="fx-unified-empty">Loading comments…</div></div>
+      <header class="fx-unified-comments-head"><div><h2>${esc(title)}</h2><small data-fx-comment-count>Opening discussion…</small></div></header>
+      <div class="fx-unified-thread" data-fx-comment-list aria-live="polite" aria-busy="true">
+        <div class="fx-comment-skeleton" aria-hidden="true"><i></i><span><b></b><em></em></span></div>
+        <div class="fx-comment-skeleton" aria-hidden="true"><i></i><span><b></b><em></em></span></div>
+        <div class="fx-comment-skeleton" aria-hidden="true"><i></i><span><b></b><em></em></span></div>
+      </div>
       <form class="fx-unified-composer" data-fx-comment-form>
         <div class="fx-unified-reply-context" data-fx-reply-context hidden></div>
         <div class="fx-unified-mention-suggestions" data-fx-mention-suggestions hidden></div>
@@ -88,11 +98,18 @@
     const context = {type:contextType,id:contextId};
     let rows = [];
     let reactions = new Map();
+    let replyCounts = new Map();
+    let replyPages = new Map();
     let replyTarget = null;
     let pending = [];
     let mentions = [];
     let mentionQueryToken = 0;
     let disposed = false;
+    let rootOffset = 0;
+    let rootHasMore = true;
+    let rootLoading = false;
+    let lazyMediaObserver = null;
+    const cacheKey = `${context.type}:${context.id}:${FX.user?.id || 'anon'}`;
     let voiceRecorder = null;
     let voiceStream = null;
     let voiceChunks = [];
@@ -108,78 +125,246 @@
       if (item.type === 'contact') {
         return `<article class="fx-unified-attachment fx-unified-contact-card"><b>▣ ${esc(item.name || 'Shared contact')}</b>${item.phone ? `<span>${esc(item.phone)}</span>` : ''}${item.email ? `<span>${esc(item.email)}</span>` : ''}<button type="button" data-fx-save-contact="${esc(item._commentId || '')}" data-fx-contact-index="${Number(item._index || 0)}">Save contact</button></article>`;
       }
-      const url = item.url || '';
-      if (!url) return `<div class="fx-unified-attachment fx-unified-file">${esc(item.name || 'Attachment')} · unavailable</div>`;
-      if (item.type === 'image' || item.type === 'gif') return `<a class="fx-unified-attachment fx-unified-image" href="${esc(url)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(url)}" alt="${esc(item.name || item.type)}"><small>${item.type === 'gif' ? 'GIF' : 'Image'}</small></a>`;
-      if (item.type === 'video') return `<div class="fx-unified-attachment fx-unified-video"><video controls playsinline preload="metadata" src="${esc(url)}"></video><small>${esc(item.name || 'Video')}</small></div>`;
-      if (item.type === 'audio') return `<div class="fx-unified-attachment fx-unified-audio"><div class="fx-unified-audio-title">🎙 ${esc(item.name || 'Voice note')}</div><audio controls preload="metadata" src="${esc(url)}"></audio></div>`;
-      return `<a class="fx-unified-attachment fx-unified-file" href="${esc(url)}" target="_blank" rel="noopener">▤ <span>${esc(item.name || 'Document')}</span><small>${esc(item.mime || 'File')}</small></a>`;
+      const path = item.path || '';
+      if (!path) return `<div class="fx-unified-attachment fx-unified-file">${esc(item.name || 'Attachment')} · unavailable</div>`;
+      const lazy = `data-fx-lazy-path="${esc(path)}"`;
+      if (item.type === 'image' || item.type === 'gif') return `<a class="fx-unified-attachment fx-unified-image" data-fx-lazy-link ${lazy} href="#" target="_blank" rel="noopener"><img data-fx-lazy-type="image" loading="lazy" alt="${esc(item.name || item.type)}"><small>${item.type === 'gif' ? 'GIF' : 'Image'}</small></a>`;
+      if (item.type === 'video') return `<div class="fx-unified-attachment fx-unified-video"><video controls playsinline preload="none" data-fx-lazy-type="video" ${lazy}></video><small>${esc(item.name || 'Video')}</small></div>`;
+      if (item.type === 'audio') return `<div class="fx-unified-attachment fx-unified-audio"><div class="fx-unified-audio-title">🎙 ${esc(item.name || 'Voice note')}</div><audio controls preload="none" data-fx-lazy-type="audio" ${lazy}></audio></div>`;
+      return `<a class="fx-unified-attachment fx-unified-file" data-fx-lazy-link ${lazy} href="#" target="_blank" rel="noopener">▤ <span>${esc(item.name || 'Document')}</span><small>${esc(item.mime || 'File')}</small></a>`;
+    }
+    function prepareRows(data) {
+      return (data || []).map(row => ({
+        ...row,
+        _attachments: Array.isArray(row.attachments) ? row.attachments.map(item => ({ ...item })) : []
+      }));
+    }
+    function cloneRows(data) {
+      return (data || []).map(row => ({ ...row, profiles: row.profiles ? { ...row.profiles } : null, attachments: Array.isArray(row.attachments) ? row.attachments.map(item => ({ ...item })) : [], _attachments: Array.isArray(row._attachments) ? row._attachments.map(item => ({ ...item })) : [] }));
     }
     function renderComment(comment) {
       const mine = !!FX.user && comment.user_id === FX.user.id;
       const profile = comment.profiles || {};
       const name = profile.display_name || profile.username || 'Frnxup member';
-      const avatar = comment._avatar || '';
+      const avatarPath = profile.avatar_path || '';
       const deleted = comment.status === 'deleted';
-      const ownReaction = (reactions.get(comment.id) || []).find(r => r.user_id === FX.user?.id);
-      const counts = new Map();
-      (reactions.get(comment.id) || []).forEach(r => counts.set(r.reaction,(counts.get(r.reaction)||0)+1));
-      const summary = [...counts.entries()].map(([key,total]) => { const item=REACTIONS.find(r=>r.key===key); return `<span class="fx-unified-reaction-chip ${ownReaction?.reaction===key?'mine':''}">${item?.emoji||'👍'} ${total}</span>`; }).join('');
+      const reactionRows = reactions.get(comment.id) || [];
+      const ownReaction = reactionRows.find(r => r.user_reaction)?.reaction || null;
+      const summary = reactionRows.map(row => { const item=REACTIONS.find(r=>r.key===row.reaction); return `<span class="fx-unified-reaction-chip ${row.user_reaction?'mine':''}">${item?.emoji||'👍'} ${Number(row.reaction_count)||0}</span>`; }).join('');
       const attachments = deleted ? '' : (comment._attachments || []).map((item,index) => renderAttachment({...item,_commentId:comment.id,_index:index})).join('');
       const children = comment.children || [];
-      const actions = `<div class="fx-unified-comment-actions"><button type="button" data-fx-reply="${comment.id}">Reply</button><button type="button" data-fx-react="${comment.id}">React${ownReaction ? ` · ${REACTIONS.find(x=>x.key===ownReaction.reaction)?.emoji||'👍'}` : ''}</button>${mine && !deleted ? `<button type="button" data-fx-edit="${comment.id}">Edit</button><button type="button" data-fx-delete="${comment.id}">Delete</button>` : ''}<button type="button" data-fx-share="${comment.id}">Share</button>${!mine && FX.user && !deleted ? `<button type="button" data-fx-report="${comment.id}">Report</button>` : ''}</div>`;
+      const replyCount = replyCounts.get(comment.id);
+      const replyState = replyPages.get(comment.id);
+      const loadedReplies = replyState?.loaded ?? children.length;
+      const canLoadReplies = Number(replyCount || 0) > loadedReplies;
+      const replyControl = canLoadReplies ? `<button type="button" class="fx-unified-load-replies" data-fx-load-replies="${comment.id}" ${replyState?.loading?'disabled':''}>${replyState?.loading?'Loading replies…':loadedReplies ? `Load more replies (${Number(replyCount)-loadedReplies} left)` : `View ${replyCount} ${replyCount===1?'reply':'replies'}`}</button>` : '';
+      const actions = `<div class="fx-unified-comment-actions"><button type="button" data-fx-reply="${comment.id}">Reply</button><button type="button" data-fx-react="${comment.id}">React${ownReaction ? ` · ${REACTIONS.find(x=>x.key===ownReaction)?.emoji||'👍'}` : ''}</button>${mine && !deleted ? `<button type="button" data-fx-edit="${comment.id}">Edit</button><button type="button" data-fx-delete="${comment.id}">Delete</button>` : ''}<button type="button" data-fx-share="${comment.id}">Share</button>${!mine && FX.user && !deleted ? `<button type="button" data-fx-report="${comment.id}">Report</button>` : ''}</div>`;
       const reactionTray = `<div class="fx-unified-reaction-tray" data-fx-tray="${comment.id}" hidden>${REACTIONS.map(r=>`<button type="button" title="${r.label}" data-fx-reaction="${r.key}" data-fx-reaction-id="${comment.id}">${r.emoji}</button>`).join('')}</div>`;
+      const avatarMarkup = avatarPath ? `<img data-fx-lazy-type="image" data-fx-lazy-path="${esc(avatarPath)}" loading="lazy" alt="">` : esc(name.slice(0,1).toUpperCase());
       return `<article class="fx-unified-comment" id="fx-comment-${comment.id}" data-fx-comment="${comment.id}">
-        <div class="fx-unified-comment-main"><div class="fx-unified-avatar">${avatar ? `<img src="${esc(avatar)}" alt="">` : esc(name.slice(0,1).toUpperCase())}</div>
+        <div class="fx-unified-comment-main"><div class="fx-unified-avatar">${avatarMarkup}</div>
           <div class="fx-unified-comment-content"><div class="fx-unified-comment-bubble"><div class="fx-unified-comment-byline"><b>${esc(name)}</b><time datetime="${esc(comment.created_at)}">${esc(FX.relative(comment.created_at))}</time>${mine?'<small>You</small>':''}</div><div class="fx-unified-comment-text ${deleted?'deleted':''}">${deleted?'This comment was deleted.':bodyMarkup(comment.body)}</div>${attachments ? `<div class="fx-unified-attachments">${attachments}</div>` : ''}</div>
-            ${summary ? `<div class="fx-unified-reactions">${summary}</div>` : ''}${actions}${reactionTray}
+            ${summary ? `<div class="fx-unified-reactions">${summary}</div>` : '<div class="fx-unified-reactions" hidden></div>'}${actions}${replyControl}${reactionTray}
           </div></div>
         ${children.length ? `<div class="fx-unified-children">${children.map(renderComment).join('')}</div>` : ''}
       </article>`;
     }
-    async function hydrateRows(data) {
-      const profs = [...new Set(data.map(row => row.user_id).filter(Boolean))];
-      const avatars = new Map();
-      const profiles = data.map(row => row.profiles).filter(Boolean);
-      await Promise.all(profiles.map(async p => { if (p.avatar_path) { try { avatars.set(p.id, await FX.mediaUrl(p.avatar_path)); } catch (_) {} } }));
-      const attachmentTasks = [];
-      data.forEach(row => {
-        row._avatar = avatars.get(row.profiles?.id || row.user_id) || '';
-        row._attachments = Array.isArray(row.attachments) ? row.attachments.map(item => ({...item})) : [];
-        row._attachments.forEach(item => { if (item.path) attachmentTasks.push(FX.mediaUrl(item.path).then(url => { item.url = url; }).catch(()=>{})); });
+    function renderList(options = {}) {
+      const previousTop = list.scrollTop;
+      const previousHeight = list.scrollHeight;
+      const wasAtBottom = previousTop + list.clientHeight >= previousHeight - 28;
+      const tree = buildTree(rows);
+      const pager = rootHasMore ? `<button type="button" class="fx-unified-load-earlier" data-fx-load-earlier ${rootLoading?'disabled':''}>${rootLoading?'Loading earlier comments…':'Load earlier comments'}</button>` : '';
+      list.setAttribute('aria-busy', String(rootLoading));
+      list.innerHTML = `${pager}${tree.length ? tree.map(renderComment).join('') : (rootLoading ? '<div class="fx-unified-empty">Loading comments…</div>' : '<div class="fx-unified-empty">No comments yet. Start the conversation.</div>')}`;
+      const loaded = rows.length;
+      countNode.textContent = `${loaded.toLocaleString()} loaded · ${rootHasMore ? 'more available' : 'up to date'}`;
+      if (config.onCountChange) config.onCountChange(loaded);
+      if (options.scrollToBottom || (options.preserveScroll && wasAtBottom)) list.scrollTop = list.scrollHeight;
+      else if (options.preserveScroll) list.scrollTop = previousTop + (list.scrollHeight - previousHeight);
+      observeLazyMedia();
+    }
+    function observeLazyMedia() {
+      if (disposed || !root.isConnected) return;
+      if (!('IntersectionObserver' in window)) {
+        root.querySelectorAll('[data-fx-lazy-path]').forEach(loadLazyElement);
+        return;
+      }
+      if (!lazyMediaObserver) lazyMediaObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          lazyMediaObserver.unobserve(entry.target);
+          loadLazyElement(entry.target);
+        });
+      }, { root: list, rootMargin: '220px 0px', threshold: 0.01 });
+      root.querySelectorAll('[data-fx-lazy-path]:not([data-fx-lazy-observed])').forEach(element => {
+        element.dataset.fxLazyObserved = '1';
+        lazyMediaObserver.observe(element);
       });
-      await Promise.all(attachmentTasks);
     }
-    async function load() {
-      list.innerHTML = '<div class="fx-unified-empty">Loading comments…</div>';
-      const collected = [];
-      for (let start=0; ; start+=500) {
-        const {data,error} = await FX.client.from('post_comments')
-          .select('id,post_id,context_type,context_id,user_id,parent_id,body,attachments,mentions,status,created_at,profiles!post_comments_user_id_fkey(id,username,display_name,avatar_path)')
-          .eq('context_type',context.type).eq('context_id',context.id)
-          .in('status',['published','deleted']).order('created_at',{ascending:true}).range(start,start+499);
-        if (error) throw error;
-        collected.push(...(data||[]));
-        if (!data || data.length<500) break;
+    async function getCachedMediaUrl(path) {
+      const key = `${FX.user?.id || 'anon'}:${path}`;
+      const cached = signedMediaCache.get(key);
+      if (cached?.url && cached.expiresAt > Date.now()) return cached.url;
+      if (cached?.promise && cached.expiresAt > Date.now()) return cached.promise;
+      const promise = Promise.resolve(FX.mediaUrl(path)).then(url => {
+        if (url) signedMediaCache.set(key,{url,expiresAt:Date.now()+50*60*1000});
+        else signedMediaCache.delete(key);
+        return url;
+      }).catch(error=>{signedMediaCache.delete(key);throw error;});
+      signedMediaCache.set(key,{promise,expiresAt:Date.now()+60*1000});
+      return promise;
+    }
+    async function loadLazyElement(element) {
+      const path = element?.dataset?.fxLazyPath;
+      if (!path || element.dataset.fxLazyLoading === '1' || element.dataset.fxLazyReady === '1') return null;
+      element.dataset.fxLazyLoading = '1';
+      try {
+        const url = await getCachedMediaUrl(path);
+        if (!url || !element.isConnected) return null;
+        const kind = element.dataset.fxLazyType || (element.tagName === 'IMG' ? 'image' : 'href');
+        if (kind === 'href') element.href = url;
+        else { element.src = url; if (kind === 'video' || kind === 'audio') element.load(); }
+        element.dataset.fxLazyReady = '1';
+        return url;
+      } catch (_) {
+        element.dataset.fxLazyError = '1';
+        return null;
+      } finally { delete element.dataset.fxLazyLoading; }
+    }
+    function cacheDiscussion() {
+      discussionCache.set(cacheKey, {
+        at: Date.now(), rows: cloneRows(rows), rootOffset, rootHasMore,
+        replyCounts: [...replyCounts.entries()],
+        replyPages: [...replyPages.entries()].map(([id,state]) => [id,{...state}]),
+        reactions: [...reactions.entries()].map(([id,value]) => [id,value.map(item=>({...item}))])
+      });
+    }
+    async function hydrateProfiles(ids) {
+      const unique = [...new Set((ids || []).filter(Boolean))];
+      const missing = unique.filter(id => !profileCache.has(id));
+      if (missing.length) {
+        const {data,error} = await FX.client.from('profiles')
+          .select('id,username,display_name,avatar_path')
+          .in('id',missing);
+        if (error) { console.warn('Frnxup comment profile hydration failed:', error.message); return; }
+        (data || []).forEach(profile => profileCache.set(profile.id, profile));
+        // A missing profile can mean the member has been removed or is hidden by RLS.
+        missing.forEach(id => { if (!profileCache.has(id)) profileCache.set(id, null); });
       }
-      rows = collected;
-      reactions = new Map();
-      if (FX.user) {
-        for (let start=0; start<rows.length; start+=500) {
-          const ids=rows.slice(start,start+500).map(r=>r.id);
-          if (!ids.length) continue;
-          const {data,error}=await FX.client.from('comment_reactions').select('comment_id,user_id,reaction').in('comment_id',ids);
-          if(error) throw error;
-          (data||[]).forEach(r=>{if(!reactions.has(r.comment_id))reactions.set(r.comment_id,[]);reactions.get(r.comment_id).push(r);});
+      let changed = false;
+      rows.forEach(row => {
+        if (!row.profiles && profileCache.has(row.user_id)) {
+          row.profiles = profileCache.get(row.user_id);
+          changed = true;
         }
-      }
-      await hydrateRows(rows);
-      const tree=buildTree(rows);
-      countNode.textContent=`${rows.length.toLocaleString()} comment${rows.length===1?'':'s'}`;
-      list.innerHTML=tree.length?tree.map(renderComment).join(''):'<div class="fx-unified-empty">No comments yet. Start the conversation.</div>';
-      if (config.onCountChange) config.onCountChange(rows.length);
-      if (config.scrollToLatest !== false) list.scrollTop=list.scrollHeight;
+      });
+      if (changed && !disposed) { renderList({preserveScroll:true}); cacheDiscussion(); }
     }
+
+    async function fetchRootPage(offset) {
+      const {data,error} = await FX.client.from('post_comments')
+        .select('id,post_id,context_type,context_id,user_id,parent_id,body,attachments,mentions,status,created_at')
+        .eq('context_type',context.type).eq('context_id',context.id).is('parent_id',null)
+        .in('status',['published','deleted']).order('created_at',{ascending:false}).order('id',{ascending:false})
+        .range(offset,offset + ROOT_PAGE_SIZE - 1);
+      if (error) throw error;
+      return prepareRows(data).reverse();
+    }
+    async function fetchReplyCounts(ids) {
+      const unique = [...new Set((ids || []).filter(Boolean))];
+      if (!unique.length) return;
+      const rpc = await FX.client.rpc('frnxup_comment_reply_counts', {
+        p_context_type: context.type, p_context_id: context.id, p_parent_ids: unique
+      });
+      // Do not fall back to an unbounded child-row query. The index-backed RPC
+      // is part of the required performance migration; if it is missing, leave
+      // replies available through the Reply action and log the migration issue.
+      if (rpc.error) { console.warn('Frnxup reply-count RPC is unavailable:', rpc.error.message); return; }
+      const data = rpc.data || [];
+      unique.forEach(id => replyCounts.set(id,0));
+      (data || []).forEach(item => replyCounts.set(item.parent_id,Number(item.reply_count)||0));
+      if (!disposed) { renderList({preserveScroll:true}); cacheDiscussion(); }
+    }
+    async function fetchReactions(ids) {
+      if (!FX.user) return;
+      const unique = [...new Set((ids || []).filter(Boolean))];
+      if (!unique.length) return;
+      const {data,error} = await FX.client.rpc('frnxup_comment_reaction_summary',{p_comment_ids:unique});
+      if (error) { console.warn('Frnxup reaction-summary RPC is unavailable:',error.message); return; }
+      unique.forEach(id => reactions.set(id,[]));
+      (data || []).forEach(item => {
+        if(!reactions.has(item.comment_id)) reactions.set(item.comment_id,[]);
+        reactions.get(item.comment_id).push({reaction:item.reaction,reaction_count:Number(item.reaction_count)||0,user_reaction:!!item.user_reaction});
+      });
+      if (!disposed) { renderList({preserveScroll:true}); cacheDiscussion(); }
+    }
+    async function loadInitial() {
+      rootLoading = true;
+      const cached = discussionCache.get(cacheKey);
+      if (cached && Date.now() - cached.at < DISCUSSION_CACHE_TTL) {
+        rows = cloneRows(cached.rows); rootOffset = cached.rootOffset; rootHasMore = cached.rootHasMore;
+        replyCounts = new Map(cached.replyCounts || []); replyPages = new Map(cached.replyPages || []); reactions = new Map(cached.reactions || []);
+        rootLoading = false; renderList({scrollToBottom:config.scrollToLatest !== false});
+        hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{});
+        // A valid in-memory first-page cache appears immediately; refresh quietly once it expires.
+        return;
+      }
+      list.setAttribute('aria-busy','true');
+      try {
+        rows = await fetchRootPage(0);
+        rootOffset = rows.length; rootHasMore = rows.length === ROOT_PAGE_SIZE; rootLoading = false;
+        renderList({scrollToBottom:config.scrollToLatest !== false}); cacheDiscussion();
+        const ids = rows.map(row=>row.id);
+        hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{});
+        fetchReplyCounts(ids).catch(()=>{});
+        fetchReactions(ids).catch(()=>{});
+      } catch (error) {
+        rootLoading = false;
+        list.innerHTML = `<div class="fx-unified-empty">Comments could not be loaded. <button type="button" data-fx-retry>Try again</button></div>`;
+        countNode.textContent = 'Unable to load discussion';
+        throw error;
+      }
+    }
+    async function loadEarlierRoots() {
+      if (rootLoading || !rootHasMore) return;
+      rootLoading = true;
+      const previousHeight = list.scrollHeight;
+      const previousTop = list.scrollTop;
+      renderList();
+      try {
+        const older = await fetchRootPage(rootOffset);
+        rootOffset += older.length; rootHasMore = older.length === ROOT_PAGE_SIZE;
+        const known = new Set(rows.map(row=>row.id));
+        rows = [...older.filter(row=>!known.has(row.id)), ...rows];
+        rootLoading = false; renderList();
+        list.scrollTop = previousTop + (list.scrollHeight - previousHeight);
+        cacheDiscussion();
+        const ids = older.map(row=>row.id); hydrateProfiles(older.map(row=>row.user_id)).catch(()=>{}); fetchReplyCounts(ids).catch(()=>{}); fetchReactions(ids).catch(()=>{});
+      } catch (error) { rootLoading=false; renderList(); toast(error.message || 'Earlier comments could not be loaded.'); }
+    }
+    async function loadReplies(parentId) {
+      const state = replyPages.get(parentId) || {offset:0,loaded:0,loading:false,hasMore:true};
+      if (state.loading || !state.hasMore) return;
+      state.loading = true; replyPages.set(parentId,state); renderList({preserveScroll:true});
+      try {
+        const {data,error} = await FX.client.from('post_comments')
+          .select('id,post_id,context_type,context_id,user_id,parent_id,body,attachments,mentions,status,created_at')
+          .eq('context_type',context.type).eq('context_id',context.id).eq('parent_id',parentId)
+          .in('status',['published','deleted']).order('created_at',{ascending:false}).order('id',{ascending:false})
+          .range(state.offset,state.offset + REPLY_PAGE_SIZE - 1);
+        if (error) throw error;
+        const incoming = prepareRows(data).reverse();
+        const known = new Set(rows.map(row=>row.id));
+        const fresh = incoming.filter(row=>!known.has(row.id));
+        rows.push(...fresh);
+        state.offset += (data || []).length; state.loaded += fresh.length; state.hasMore = (data || []).length === REPLY_PAGE_SIZE; state.loading=false;
+        replyPages.set(parentId,state);
+        renderList({preserveScroll:true}); cacheDiscussion();
+        const ids = fresh.map(row=>row.id); hydrateProfiles(fresh.map(row=>row.user_id)).catch(()=>{}); fetchReplyCounts(ids).catch(()=>{}); fetchReactions(ids).catch(()=>{});
+      } catch (error) { state.loading=false; replyPages.set(parentId,state); renderList({preserveScroll:true}); toast(error.message || 'Replies could not be loaded.'); }
+    }
+    function invalidateCache() { discussionCache.delete(cacheKey); }
     function setReply(row) {
       replyTarget=row.id;
       const name=row.profiles?.display_name || row.profiles?.username || 'member';
@@ -340,19 +525,31 @@
       try{
         const attachments=await uploadPending();
         const payload={post_id:(context.type==='post'||context.type==='reel')?context.id:null,context_type:context.type,context_id:context.id,user_id:FX.user.id,parent_id:replyTarget,body,attachments,mentions};
-        const {data,error}=await FX.client.from('post_comments').insert(payload).select('id').single();
+        const {data,error}=await FX.client.from('post_comments').insert(payload).select('id,post_id,context_type,context_id,user_id,parent_id,body,attachments,mentions,status,created_at').single();
         if(error) throw error;
+        const posted = prepareRows([data])[0];
+        posted.profiles = profileCache.get(FX.user.id) || null;
+        const targetParent = replyTarget;
+        if (targetParent) {
+          rows.push(posted);
+          replyCounts.set(targetParent,(replyCounts.get(targetParent)||0)+1);
+          const parentPage=replyPages.get(targetParent)||{offset:0,loaded:0,loading:false,hasMore:true};
+          parentPage.loaded += 1; replyPages.set(targetParent,parentPage);
+        } else {
+          rows.push(posted); rootOffset += 1;
+        }
         input.value='';pending=[];mentions=[];replyTarget=null;replyContext.hidden=true;replyContext.innerHTML='';input.placeholder='Write a comment… use @ to mention someone';updatePending();
-        await load();
+        invalidateCache(); renderList({scrollToBottom:true}); cacheDiscussion();
+        hydrateProfiles([posted.user_id]).catch(()=>{}); fetchReplyCounts([posted.id]).catch(()=>{}); fetchReactions([posted.id]).catch(()=>{});
       }catch(error){toast(error.message || 'Your comment could not be posted.');}
       finally{send.disabled=false;send.textContent='➤';}
     }
     async function react(id,key) {
       if(!FX.user) return toast('Sign in to react to comments.');
-      const current=(reactions.get(id)||[]).find(r=>r.user_id===FX.user.id);
+      const current=(reactions.get(id)||[]).find(r=>r.user_reaction);
       if(current?.reaction===key){const {error}=await FX.client.from('comment_reactions').delete().eq('comment_id',id).eq('user_id',FX.user.id);if(error)throw error;}
       else {const {error}=await FX.client.from('comment_reactions').upsert({comment_id:id,user_id:FX.user.id,reaction:key},{onConflict:'comment_id,user_id'});if(error)throw error;}
-      await load();
+      invalidateCache(); await fetchReactions([id]); cacheDiscussion();
     }
     async function handleAction(button) {
       const id=button.dataset.fxEdit||button.dataset.fxDelete||button.dataset.fxReply||button.dataset.fxShare||button.dataset.fxReport;
@@ -361,12 +558,12 @@
       if(button.hasAttribute('data-fx-edit')){
         if(!FX.user||row.user_id!==FX.user.id)return toast('You can only edit your own comments.');
         const next=prompt('Edit your comment',row.body||'');if(next===null)return;if(!next.trim() && !(row.attachments||[]).length)return toast('A comment needs text or an attachment.');
-        const {error}=await FX.client.from('post_comments').update({body:next.trim()}).eq('id',id).eq('user_id',FX.user.id);if(error)throw error;await load();return;
+        const {error}=await FX.client.from('post_comments').update({body:next.trim()}).eq('id',id).eq('user_id',FX.user.id);if(error)throw error;row.body=next.trim();invalidateCache();renderList({preserveScroll:true});cacheDiscussion();return;
       }
       if(button.hasAttribute('data-fx-delete')){
         if(!FX.user||row.user_id!==FX.user.id)return toast('You can only delete your own comments.');
         if(!confirm('Delete this comment? Replies will remain in the thread.'))return;
-        const {error}=await FX.client.from('post_comments').update({body:'This comment was deleted.',status:'deleted'}).eq('id',id).eq('user_id',FX.user.id);if(error)throw error;await load();return;
+        const {error}=await FX.client.from('post_comments').update({body:'This comment was deleted.',status:'deleted'}).eq('id',id).eq('user_id',FX.user.id);if(error)throw error;row.body='This comment was deleted.';row.status='deleted';invalidateCache();renderList({preserveScroll:true});cacheDiscussion();return;
       }
       if(button.hasAttribute('data-fx-share')){
         const url=`${location.origin}${location.pathname}${location.search}#fx-comment-${id}`;
@@ -385,6 +582,16 @@
     });
     input.addEventListener('keydown',event=>{if(event.key==='Escape'){mentionBox.hidden=true;}});
     root.addEventListener('click',async event=>{
+      const earlier=event.target.closest('[data-fx-load-earlier]');
+      if(earlier){await loadEarlierRoots();return;}
+      const replies=event.target.closest('[data-fx-load-replies]');
+      if(replies){await loadReplies(replies.dataset.fxLoadReplies);return;}
+      const retry=event.target.closest('[data-fx-retry]');
+      if(retry){invalidateCache();await loadInitial().catch(error=>toast(error.message));return;}
+      const lazyLink=event.target.closest('[data-fx-lazy-link]');
+      if(lazyLink && lazyLink.getAttribute('href')==='#' && lazyLink.dataset.fxLazyPath){
+        event.preventDefault();const popup=window.open('about:blank','_blank');if(popup)popup.opener=null;const url=await loadLazyElement(lazyLink);if(url&&popup)popup.location.href=url;else if(url)toast('Attachment is ready. Tap it again to open.');return;
+      }
       const pick=event.target.closest('[data-fx-pick]');if(pick){const kind=pick.dataset.fxPick;const inputFile=$(`[data-fx-input="${kind}"]`,root);inputFile?.click();return;}
       const contactBtn=event.target.closest('[data-fx-contact]');if(contactBtn){await pickDeviceContact();return;}
       if(event.target.closest('[data-fx-record-voice]')){if(voiceRecorder?.state==='recording')stopVoiceRecording(false);else await startVoiceRecording();return;}
@@ -411,8 +618,18 @@
       fileInput.value='';updatePending();
     }));
     if(!FX.user){input.disabled=true;send.disabled=true;root.querySelectorAll('[data-fx-pick],[data-fx-contact],[data-fx-record-voice]').forEach(b=>b.disabled=true);const note=$('[data-fx-comment-note]',root);note.hidden=false;note.innerHTML=`<a href="/Auth/index.html?next=${encodeURIComponent(location.pathname+location.search)}">Sign in</a> to comment, reply or attach media.`;}
-    await load();
-    return {refresh:load,dispose(){disposed=true;form.removeEventListener('submit',submit);if(voiceRecorder?.state==='recording')stopVoiceRecording(true);else stopVoiceTracks();if(voiceTimer)clearInterval(voiceTimer);}};
+    const cached = discussionCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < DISCUSSION_CACHE_TTL) {
+      rows=cloneRows(cached.rows);rootOffset=cached.rootOffset;rootHasMore=cached.rootHasMore;
+      replyCounts=new Map(cached.replyCounts||[]);replyPages=new Map(cached.replyPages||[]);reactions=new Map(cached.reactions||[]);
+      rootLoading=false;renderList({scrollToBottom:config.scrollToLatest !== false});
+      hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{});
+      // If a cache becomes stale during this visit, refresh it in the background.
+      window.setTimeout(()=>{if(!disposed && Date.now()-cached.at>=DISCUSSION_CACHE_TTL){invalidateCache();loadInitial().catch(()=>{});}},DISCUSSION_CACHE_TTL);
+    } else {
+      loadInitial().catch(error=>{if(!disposed)toast(error.message||'Comments could not be loaded.');});
+    }
+    return {refresh:async()=>{invalidateCache();rows=[];rootOffset=0;rootHasMore=true;replyCounts.clear();replyPages.clear();reactions.clear();return loadInitial();},dispose(){disposed=true;form.removeEventListener('submit',submit);lazyMediaObserver?.disconnect();if(voiceRecorder?.state==='recording')stopVoiceRecording(true);else stopVoiceTracks();if(voiceTimer)clearInterval(voiceTimer);}};
   }
 
   function openModal(config) {
