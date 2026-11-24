@@ -9,3 +9,12 @@ verify_jwt = true
 
 [functions.account-appeal]
 verify_jwt = false
+
+[functions.signup-start]
+verify_jwt = false
+
+[functions.signup-verify]
+verify_jwt = false
+
+[functions.signup-complete]
+verify_jwt = false
