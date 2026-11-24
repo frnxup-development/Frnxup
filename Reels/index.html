@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="/js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08090d">
+  <title>Reels · Frnxup</title>
+  <link rel="icon" href="/Asset/frnxup-mark.svg">
+  <link rel="stylesheet" href="/Css/app.css">
+  <link rel="stylesheet" href="/Reels/reels.css?v=20261124-option1">
+</head>
+<body class="fx-reels-page">
+  <div data-frnxup-shell></div>
+
+  <main class="fx-reels-app" aria-label="Frnxup Reels">
+    <header class="fx-reels-topbar">
+      <a class="fx-reels-brand" href="/index.html"><img src="/Asset/frnxup-mark.svg" alt=""><span>Frnxup</span></a>
+      <button class="fx-reels-feed-label" type="button" aria-label="Current feed">Reels <span>⌄</span></button>
+      <button class="fx-reels-camera" id="reel-camera" type="button" aria-label="Upload a Reel" title="Upload a Reel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h3l1.4-2h7.2l1.4 2h3A1.5 1.5 0 0 1 21.5 9v9A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18V9A1.5 1.5 0 0 1 4 7.5Z"/><circle cx="12" cy="13.2" r="4"/></svg>
+      </button>
+    </header>
+
+    <section id="reels-feed" class="fx-reels-feed" aria-label="Reels feed" aria-live="polite">
+      <div class="fx-reels-loading"><span class="fx-reels-spinner"></span><b>Loading Reels</b><small>Finding videos from your Frnxup community.</small></div>
+    </section>
+
+    <button class="fx-reels-create-fab" id="reel-create-fab" type="button" aria-label="Create a Reel" title="Create a Reel">＋</button>
+
+    <nav class="fx-reels-bottom-nav" aria-label="Frnxup navigation">
+      <a href="/index.html"><span class="nav-icon">⌂</span><small>Home</small></a>
+      <a href="/Friends/index.html"><span class="nav-icon">♧</span><small>Friends</small></a>
+      <a class="active" href="/Reels/index.html" aria-current="page"><span class="nav-icon reel-nav-icon">▣</span><small>Reels</small></a>
+      <a href="/Notifications/index.html"><span class="nav-icon">♧</span><small>Notifications</small></a>
+      <a href="/Dashboard/index.html"><span class="nav-icon">♙</span><small>Profile</small></a>
+    </nav>
+  </main>
+
+  <input id="reel-file" type="file" accept="video/mp4,video/webm,video/quicktime" hidden>
+
+  <section class="fx-reel-upload-modal" id="reel-upload-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="reel-upload-title">
+    <div class="fx-reel-upload-panel">
+      <header><div><small>CREATE SOMETHING</small><h2 id="reel-upload-title">Upload a Reel</h2></div><button type="button" data-reel-close aria-label="Close">×</button></header>
+      <p class="fx-reel-upload-help">Choose one short vertical video. Your Reel will be shared publicly with the Frnxup community.</p>
+      <label class="fx-reel-pick" for="reel-file"><span>＋</span><b>Choose video</b><small>MP4, WebM or MOV · up to 100 MB</small></label>
+      <div class="fx-reel-preview-wrap" id="reel-preview-wrap" hidden><video id="reel-preview" controls playsinline muted></video></div>
+      <label class="fx-reel-caption-label" for="reel-caption">Caption</label>
+      <textarea id="reel-caption" maxlength="2200" rows="3" placeholder="Write a caption… add a little context or hashtags."></textarea>
+      <div class="fx-reel-upload-foot"><span id="reel-upload-message" role="status"></span><button class="fx-reel-publish" id="reel-publish" type="button" disabled>Share Reel</button></div>
+    </div>
+  </section>
+
+  <section class="fx-reel-comments" id="reel-comments" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="reel-comments-title">
+    <div class="fx-reel-comments-panel">
+      <header><h2 id="reel-comments-title">Comments</h2><button type="button" data-comments-close aria-label="Close comments">×</button></header>
+      <div id="reel-comment-list" class="fx-reel-comment-list"><p class="comments-empty">Loading comments…</p></div>
+      <form id="reel-comment-form" class="fx-reel-comment-form"><input id="reel-comment-input" maxlength="2000" autocomplete="off" placeholder="Add a comment…" aria-label="Add a comment"><button type="submit">Post</button></form>
+    </div>
+  </section>
+
+  <div id="fx-toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="/js/layout.js"></script>
+  <script src="/Reels/reels.js?v=20261124-option1"></script>
+</body>
+</html>
