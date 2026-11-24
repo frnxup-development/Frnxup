@@ -137,7 +137,7 @@
       const path = item.path || '';
       if (!path) return `<div class="fx-unified-attachment fx-unified-file">${esc(item.name || 'Attachment')} · unavailable</div>`;
       const lazy = `data-fx-lazy-path="${esc(path)}"`;
-      if (item.type === 'image' || item.type === 'gif') return `<a class="fx-unified-attachment fx-unified-image" data-fx-lazy-link ${lazy} href="#" target="_blank" rel="noopener"><img data-fx-lazy-type="image" loading="lazy" alt="${esc(item.name || item.type)}"><small>${item.type === 'gif' ? 'GIF' : 'Image'}</small></a>`;
+      if (item.type === 'image' || item.type === 'gif') return `<a class="fx-unified-attachment fx-unified-image" data-fx-lazy-link data-fx-attachment-path="${esc(path)}" href="#" target="_blank" rel="noopener" aria-label="Open ${item.type === 'gif' ? 'GIF' : 'image'} ${esc(item.name || '')}"><img data-fx-lazy-type="image" ${lazy} loading="lazy" decoding="async" alt="${esc(item.name || item.type)}"><small>${item.type === 'gif' ? 'GIF' : 'Image'}</small></a>`;
       if (item.type === 'video') return `<div class="fx-unified-attachment fx-unified-video"><video controls playsinline preload="none" data-fx-lazy-type="video" ${lazy}></video><small>${esc(item.name || 'Video')}</small></div>`;
       if (item.type === 'audio') return `<div class="fx-unified-attachment fx-unified-audio"><div class="fx-unified-audio-title">🎙 ${esc(item.name || 'Voice note')}</div><audio controls preload="none" data-fx-lazy-type="audio" ${lazy}></audio></div>`;
       return `<a class="fx-unified-attachment fx-unified-file" data-fx-lazy-link ${lazy} href="#" target="_blank" rel="noopener">▤ <span>${esc(item.name || 'Document')}</span><small>${esc(item.mime || 'File')}</small></a>`;
@@ -598,8 +598,20 @@
       const retry=event.target.closest('[data-fx-retry]');
       if(retry){invalidateCache();await loadInitial().catch(error=>toast(error.message));return;}
       const lazyLink=event.target.closest('[data-fx-lazy-link]');
-      if(lazyLink && lazyLink.getAttribute('href')==='#' && lazyLink.dataset.fxLazyPath){
-        event.preventDefault();const popup=window.open('about:blank','_blank');if(popup)popup.opener=null;const url=await loadLazyElement(lazyLink);if(url&&popup)popup.location.href=url;else if(url)toast('Attachment is ready. Tap it again to open.');return;
+      if(lazyLink){
+        const attachmentPath=lazyLink.dataset.fxAttachmentPath || lazyLink.dataset.fxLazyPath;
+        if(attachmentPath && (lazyLink.getAttribute('href')==='#' || lazyLink.dataset.fxAttachmentPath)){
+          event.preventDefault();
+          const popup=window.open('about:blank','_blank');
+          if(popup) popup.opener=null;
+          try {
+            const url=await getCachedMediaUrl(attachmentPath);
+            if(url && popup) popup.location.href=url;
+            else if(url){lazyLink.href=url;toast('Attachment is ready. Tap it again to open.');}
+            else {popup?.close();toast('This attachment could not be opened. Check its storage access.');}
+          } catch(error){popup?.close();toast(error.message || 'This attachment could not be opened.');}
+          return;
+        }
       }
       const pick=event.target.closest('[data-fx-pick]');if(pick){const kind=pick.dataset.fxPick;const inputFile=$(`[data-fx-input="${kind}"]`,root);inputFile?.click();return;}
       const contactBtn=event.target.closest('[data-fx-contact]');if(contactBtn){await pickDeviceContact();return;}
