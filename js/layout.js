@@ -7,6 +7,7 @@
     friends: '<circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5.5a3 3 0 0 1 0 5.8M18 14a5 5 0 0 1 3 4.6V20"/>',
     messages: '<path d="M20.5 11.5a8.5 8.5 0 0 1-9 8.5 9.7 9.7 0 0 1-4-.8L3 21l1.5-4A8.3 8.3 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 8.5 8.5Z"/><path d="M7 12h.01M12 12h.01M17 12h.01"/>',
     rooms: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 9h8M8 13h5M8 17h3"/>',
+    reels: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 4l4 6M14 4l4 6M3 10h18"/><path d="M10 14v4l4-2-4-2Z"/>',
     horn: '<path d="M3 10v4a2 2 0 0 0 2 2h2l10 4V4L7 8H5a2 2 0 0 0-2 2Z"/><path d="M7 16l2 5h4l-2-4M20 9l2-2M20 15l2 2"/>',
     profile: '<circle cx="12" cy="8" r="3.5"/><path d="M4 21a8 8 0 0 1 16 0"/>'
   };
@@ -14,6 +15,7 @@
   const links = [
     ['Home', '/index.html', 'home'],
     ['Friends', '/Friends/index.html', 'friends'],
+    ['Reels', '/Reels/index.html', 'reels'],
     ['Messages', '/Messages/index.html', 'messages'],
     ['Rooms', '/Rooms/index.html', 'rooms'],
     ['Notifications', '/Notifications/index.html', 'horn']
@@ -22,6 +24,7 @@
   const activeFor = (key, url) => {
     if (key === 'home') return current === '/' || current === '/index.html';
     if (key === 'friends') return current.startsWith('/Friends/');
+    if (key === 'reels') return current.startsWith('/Reels/');
     if (key === 'messages') return current.startsWith('/Messages/');
     if (key === 'rooms') return current.startsWith('/Rooms/');
     if (key === 'horn') return current.startsWith('/Notifications/');
@@ -35,6 +38,7 @@
       <nav class="menu-popover" id="fx-menu-pop" aria-label="More navigation">
         <a href="/Rooms/index.html">Communities &amp; rooms</a>
         <a href="/Friends/index.html">Find people</a>
+        <a href="/Reels/index.html">Watch Reels</a>
         <a href="/Posts/saved.html">Saved posts</a>
         <a href="/Dashboard/index.html">Your dashboard</a>
         <a href="/Pages/index.html">Your Pages</a>
@@ -59,6 +63,7 @@
   });
 
   document.addEventListener('DOMContentLoaded', async () => {
+    if (document.body.classList.contains('fx-reels-page')) return;
     try {
       await FX.loadUser();
       const activeId = FX.activePageId();
