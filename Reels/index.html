@@ -8,7 +8,7 @@
   <title>Reels · Frnxup</title>
   <link rel="icon" href="/Asset/frnxup-mark.svg">
   <link rel="stylesheet" href="/Css/app.css">
-  <link rel="stylesheet" href="/Reels/reels.css?v=20261124-reels-restored"><link rel="stylesheet" href="/Css/camera-capture.css?v=20261124-front-back">
+  <link rel="stylesheet" href="/Reels/reels.css?v=20261124-reels-restored"><link rel="stylesheet" href="/Css/comments.css?v=20261124-unified-comments"><link rel="stylesheet" href="/Css/camera-capture.css?v=20261124-front-back">
 </head>
 <body class="fx-reels-page">
   <div data-frnxup-shell></div>
@@ -51,13 +51,6 @@
     </div>
   </section>
 
-  <section class="fx-reel-comments" id="reel-comments" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="reel-comments-title">
-    <div class="fx-reel-comments-panel">
-      <header><h2 id="reel-comments-title">Comments</h2><button type="button" data-comments-close aria-label="Close comments">×</button></header>
-      <div id="reel-comment-list" class="fx-reel-comment-list"><p class="comments-empty">Loading comments…</p></div>
-      <form id="reel-comment-form" class="fx-reel-comment-form"><input id="reel-comment-input" maxlength="2000" autocomplete="off" placeholder="Add a comment…" aria-label="Add a comment"><button type="submit">Post</button></form>
-    </div>
-  </section>
 
   <div id="fx-toast" class="toast"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -66,6 +59,7 @@
   <script src="/js/layout.js"></script>
   <!-- Load the shared full-screen camera before the Reels page binds camera actions. -->
   <script src="/js/camera-capture.js?v=20261124-front-back"></script>
-  <script src="/Reels/reels.js?v=20261124-reels-restored"></script>
+  <script src="/js/comment-system.js?v=20261124-unified-comments"></script>
+  <script src="/Reels/reels.js?v=20261124-unified-comments"></script>
 </body>
 </html>

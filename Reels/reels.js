@@ -6,14 +6,12 @@
   const esc = (value) => FX.esc(String(value ?? ''));
   const feed = $('#reels-feed');
   const uploadModal = $('#reel-upload-modal');
-  const commentsModal = $('#reel-comments');
   const fileInput = $('#reel-file');
   const publishButton = $('#reel-publish');
   const uploadMessage = $('#reel-upload-message');
   const previewWrap = $('#reel-preview-wrap');
   const preview = $('#reel-preview');
   const captionInput = $('#reel-caption');
-  let currentCommentPost = null;
   let reels = [];
   let observer = null;
   let previewObjectUrl = null;
@@ -257,43 +255,19 @@
   }
 
   function openComments(postId) {
-    currentCommentPost = postId;
-    commentsModal.classList.add('open');
-    commentsModal.setAttribute('aria-hidden', 'false');
-    loadComments(postId);
+    const reel = reels.find(item => item.id === postId);
+    if (!window.FrnxupComments) return FX.toast('The comments feature is unavailable. Refresh Frnxup and try again.');
+    window.FrnxupComments.openModal({
+      type: 'post', contextId: postId, title: 'Reel comments',
+      onCountChange: count => {
+        if (reel) reel.comments = count;
+        const countNode = $(`[data-comment-count="${CSS.escape(postId)}"]`);
+        if (countNode) countNode.textContent = formatCount(count);
+      }
+    });
   }
 
-  function closeComments() {
-    commentsModal.classList.remove('open');
-    commentsModal.setAttribute('aria-hidden', 'true');
-    currentCommentPost = null;
-    $('#reel-comment-input').value = '';
-  }
-
-  async function loadComments(postId) {
-    const host = $('#reel-comment-list');
-    host.innerHTML = '<p class="comments-empty">Loading comments…</p>';
-    const { data: comments, error } = await FX.client.from('post_comments')
-      .select('id,user_id,body,created_at')
-      .eq('post_id', postId)
-      .eq('status', 'published')
-      .order('created_at', { ascending: true })
-      .limit(100);
-    if (error) { host.innerHTML = `<p class="comments-empty">${esc(error.message)}</p>`; return; }
-    if (!comments?.length) { host.innerHTML = '<p class="comments-empty">No comments yet. Start the conversation.</p>'; return; }
-    const ids = [...new Set(comments.map((comment) => comment.user_id))];
-    const { data: profiles } = await FX.client.from('profiles').select('id,username,display_name,avatar_path').in('id', ids);
-    const byId = new Map((profiles || []).map((profile) => [profile.id, profile]));
-    const avatarUrls = await Promise.all((profiles || []).map((profile) => profile.avatar_path ? FX.mediaUrl(profile.avatar_path) : ''));
-    (profiles || []).forEach((profile, index) => { profile.avatar_url = avatarUrls[index]; });
-    host.innerHTML = comments.map((comment) => {
-      const profile = byId.get(comment.user_id) || {};
-      const name = profile.display_name || profile.username || 'Frnxup member';
-      const avatar = profile.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(name.slice(0, 1).toUpperCase());
-      return `<div class="fx-reel-comment-row"><div class="fx-reel-comment-avatar">${avatar}</div><div class="fx-reel-comment-copy"><b>${esc(name)}</b><p>${esc(comment.body)}</p></div></div>`;
-    }).join('');
-    host.scrollTop = host.scrollHeight;
-  }
+  function closeComments() { window.FrnxupComments?.closeModal(); }
 
   async function toggleLike(postId, button) {
     if (!FX.user) return;
@@ -438,9 +412,7 @@
   $('#reel-create-fab').addEventListener('click', openUpload);
   $$('[data-reel-close]').forEach((button) => button.addEventListener('click', closeUpload));
   $('#reel-publish').addEventListener('click', publishReel);
-  $$('[data-comments-close]').forEach((button) => button.addEventListener('click', closeComments));
   uploadModal.addEventListener('click', (event) => { if (event.target === uploadModal) closeUpload(); });
-  commentsModal.addEventListener('click', (event) => { if (event.target === commentsModal) closeComments(); });
 
   feed.addEventListener('click', async (event) => {
     const sound = event.target.closest('[data-sound]');
@@ -469,29 +441,9 @@
     }
   });
 
-  $('#reel-comment-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const input = $('#reel-comment-input');
-    const body = input.value.trim();
-    if (!currentCommentPost || !body) return;
-    const submit = $('button', event.currentTarget);
-    submit.disabled = true;
-    try {
-      const { error } = await FX.client.from('post_comments').insert({ post_id: currentCommentPost, user_id: FX.user.id, body });
-      if (error) throw error;
-      const reel = reels.find((item) => item.id === currentCommentPost);
-      if (reel) reel.comments += 1;
-      const count = $(`[data-comment-count="${CSS.escape(currentCommentPost)}"]`);
-      if (count && reel) count.textContent = formatCount(reel.comments);
-      input.value = '';
-      await loadComments(currentCommentPost);
-    } catch (error) { FX.toast(error.message || 'Your comment could not be posted.'); }
-    finally { submit.disabled = false; }
-  });
-
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { closeUpload(); closeComments(); }
-    if (uploadModal.classList.contains('open') || commentsModal.classList.contains('open')) return;
+    if (uploadModal.classList.contains('open') || document.querySelector('.fx-unified-comments-modal')) return;
     if (event.key === 'ArrowDown' || event.key === 'PageDown') {
       event.preventDefault();
       const active = feed.querySelector('.fx-reels-slide:hover') || feed.querySelector('.fx-reels-slide');
