@@ -18,25 +18,66 @@
   const discussionCache = new Map();
   const signedMediaCache = new Map();
   const profileCache = new Map();
+  // Username-to-profile resolution is shared by current and previously saved
+  // comments. A short negative-cache TTL avoids repeated lookups for invalid handles.
+  const mentionProfileCache = new Map();
+  const MENTION_CACHE_TTL = 5 * 60 * 1000;
 
   function toast(message) { window.FX?.toast?.(message); }
+  function normalizeHandle(value) {
+    return String(value || '').replace(/^@/, '').trim().toLowerCase();
+  }
+  function normalizeMentionRows(value) {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try { const parsed = JSON.parse(value); if (Array.isArray(parsed)) return parsed; if (parsed && typeof parsed === 'object') return Object.values(parsed); }
+      catch (_) { return []; }
+    }
+    if (value && typeof value === 'object') {
+      if (value.username || value.handle || value.id || value.user_id || value.profile_id) return [value];
+      return Object.entries(value).map(([username,id]) => ({username,id}));
+    }
+    return [];
+  }
+  function extractMentionHandles(text) {
+    const result = new Set();
+    const pattern = /(^|[^A-Za-z0-9_@])@([A-Za-z0-9_]{3,24})(?![A-Za-z0-9_])/g;
+    let match;
+    while ((match = pattern.exec(String(text || ''))) !== null) result.add(normalizeHandle(match[2]));
+    return [...result];
+  }
+  function getMentionProfileId(handle) {
+    const key = normalizeHandle(handle);
+    const cached = mentionProfileCache.get(key);
+    if (!cached) return undefined;
+    if (cached.expiresAt <= Date.now()) { mentionProfileCache.delete(key); return undefined; }
+    return cached.id || null;
+  }
+  function setMentionProfile(handle, id, ttl = MENTION_CACHE_TTL) {
+    const key = normalizeHandle(handle);
+    if (key) mentionProfileCache.set(key, {id: id ? String(id) : null, expiresAt: Date.now() + ttl});
+  }
   function bodyMarkup(text, mentionRows = []) {
-    // Only link @handles that were selected from Frnxup's verified member
-    // suggestions and saved with a profile ID. Unverified text stays plain.
+    // Link a mention only after Frnxup has resolved that username to an active
+    // profile ID (from the selected suggestion, saved metadata, or profile lookup).
     const safeText = String(text || '');
-    const verified = new Map((Array.isArray(mentionRows) ? mentionRows : [])
-      .filter(m => m && m.id && m.username)
-      .map(m => [String(m.username).toLowerCase(), String(m.id)]));
-    const tokenPattern = /(^|\s)(@[A-Za-z0-9_.]{1,40})/g;
+    const verified = new Map();
+    normalizeMentionRows(mentionRows).forEach(item => {
+      const handle = normalizeHandle(item?.username || item?.handle || item?.mention || item?.name);
+      const id = item?.id || item?.user_id || item?.profile_id;
+      if (handle && id) verified.set(handle, String(id));
+    });
+    const tokenPattern = /(^|[^A-Za-z0-9_@])@([A-Za-z0-9_]{3,24})(?![A-Za-z0-9_])/g;
     let out = '', last = 0, match;
     while ((match = tokenPattern.exec(safeText)) !== null) {
       out += esc(safeText.slice(last, match.index)) + esc(match[1]);
-      const handle = match[2].slice(1);
-      const id = verified.get(handle.toLowerCase());
+      const handle = normalizeHandle(match[2]);
+      const id = verified.get(handle) || getMentionProfileId(handle);
       if (id) {
-        out += `<a class="fx-unified-mention fx-mention-profile-link" href="/Dashboard/profile.html?id=${encodeURIComponent(id)}" data-fx-mentioned-profile="${esc(id)}" aria-label="View @${esc(handle)}’s profile">${esc(match[2])}</a>`;
+        const href = `/Dashboard/profile.html?id=${encodeURIComponent(id)}`;
+        out += `<a class="fx-unified-mention fx-mention-profile-link" href="${href}" data-fx-mentioned-profile="${esc(id)}" aria-label="View @${esc(handle)}’s profile">@${esc(match[2])}</a>`;
       } else {
-        out += `<span class="fx-unified-mention">${esc(match[2])}</span>`;
+        out += `<span class="fx-unified-mention">@${esc(match[2])}</span>`;
       }
       last = tokenPattern.lastIndex;
     }
@@ -289,6 +330,57 @@
       if (changed && !disposed) { renderList({preserveScroll:true}); cacheDiscussion(); }
     }
 
+    async function hydrateMentionProfiles(commentRows = rows, rerender = true) {
+      if (!FX.client) return;
+      const handles = new Set();
+      const idOnly = new Set();
+      (commentRows || []).forEach(row => {
+        extractMentionHandles(row.body).forEach(handle => handles.add(handle));
+        normalizeMentionRows(row.mentions).forEach(item => {
+          const handle = normalizeHandle(item?.username || item?.handle || item?.mention || item?.name);
+          const id = item?.id || item?.user_id || item?.profile_id;
+          if (handle && id) { setMentionProfile(handle, id); handles.add(handle); }
+          else if (id) idOnly.add(String(id));
+        });
+      });
+      const unresolvedHandles = [...handles].filter(handle => getMentionProfileId(handle) === undefined);
+      let changed = false;
+      if (unresolvedHandles.length) {
+        const {data,error} = await FX.client.from('profiles')
+          .select('id,username').eq('account_status','active').in('username',unresolvedHandles);
+        if (error) {
+          console.warn('Frnxup comment mention resolution failed:', error.message);
+        } else {
+          const found = new Map((data || []).map(profile => [normalizeHandle(profile.username), String(profile.id)]));
+          unresolvedHandles.forEach(handle => {
+            const id = found.get(handle) || null;
+            setMentionProfile(handle, id, id ? MENTION_CACHE_TTL : 60 * 1000);
+            if (id) changed = true;
+          });
+          (data || []).forEach(profile => idOnly.delete(String(profile.id)));
+        }
+      }
+      if (idOnly.size) {
+        const {data,error} = await FX.client.from('profiles')
+          .select('id,username').eq('account_status','active').in('id',[...idOnly]);
+        if (!error) (data || []).forEach(profile => { setMentionProfile(profile.username,profile.id); changed = true; });
+      }
+      if (changed && rerender && !disposed) { renderList({preserveScroll:true}); cacheDiscussion(); }
+    }
+
+    function mentionMetadataForBody(body, selectedRows = []) {
+      const selected = new Map();
+      normalizeMentionRows(selectedRows).forEach(item => {
+        const handle = normalizeHandle(item?.username || item?.handle || item?.mention || item?.name);
+        const id = item?.id || item?.user_id || item?.profile_id;
+        if (handle && id) selected.set(handle,String(id));
+      });
+      return extractMentionHandles(body).map(username => {
+        const id = selected.get(username) || getMentionProfileId(username);
+        return id ? {id:String(id),username} : null;
+      }).filter(Boolean);
+    }
+
     async function fetchRootPage(offset) {
       const {data,error} = await FX.client.from('post_comments')
         .select('id,post_id,context_type,context_id,user_id,parent_id,body,attachments,mentions,status,created_at')
@@ -333,7 +425,7 @@
         rows = cloneRows(cached.rows); rootOffset = cached.rootOffset; rootHasMore = cached.rootHasMore;
         replyCounts = new Map(cached.replyCounts || []); replyPages = new Map(cached.replyPages || []); reactions = new Map(cached.reactions || []);
         rootLoading = false; renderList({scrollToBottom:config.scrollToLatest !== false});
-        hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{});
+        hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{}); hydrateMentionProfiles(rows).catch(()=>{});
         // A valid in-memory first-page cache appears immediately; refresh quietly once it expires.
         return;
       }
@@ -343,7 +435,7 @@
         rootOffset = rows.length; rootHasMore = rows.length === ROOT_PAGE_SIZE; rootLoading = false;
         renderList({scrollToBottom:config.scrollToLatest !== false}); cacheDiscussion();
         const ids = rows.map(row=>row.id);
-        hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{});
+        hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{}); hydrateMentionProfiles(rows).catch(()=>{});
         fetchReplyCounts(ids).catch(()=>{});
         fetchReactions(ids).catch(()=>{});
       } catch (error) {
@@ -367,7 +459,7 @@
         rootLoading = false; renderList();
         list.scrollTop = previousTop + (list.scrollHeight - previousHeight);
         cacheDiscussion();
-        const ids = older.map(row=>row.id); hydrateProfiles(older.map(row=>row.user_id)).catch(()=>{}); fetchReplyCounts(ids).catch(()=>{}); fetchReactions(ids).catch(()=>{});
+        const ids = older.map(row=>row.id); hydrateProfiles(older.map(row=>row.user_id)).catch(()=>{}); hydrateMentionProfiles(older).catch(()=>{}); fetchReplyCounts(ids).catch(()=>{}); fetchReactions(ids).catch(()=>{});
       } catch (error) { rootLoading=false; renderList(); toast(error.message || 'Earlier comments could not be loaded.'); }
     }
     async function loadReplies(parentId) {
@@ -388,7 +480,7 @@
         state.offset += (data || []).length; state.loaded += fresh.length; state.hasMore = (data || []).length === REPLY_PAGE_SIZE; state.loading=false;
         replyPages.set(parentId,state);
         renderList({preserveScroll:true}); cacheDiscussion();
-        const ids = fresh.map(row=>row.id); hydrateProfiles(fresh.map(row=>row.user_id)).catch(()=>{}); fetchReplyCounts(ids).catch(()=>{}); fetchReactions(ids).catch(()=>{});
+        const ids = fresh.map(row=>row.id); hydrateProfiles(fresh.map(row=>row.user_id)).catch(()=>{}); hydrateMentionProfiles(fresh).catch(()=>{}); fetchReplyCounts(ids).catch(()=>{}); fetchReactions(ids).catch(()=>{});
       } catch (error) { state.loading=false; replyPages.set(parentId,state); renderList({preserveScroll:true}); toast(error.message || 'Replies could not be loaded.'); }
     }
     function invalidateCache() { discussionCache.delete(cacheKey); }
@@ -551,7 +643,11 @@
       send.disabled=true; send.textContent='…';
       try{
         const attachments=await uploadPending();
-        const payload={post_id:(context.type==='post'||context.type==='reel')?context.id:null,context_type:context.type,context_id:context.id,user_id:FX.user.id,parent_id:replyTarget,body,attachments,mentions};
+        // Resolve manually typed @handles as well as suggestion-picked mentions.
+        // Only active Frnxup profiles receive a saved ID and clickable profile link.
+        await hydrateMentionProfiles([{body,mentions}], false);
+        const resolvedMentions=mentionMetadataForBody(body,mentions);
+        const payload={post_id:(context.type==='post'||context.type==='reel')?context.id:null,context_type:context.type,context_id:context.id,user_id:FX.user.id,parent_id:replyTarget,body,attachments,mentions:resolvedMentions};
         const {data,error}=await FX.client.from('post_comments').insert(payload).select('id,post_id,context_type,context_id,user_id,parent_id,body,attachments,mentions,status,created_at').single();
         if(error) throw error;
         const posted = prepareRows([data])[0];
@@ -567,7 +663,7 @@
         }
         input.value='';pending=[];mentions=[];replyTarget=null;replyContext.hidden=true;replyContext.innerHTML='';input.placeholder='Write a comment… use @ to mention someone';updatePending();
         invalidateCache(); renderList({scrollToBottom:true}); cacheDiscussion();
-        hydrateProfiles([posted.user_id]).catch(()=>{}); fetchReplyCounts([posted.id]).catch(()=>{}); fetchReactions([posted.id]).catch(()=>{});
+        hydrateProfiles([posted.user_id]).catch(()=>{}); hydrateMentionProfiles([posted]).catch(()=>{}); fetchReplyCounts([posted.id]).catch(()=>{}); fetchReactions([posted.id]).catch(()=>{});
       }catch(error){toast(error.message || 'Your comment could not be posted.');}
       finally{send.disabled=false;send.textContent='➤';}
     }
@@ -585,7 +681,9 @@
       if(button.hasAttribute('data-fx-edit')){
         if(!FX.user||row.user_id!==FX.user.id)return toast('You can only edit your own comments.');
         const next=prompt('Edit your comment',row.body||'');if(next===null)return;if(!next.trim() && !(row.attachments||[]).length)return toast('A comment needs text or an attachment.');
-        const {error}=await FX.client.from('post_comments').update({body:next.trim()}).eq('id',id).eq('user_id',FX.user.id);if(error)throw error;row.body=next.trim();invalidateCache();renderList({preserveScroll:true});cacheDiscussion();return;
+        await hydrateMentionProfiles([{body:next.trim(),mentions:row.mentions||[]}], false);
+        const resolvedMentions=mentionMetadataForBody(next.trim(),row.mentions||[]);
+        const {error}=await FX.client.from('post_comments').update({body:next.trim(),mentions:resolvedMentions}).eq('id',id).eq('user_id',FX.user.id);if(error)throw error;row.body=next.trim();row.mentions=resolvedMentions;invalidateCache();renderList({preserveScroll:true});cacheDiscussion();hydrateMentionProfiles([row]).catch(()=>{});return;
       }
       if(button.hasAttribute('data-fx-delete')){
         if(!FX.user||row.user_id!==FX.user.id)return toast('You can only delete your own comments.');
@@ -604,11 +702,18 @@
     }
     form.addEventListener('submit',submit);
     input.addEventListener('input',()=>{
-      const match=input.value.slice(0,input.selectionStart).match(/(?:^|\s)@([A-Za-z0-9_.]{0,30})$/);
+      const match=input.value.slice(0,input.selectionStart).match(/(?:^|[^A-Za-z0-9_@])@([A-Za-z0-9_]{0,24})$/);
       if(match) findMentions(match[1]); else mentionBox.hidden=true;
     });
     input.addEventListener('keydown',event=>{if(event.key==='Escape'){mentionBox.hidden=true;}});
     root.addEventListener('click',async event=>{
+      const profileMention=event.target.closest('a[data-fx-mentioned-profile]');
+      if(profileMention){
+        const profileId=profileMention.dataset.fxMentionedProfile;
+        const target=`/Dashboard/profile.html?id=${encodeURIComponent(profileId)}`;
+        if(profileId){event.preventDefault();location.assign(target);}
+        return;
+      }
       const earlier=event.target.closest('[data-fx-load-earlier]');
       if(earlier){await loadEarlierRoots();return;}
       const replies=event.target.closest('[data-fx-load-replies]');
@@ -642,7 +747,7 @@
         pending.push({type:'contact',contact:{name,phone,email}});contactForm.hidden=true;updatePending();return;
       }
       const rm=event.target.closest('[data-fx-remove-pending]');if(rm){pending.splice(Number(rm.dataset.fxRemovePending),1);updatePending();return;}
-      const mention=event.target.closest('[data-fx-mention-id]');if(mention){const username=mention.dataset.fxMentionName;const start=input.value.slice(0,input.selectionStart).search(/(?:^|\s)@[A-Za-z0-9_.]*$/);const before=input.value.slice(0,input.selectionStart);const lastAt=before.lastIndexOf('@');const tokenStart=lastAt>=0?lastAt:before.length;input.setRangeText(`@${username} `,tokenStart,input.selectionStart,'end');mentions.push({id:mention.dataset.fxMentionId,username});mentionBox.hidden=true;input.focus();return;}
+      const mention=event.target.closest('[data-fx-mention-id]');if(mention){const username=mention.dataset.fxMentionName;const before=input.value.slice(0,input.selectionStart);const lastAt=before.lastIndexOf('@');const tokenStart=lastAt>=0?lastAt:before.length;input.setRangeText(`@${username} `,tokenStart,input.selectionStart,'end');const key=normalizeHandle(username);mentions=mentions.filter(item=>normalizeHandle(item.username)!==key);mentions.push({id:mention.dataset.fxMentionId,username:key});setMentionProfile(key,mention.dataset.fxMentionId);mentionBox.hidden=true;input.focus();return;}
       const reaction=event.target.closest('[data-fx-reaction]');if(reaction){try{await react(reaction.dataset.fxReactionId,reaction.dataset.fxReaction);}catch(error){toast(error.message);}return;}
       const reply=event.target.closest('[data-fx-reply], [data-fx-edit], [data-fx-delete], [data-fx-share], [data-fx-report]');if(reply){try{await handleAction(reply);}catch(error){toast(error.message);}return;}
       const reactBtn=event.target.closest('[data-fx-react]');if(reactBtn){const tray=$(`[data-fx-tray="${CSS.escape(reactBtn.dataset.fxReact)}"]`,root);if(tray)tray.hidden=!tray.hidden;return;}
@@ -662,7 +767,7 @@
       rows=cloneRows(cached.rows);rootOffset=cached.rootOffset;rootHasMore=cached.rootHasMore;
       replyCounts=new Map(cached.replyCounts||[]);replyPages=new Map(cached.replyPages||[]);reactions=new Map(cached.reactions||[]);
       rootLoading=false;renderList({scrollToBottom:config.scrollToLatest !== false});
-      hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{});
+      hydrateProfiles(rows.map(row=>row.user_id)).catch(()=>{}); hydrateMentionProfiles(rows).catch(()=>{});
       // If a cache becomes stale during this visit, refresh it in the background.
       window.setTimeout(()=>{if(!disposed && Date.now()-cached.at>=DISCUSSION_CACHE_TTL){invalidateCache();loadInitial().catch(()=>{});}},DISCUSSION_CACHE_TTL);
     } else {
