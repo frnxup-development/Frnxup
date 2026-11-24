@@ -8,7 +8,9 @@
     messages: '<path d="M20.5 11.5a8.5 8.5 0 0 1-9 8.5 9.7 9.7 0 0 1-4-.8L3 21l1.5-4A8.3 8.3 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 8.5 8.5Z"/><path d="M7 12h.01M12 12h.01M17 12h.01"/>',
     rooms: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 9h8M8 13h5M8 17h3"/>',
     horn: '<path d="M3 10v4a2 2 0 0 0 2 2h2l10 4V4L7 8H5a2 2 0 0 0-2 2Z"/><path d="M7 16l2 5h4l-2-4M20 9l2-2M20 15l2 2"/>',
-    profile: '<circle cx="12" cy="8" r="3.5"/><path d="M4 21a8 8 0 0 1 16 0"/>'
+    profile: '<circle cx="12" cy="8" r="3.5"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    reel: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3zM7 5l3-3M14 5l3-3M7 19l3 3M14 19l3 3"/>',
+    market: '<path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2M9 12h.01M15 12h.01"/>'
   };
   const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name]}</svg>`;
   const links = [
@@ -16,7 +18,9 @@
     ['Friends', '/Friends/index.html', 'friends'],
     ['Messages', '/Messages/index.html', 'messages'],
     ['Rooms', '/Rooms/index.html', 'rooms'],
-    ['Notifications', '/Notifications/index.html', 'horn']
+    ['Notifications', '/Notifications/index.html', 'horn'],
+    ['Create Reel', '/Reels/index.html?create=1', 'reel'],
+    ['Frnxup Market', '/Market/index.html', 'market']
   ];
   const current = location.pathname;
   const activeFor = (key, url) => {
@@ -25,6 +29,8 @@
     if (key === 'messages') return current.startsWith('/Messages/');
     if (key === 'rooms') return current.startsWith('/Rooms/');
     if (key === 'horn') return current.startsWith('/Notifications/');
+    if (key === 'reel') return current.startsWith('/Reels/');
+    if (key === 'market') return current.startsWith('/Market/');
     return current === url;
   };
 
