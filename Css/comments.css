@@ -343,3 +343,13 @@ body.fx-comments-open{overflow:hidden}
   .fx-unified-video video{max-height:52dvh}
 }
 @media(prefers-reduced-motion:reduce){.fx-unified-comments-modal *{scroll-behavior:auto!important}}
+/* Clickable verified Frnxup @mentions */
+.fx-unified-comment-text .fx-mention-profile-link,
+.fx-unified-mention.fx-mention-profile-link {
+  display:inline; color:var(--accent,#1687f8); font-weight:750; text-decoration:none;
+  border-radius:4px; padding:0 1px; overflow-wrap:anywhere;
+}
+.fx-unified-comment-text .fx-mention-profile-link:hover,
+.fx-unified-mention.fx-mention-profile-link:hover { text-decoration:underline; }
+.fx-unified-comment-text .fx-mention-profile-link:focus-visible,
+.fx-unified-mention.fx-mention-profile-link:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
