@@ -79,21 +79,51 @@
   async function renderPeople(people) {
     const host = $('#people-results');
     if (!host) return;
+    const count = $('#people-count');
+    if (count) count.textContent = people?.length ? `${people.length} ${people.length === 1 ? 'person' : 'people'}` : '';
     const rows = await Promise.all((people || []).map(async profile => {
       const name = profile.display_name || profile.username || 'Frnxup member';
-      const photo = profile.avatar_path ? await FX.mediaUrl(profile.avatar_path) : '';
+      let photo = '';
+      try { photo = profile.avatar_path ? await FX.mediaUrl(profile.avatar_path) : ''; } catch (_) { photo = ''; }
+      const mutual = Number(profile.mutual_friends || 0);
       const shared = Number(profile.shared_interests || profile.shared_count || 0);
-      return `<article class="fx-person-suggestion"><a class="fx-person-suggestion-avatar" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}"><span class="fx-avatar-fallback">${FX.esc(initials(profile))}</span>${photo ? `<img src="${FX.esc(photo)}" alt="${FX.esc(name)} profile picture" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</a><div class="fx-person-suggestion-copy"><b>${FX.esc(name)}</b><small>@${FX.esc(profile.username || 'member')}${shared ? ` · ${shared} shared interests` : ''}</small></div><a class="button subtle" href="/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}">Profile</a><button class="button primary" data-add="${profile.id}" type="button">Add</button></article>`;
+      const detail = [mutual ? `${mutual} mutual ${mutual === 1 ? 'friend' : 'friends'}` : '', shared ? `${shared} shared ${shared === 1 ? 'interest' : 'interests'}` : ''].filter(Boolean).join(' · ');
+      const profileUrl = `/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}`;
+      return `<article class="fx-person-suggestion">
+        <a class="fx-person-suggestion-avatar" href="${profileUrl}" aria-label="View ${FX.esc(name)}’s profile">
+          <span class="fx-avatar-fallback">${FX.esc(initials(profile))}</span>
+          ${photo ? `<img src="${FX.esc(photo)}" alt="${FX.esc(name)} profile picture" loading="lazy" decoding="async" onerror="this.remove()">` : ''}
+        </a>
+        <div class="fx-person-suggestion-copy"><b>${FX.esc(name)}</b><small>@${FX.esc(profile.username || 'member')}</small></div>
+        <span class="fx-person-suggestion-detail">${detail ? FX.esc(detail) : 'Frnxup member'}</span>
+        <div class="fx-person-suggestion-actions">
+          <a class="button subtle" href="${profileUrl}">Profile</a>
+          <button class="button primary" data-add="${FX.esc(profile.id)}" type="button">Add friend</button>
+        </div>
+      </article>`;
     }));
-    host.innerHTML = rows.join('') || '<div class="empty">No suggestions yet. Invite people you know to join Frnxup.</div>'; FXStates.loaded(host);
+    host.innerHTML = rows.join('') || '<div class="empty">No people to show right now. Try another search or check back later.</div>';
+    FXStates.loaded(host);
+  }
+
+  function setPeopleHeading(title, note) {
+    const heading = $('#people-section-title');
+    const description = $('#people-section-note');
+    if (heading) heading.textContent = title;
+    if (description) description.textContent = note;
   }
 
   async function searchPeople(value) {
     const q = String(value || '').trim().replace(/[(),]/g, ' ');
-    if (!q) return;
-    $('#people-search').value = q;
+    const input = $('#people-search');
+    if (input) input.value = q;
+    if (!q) {
+      setPeopleHeading('People you may know', 'Discover active Frnxup members and send a friend request.');
+      return renderSuggestions();
+    }
+    setPeopleHeading('Search results', `Members matching “${q}”.`);
     const host = $('#people-results');
-    if (host && host.dataset.fxHasContent !== 'true') FXStates.loading(host, { title: 'Searching Frnxup members', message: `Looking for "${q}".` });
+    if (host) FXStates.loading(host, { title: 'Searching Frnxup members', message: `Looking for “${q}”.` });
     const { data, error } = await FX.client.from('profiles').select('id,username,display_name,avatar_path')
       .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).neq('id', FX.user.id).limit(30);
     if (error) return setError('#people-results', error, () => searchPeople(value));
@@ -137,6 +167,7 @@
       else await renderSuggestions();
       $('#search-people')?.addEventListener('click', () => searchPeople($('#people-search').value));
       $('#people-search')?.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); searchPeople($('#people-search').value); } });
+      $('#people-search')?.addEventListener('search', () => { if (!$('#people-search').value.trim()) searchPeople(''); });
     } else {
       await loadCurrentView();
     }
