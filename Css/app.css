@@ -340,3 +340,8 @@ body a:not(.brand):not(.fx-sidebar-brand){font-size:15px!important}
     --fx-header-two-height:57px;
   }
 }
+
+
+/* Header Two: seven compact shortcuts including Create Reel and Frnxup Market. */
+.action-nav{gap:clamp(12px,4vw,54px)}
+@media(max-width:700px){.action-nav{width:calc(100% - 44px);gap:0;justify-content:space-between}.action-link{width:auto;min-width:0;flex:1}}
