@@ -1,5 +1,5 @@
 (() => {
-const $=FX.qs; let activeFilter='latest', activeContentFilter='reel', feedMediaObserver=null;
+const $=FX.qs; let activeFilter='latest', activeContentFilter='all', feedMediaObserver=null;
 function person(p){return `<a class="row-card" style="text-decoration:none;padding:8px;border:0" href="/Dashboard/profile.html?id=${p.id}"><div class="avatar sm">${FX.esc((p.display_name||p.username||'F').slice(0,2).toUpperCase())}</div><div class="grow"><b>${FX.esc(p.display_name||p.username)}</b><small>@${FX.esc(p.username||'member')}</small></div><span class="tag">View</span></a>`}
 async function loadSuggestions(){
  const host=$('#suggestions');if(!host)return;if(!FX.client){FXStates.render(host,'configuration');return;}if(host.dataset.fxHasContent!=='true')FXStates.loading(host,{title:'Loading people you may know',message:'Finding relevant Frnxup members.'});if(!FX.user){FXStates.empty(host,{title:'Sign in to see suggestions',message:'People you may know will appear here after you sign in.'});return;}
