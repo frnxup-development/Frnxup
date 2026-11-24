@@ -109,3 +109,49 @@
   #feed-list>.post-card .post-actions button{font-size:12px!important;gap:3px}
   #feed-list>.post-card .post-header{padding-left:12px;padding-right:12px}
 }
+
+
+/* Screenshot-inspired action strip: three wide rounded buttons, theme-aware. */
+#feed-list>.post-card .post-actions{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  padding:12px 12px 14px;
+  border-top:1px solid var(--line);
+  background:var(--surface);
+}
+#feed-list>.post-card .post-actions button{
+  min-height:54px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--surface-2);
+  color:var(--text);
+  gap:9px;
+  font-size:clamp(14px,2.2vw,18px)!important;
+  font-weight:700;
+  padding:10px 12px;
+  transition:background .15s ease,transform .15s ease,border-color .15s ease;
+}
+#feed-list>.post-card .post-actions button:hover{
+  background:var(--message-hover);
+  border-color:var(--message-outline);
+}
+#feed-list>.post-card .post-actions button:active{transform:scale(.985)}
+#feed-list>.post-card .post-actions button.active{
+  color:var(--blue);
+  background:color-mix(in srgb,var(--blue) 10%,var(--surface-2));
+  border-color:color-mix(in srgb,var(--blue) 28%,var(--line));
+}
+/* Save remains available in the post's options menu, not in the 3-button strip. */
+#feed-list>.post-card .post-actions [data-save]{display:none!important}
+#feed-list>.post-card .post-actions button:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--blue) 35%,transparent);
+  outline-offset:2px;
+}
+@media(max-width:700px){
+  #feed-list>.post-card .post-actions{gap:7px;padding:10px 8px 12px}
+  #feed-list>.post-card .post-actions button{min-height:52px;padding:9px 5px;font-size:14px!important}
+}
+@media(max-width:360px){
+  #feed-list>.post-card .post-actions{gap:5px;padding-left:6px;padding-right:6px}
+  #feed-list>.post-card .post-actions button{gap:5px;font-size:12.5px!important}
+}
