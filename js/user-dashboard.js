@@ -94,6 +94,33 @@
     }).join('');FXStates.loaded(host);
   }
 
+  async function loadBirthdayCelebration() {
+    const card = $('#fx-birthday-card');
+    if (!card) return;
+    const {data: details, error} = await FX.client.from('profile_details').select('birth_date').eq('profile_id', FX.user.id).maybeSingle();
+    if (error || !details?.birth_date) return;
+    const parts = new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Lagos',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const today = `${parts.find(part=>part.type==='month')?.value}-${parts.find(part=>part.type==='day')?.value}`;
+    const birthday = String(details.birth_date).slice(5,10);
+    if (birthday !== today) return;
+    card.hidden = false;
+    const button = $('#fx-share-birthday');
+    const shareKey = `frnxup-birthday-shared:${FX.user.id}:${today}`;
+    if (localStorage.getItem(shareKey) === '1') { button.disabled = true; button.textContent = 'Shared to public feed ✓'; return; }
+    if (FX.settings.posting_enabled === false) { button.disabled = true; button.textContent = 'Posting is disabled'; return; }
+    button.onclick = async () => {
+      button.disabled = true;
+      try {
+        const birthdayText = '🌸🌼🎉 Today is my birthday! I am grateful for another year of life and for the wonderful people around me. Thank you for celebrating with me! 🎂🌷';
+        const {error: postError} = await FX.client.from('posts').insert({user_id:FX.user.id,body:birthdayText,visibility:'public'});
+        if (postError) throw postError;
+        localStorage.setItem(shareKey, '1');
+        button.textContent = 'Shared to public feed ✓';
+        FX.toast('Your birthday celebration has been shared publicly.');
+      } catch (error) { button.disabled = false; FX.toast(error.message || 'Your birthday post could not be shared.'); }
+    };
+  }
+
   async function loadTrending() {
     const host = $('#fx-trending');
     const {data, error} = await FX.client.from('rooms').select('id,name,category,member_count')
@@ -261,7 +288,7 @@
       setAvatar($('#dash-avatar'), ownProfile.avatar_path, name),
       setAvatar($('#fx-top-avatar'), ownProfile.avatar_path, name),
       setAvatar($('#fx-composer-avatar'), ownProfile.avatar_path, name),
-      loadStats(), loadActivity(), loadTrending(), loadOwnPosts(), loadCompletion(ownProfile)
+      loadStats(), loadActivity(), loadTrending(), loadOwnPosts(), loadCompletion(ownProfile), loadBirthdayCelebration()
     ]);
 
     if (FX.settings.posting_enabled === false) {

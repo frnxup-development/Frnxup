@@ -81,6 +81,15 @@
     if (!host) return;
     const count = $('#people-count');
     if (count) count.textContent = people?.length ? `${people.length} ${people.length === 1 ? 'person' : 'people'}` : '';
+    const personIds = (people || []).map(profile => profile.id);
+    const [requestResult, friendshipResult] = personIds.length ? await Promise.all([
+      FX.client.from('friend_requests').select('id,sender_id,receiver_id').eq('status','pending').or(`sender_id.eq.${FX.user.id},receiver_id.eq.${FX.user.id}`),
+      FX.client.from('friendships').select('user_a,user_b').or(`user_a.eq.${FX.user.id},user_b.eq.${FX.user.id}`)
+    ]) : [{data:[],error:null},{data:[],error:null}];
+    if (requestResult.error || friendshipResult.error) return setError('#people-results', requestResult.error || friendshipResult.error, () => renderPeople(people));
+    const requestByMember = new Map();
+    (requestResult.data || []).forEach(request => requestByMember.set(request.sender_id === FX.user.id ? request.receiver_id : request.sender_id, request));
+    const friendIds = new Set((friendshipResult.data || []).map(row => row.user_a === FX.user.id ? row.user_b : row.user_a));
     const rows = await Promise.all((people || []).map(async profile => {
       const name = profile.display_name || profile.username || 'Frnxup member';
       let photo = '';
@@ -89,6 +98,11 @@
       const shared = Number(profile.shared_interests || profile.shared_count || 0);
       const detail = [mutual ? `${mutual} mutual ${mutual === 1 ? 'friend' : 'friends'}` : '', shared ? `${shared} shared ${shared === 1 ? 'interest' : 'interests'}` : ''].filter(Boolean).join(' · ');
       const profileUrl = `/Dashboard/profile.html?id=${encodeURIComponent(profile.id)}`;
+      const pending = requestByMember.get(profile.id);
+      let action = '<button class="button primary" data-add="'+FX.esc(profile.id)+'" type="button">Add friend</button>';
+      if (friendIds.has(profile.id)) action = '<button class="button subtle" type="button" disabled>Friends</button>';
+      else if (pending?.sender_id === FX.user.id) action = `<button class="button cancel-request" data-cancel-pending="${FX.esc(pending.id)}" type="button">Cancel request</button>`;
+      else if (pending) action = `<button class="button primary" data-accept="${FX.esc(pending.id)}" type="button">Accept request</button>`;
       return `<article class="fx-person-suggestion">
         <a class="fx-person-suggestion-avatar" href="${profileUrl}" aria-label="View ${FX.esc(name)}’s profile">
           <span class="fx-avatar-fallback">${FX.esc(initials(profile))}</span>
@@ -96,10 +110,7 @@
         </a>
         <div class="fx-person-suggestion-copy"><b>${FX.esc(name)}</b><small>@${FX.esc(profile.username || 'member')}</small></div>
         <span class="fx-person-suggestion-detail">${detail ? FX.esc(detail) : 'Frnxup member'}</span>
-        <div class="fx-person-suggestion-actions">
-          <a class="button subtle" href="${profileUrl}">Profile</a>
-          <button class="button primary" data-add="${FX.esc(profile.id)}" type="button">Add friend</button>
-        </div>
+        <div class="fx-person-suggestion-actions"><a class="button subtle" href="${profileUrl}">Profile</a>${action}</div>
       </article>`;
     }));
     host.innerHTML = rows.join('') || '<div class="empty">No people to show right now. Try another search or check back later.</div>';
@@ -141,15 +152,29 @@
   async function addFriend(id, button) {
     button.disabled = true;
     try {
-      const { error } = await FX.client.from('friend_requests').insert({ sender_id: FX.user.id, receiver_id: id });
+      const { data, error } = await FX.client.from('friend_requests')
+        .insert({ sender_id: FX.user.id, receiver_id: id }).select('id').single();
       if (error) throw error;
-      button.textContent = 'Request sent';
-      button.classList.add('sent');
-      FX.toast('Friend request sent.');
+      button.disabled = false;
+      button.textContent = 'Cancel request';
+      button.dataset.cancelPending = data.id;
+      delete button.dataset.add;
+      button.classList.remove('primary'); button.classList.add('cancel-request');
+      FX.toast('Friend request sent. You can cancel it until it is accepted.');
     } catch (error) {
       button.disabled = false;
       FX.toast(error.message);
     }
+  }
+
+  async function cancelPendingRequest(requestId, button) {
+    button.disabled = true;
+    const { error } = await FX.client.from('friend_requests').delete()
+      .eq('id', requestId).eq('sender_id', FX.user.id).eq('status','pending');
+    if (error) { button.disabled = false; throw error; }
+    FX.toast('Friend request cancelled.');
+    if (view === 'sent') return renderSentRequests();
+    if (view === 'suggestions') return renderSuggestions();
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -176,7 +201,8 @@
       const button = event.target.closest('button');
       if (!button) return;
       try {
-        if (button.dataset.add) await addFriend(button.dataset.add, button);
+        if (button.dataset.add) { await addFriend(button.dataset.add, button); }
+        else if (button.dataset.cancelPending) { await cancelPendingRequest(button.dataset.cancelPending, button); }
         if (button.dataset.removeFriend) {
           if (!confirm('Remove this friend?')) return;
           const pair = [FX.user.id, button.dataset.removeFriend].sort();
@@ -190,7 +216,8 @@
           const { error } = await FX.client.rpc('respond_friend_request', { p_request_id: requestId, p_accept: accepted });
           if (error) throw error;
           FX.toast(accepted ? 'Friend request accepted.' : 'Request declined.');
-          await renderRequests();
+          if (view === 'suggestions') await renderSuggestions();
+          else await renderRequests();
         }
         if (button.dataset.cancel) {
           const { error } = await FX.client.from('friend_requests').delete().eq('id', button.dataset.cancel).eq('sender_id', FX.user.id);
