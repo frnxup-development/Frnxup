@@ -245,3 +245,33 @@ body.fx-comments-open{overflow:hidden}
   .fx-unified-load-replies{max-width:100%;white-space:normal}
 }
 @media(prefers-reduced-motion:reduce){.fx-comment-skeleton>i,.fx-comment-skeleton b,.fx-comment-skeleton em,.fx-unified-avatar img[data-fx-lazy-path],.fx-unified-image img[data-fx-lazy-path]{animation:none}}
+
+
+/* Comments-only discussion panel: parent post media/text remain outside this UI. */
+.fx-unified-comments-modal .fx-unified-comments-panel {
+  isolation: isolate;
+  contain: layout paint style;
+}
+.fx-unified-comments-modal [data-fx-modal-content] > .fx-unified-comments {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  background: var(--surface);
+}
+.fx-unified-comments-modal .fx-unified-comments-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+.fx-unified-comments-modal .fx-unified-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+.fx-unified-comments-modal .fx-unified-thread {
+  overscroll-behavior: contain;
+  overflow-y: auto;
+  min-width: 0;
+}
