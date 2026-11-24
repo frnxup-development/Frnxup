@@ -95,3 +95,14 @@ main.page .aside-col>.card{min-width:0;overflow:hidden}
   #suggestions .fx-home-suggestion-profile{flex-basis:78px!important;width:78px!important;height:78px!important;min-width:78px!important;min-height:78px!important;max-width:78px!important;max-height:78px!important}
 }
 @media(max-width:380px){#suggestions.fx-home-suggestions-track>.fx-home-suggestion{flex-basis:154px!important;width:154px!important;min-width:154px!important}#feed-list>.post-card .post-actions button{font-size:11px!important}}
+
+/* Horizontal discovery controls and robust scroll sizing. */
+.fx-suggestions-panel{min-width:0;overflow:hidden;padding:16px;margin-bottom:14px}
+.fx-suggestions-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.fx-suggestions-heading>b{font:800 14px/1.3 Manrope,'DM Sans',sans-serif;color:var(--text)}
+.fx-suggestions-heading-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.fx-suggestions-scroll{display:grid;place-items:center;width:32px;height:32px;border:1px solid var(--line);border-radius:50%;background:var(--surface-2);color:var(--text);font-size:22px;line-height:1}
+.fx-suggestions-heading-actions>a{white-space:nowrap}
+#suggestions.fx-home-suggestions-track{scrollbar-width:thin;scrollbar-color:#9aa8bd transparent}
+#suggestions.fx-home-suggestions-track::-webkit-scrollbar{height:6px}
+#suggestions.fx-home-suggestions-track::-webkit-scrollbar-thumb{background:#9aa8bd;border-radius:20px}
