@@ -353,3 +353,27 @@ body.fx-comments-open{overflow:hidden}
 .fx-unified-mention.fx-mention-profile-link:hover { text-decoration:underline; }
 .fx-unified-comment-text .fx-mention-profile-link:focus-visible,
 .fx-unified-mention.fx-mention-profile-link:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+
+
+/* Verified @mentions are real navigation links to Frnxup member profiles. */
+.fx-unified-comment-text a.fx-mention-profile-link {
+  color: var(--fx-unified-accent, var(--blue));
+  font-weight: 900;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
+}
+.fx-unified-comment-text a.fx-mention-profile-link:hover,
+.fx-unified-comment-text a.fx-mention-profile-link:focus-visible {
+  color: var(--blue);
+  text-decoration-thickness: 2px;
+  outline: none;
+}
+.fx-unified-comment-text a.fx-mention-profile-link:focus-visible {
+  border-radius: 3px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent);
+}
