@@ -1,316 +1,467 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#f7fbfc"><meta name="description" content="Create your Frnxup account with verified email and phone.">
-  <title>Create account · Frnxup</title>
-  <link rel="icon" href="../Asset/frnxup-mark.svg"><link rel="stylesheet" href="../Css/app.css"><link rel="stylesheet" href="../Css/auth.css">
-  <style>
-    .auth-card .field select{width:100%;min-height:49px;padding:12px 14px;border:1px solid #dce8eb;border-radius:11px;background:#fbfdfd;color:#183642;font:500 14px 'DM Sans',sans-serif}
-    .auth-card .field input[type=tel]{font-variant-numeric:tabular-nums}
-    .signup-note{display:block;color:#71858e;font-size:11px;line-height:1.55;margin:-4px 0 10px}
-    .signup-steps{display:flex;gap:7px;margin:0 0 18px}
-    .signup-steps span{height:5px;flex:1;border-radius:99px;background:#e3ecef}
-    .signup-steps span:first-child{background:#179a91}
-    @media(prefers-color-scheme:dark){.auth-card .field select{background:#101b2a;color:#eef5ff;border-color:#2b3c51}.signup-note{color:#9bacbf}.signup-steps span{background:#27364a}.signup-steps span:first-child{background:#20b6a1}}
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f7fbfc">
+  <meta name="description" content="Create your Frnxup account.">
+  <title>Sign up · Frnxup</title>
+  <link rel="icon" href="../Asset/frnxup-mark.svg">
+  <link rel="stylesheet" href="../Css/app.css">
+  <link rel="stylesheet" href="../Css/auth.css">
+  <link rel="stylesheet" href="../Css/content-states.css">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
 </head>
 <body class="auth-screen">
-<main class="auth-layout">
-  <a class="auth-brand" href="/Auth/index.html" aria-label="Frnxup sign up"><img src="../Asset/frnxup-mark.svg" alt="Frnxup logo"><span class="auth-brand-name">Frnxup</span><span class="auth-brand-tagline">CONNECT. EXPRESS. RISE.</span></a>
-  <section class="card auth-card">
-    <div class="auth-heading"><span class="auth-eyebrow">JOIN THE COMMUNITY</span><h1>Create your account</h1><p>Verify your email and phone before choosing your password.</p></div>
-    <div class="signup-steps" aria-label="Registration step 1 of 3"><span></span><span></span><span></span></div>
-    <form id="signup-start-form" novalidate autocomplete="on">
-      <div class="field"><label for="username">Username</label><input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="24" placeholder="letters, numbers and underscore" required></div>
-      <div class="field"><label for="signup-email">Email address</label><input id="signup-email" name="email" type="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="254" placeholder="you@example.com" required></div>
-      <div class="field"><label for="signup-country">Country</label><select id="signup-country" name="country" autocomplete="country-name" required><option value="">Choose your country</option><option value="AF">Afghanistan</option>
-<option value="AL">Albania</option>
-<option value="DZ">Algeria</option>
-<option value="AS">American Samoa</option>
-<option value="AD">Andorra</option>
-<option value="AO">Angola</option>
-<option value="AI">Anguilla</option>
-<option value="AQ">Antarctica</option>
-<option value="AG">Antigua and Barbuda</option>
-<option value="AR">Argentina</option>
-<option value="AM">Armenia</option>
-<option value="AW">Aruba</option>
-<option value="AU">Australia</option>
-<option value="AT">Austria</option>
-<option value="AZ">Azerbaijan</option>
-<option value="BS">Bahamas</option>
-<option value="BH">Bahrain</option>
-<option value="BD">Bangladesh</option>
-<option value="BB">Barbados</option>
-<option value="BY">Belarus</option>
-<option value="BE">Belgium</option>
-<option value="BZ">Belize</option>
-<option value="BJ">Benin</option>
-<option value="BM">Bermuda</option>
-<option value="BT">Bhutan</option>
-<option value="BO">Bolivia, Plurinational State of</option>
-<option value="BQ">Bonaire, Sint Eustatius and Saba</option>
-<option value="BA">Bosnia and Herzegovina</option>
-<option value="BW">Botswana</option>
-<option value="BV">Bouvet Island</option>
-<option value="BR">Brazil</option>
-<option value="IO">British Indian Ocean Territory</option>
-<option value="BN">Brunei Darussalam</option>
-<option value="BG">Bulgaria</option>
-<option value="BF">Burkina Faso</option>
-<option value="BI">Burundi</option>
-<option value="CV">Cabo Verde</option>
-<option value="KH">Cambodia</option>
-<option value="CM">Cameroon</option>
-<option value="CA">Canada</option>
-<option value="KY">Cayman Islands</option>
-<option value="CF">Central African Republic</option>
-<option value="TD">Chad</option>
-<option value="CL">Chile</option>
-<option value="CN">China</option>
-<option value="CX">Christmas Island</option>
-<option value="CC">Cocos (Keeling) Islands</option>
-<option value="CO">Colombia</option>
-<option value="KM">Comoros</option>
-<option value="CG">Congo</option>
-<option value="CD">Congo, The Democratic Republic of the</option>
-<option value="CK">Cook Islands</option>
-<option value="CR">Costa Rica</option>
-<option value="HR">Croatia</option>
-<option value="CU">Cuba</option>
-<option value="CW">Curaçao</option>
-<option value="CY">Cyprus</option>
-<option value="CZ">Czechia</option>
-<option value="CI">Côte d&#x27;Ivoire</option>
-<option value="DK">Denmark</option>
-<option value="DJ">Djibouti</option>
-<option value="DM">Dominica</option>
-<option value="DO">Dominican Republic</option>
-<option value="EC">Ecuador</option>
-<option value="EG">Egypt</option>
-<option value="SV">El Salvador</option>
-<option value="GQ">Equatorial Guinea</option>
-<option value="ER">Eritrea</option>
-<option value="EE">Estonia</option>
-<option value="SZ">Eswatini</option>
-<option value="ET">Ethiopia</option>
-<option value="FK">Falkland Islands (Malvinas)</option>
-<option value="FO">Faroe Islands</option>
-<option value="FJ">Fiji</option>
-<option value="FI">Finland</option>
-<option value="FR">France</option>
-<option value="GF">French Guiana</option>
-<option value="PF">French Polynesia</option>
-<option value="TF">French Southern Territories</option>
-<option value="GA">Gabon</option>
-<option value="GM">Gambia</option>
-<option value="GE">Georgia</option>
-<option value="DE">Germany</option>
-<option value="GH">Ghana</option>
-<option value="GI">Gibraltar</option>
-<option value="GR">Greece</option>
-<option value="GL">Greenland</option>
-<option value="GD">Grenada</option>
-<option value="GP">Guadeloupe</option>
-<option value="GU">Guam</option>
-<option value="GT">Guatemala</option>
-<option value="GG">Guernsey</option>
-<option value="GN">Guinea</option>
-<option value="GW">Guinea-Bissau</option>
-<option value="GY">Guyana</option>
-<option value="HT">Haiti</option>
-<option value="HM">Heard Island and McDonald Islands</option>
-<option value="VA">Holy See (Vatican City State)</option>
-<option value="HN">Honduras</option>
-<option value="HK">Hong Kong</option>
-<option value="HU">Hungary</option>
-<option value="IS">Iceland</option>
-<option value="IN">India</option>
-<option value="ID">Indonesia</option>
-<option value="IR">Iran, Islamic Republic of</option>
-<option value="IQ">Iraq</option>
-<option value="IE">Ireland</option>
-<option value="IM">Isle of Man</option>
-<option value="IL">Israel</option>
-<option value="IT">Italy</option>
-<option value="JM">Jamaica</option>
-<option value="JP">Japan</option>
-<option value="JE">Jersey</option>
-<option value="JO">Jordan</option>
-<option value="KZ">Kazakhstan</option>
-<option value="KE">Kenya</option>
-<option value="KI">Kiribati</option>
-<option value="KP">Korea, Democratic People&#x27;s Republic of</option>
-<option value="KR">Korea, Republic of</option>
-<option value="XK">Kosovo</option>
-<option value="KW">Kuwait</option>
-<option value="KG">Kyrgyzstan</option>
-<option value="LA">Lao People&#x27;s Democratic Republic</option>
-<option value="LV">Latvia</option>
-<option value="LB">Lebanon</option>
-<option value="LS">Lesotho</option>
-<option value="LR">Liberia</option>
-<option value="LY">Libya</option>
-<option value="LI">Liechtenstein</option>
-<option value="LT">Lithuania</option>
-<option value="LU">Luxembourg</option>
-<option value="MO">Macao</option>
-<option value="MG">Madagascar</option>
-<option value="MW">Malawi</option>
-<option value="MY">Malaysia</option>
-<option value="MV">Maldives</option>
-<option value="ML">Mali</option>
-<option value="MT">Malta</option>
-<option value="MH">Marshall Islands</option>
-<option value="MQ">Martinique</option>
-<option value="MR">Mauritania</option>
-<option value="MU">Mauritius</option>
-<option value="YT">Mayotte</option>
-<option value="MX">Mexico</option>
-<option value="FM">Micronesia, Federated States of</option>
-<option value="MD">Moldova, Republic of</option>
-<option value="MC">Monaco</option>
-<option value="MN">Mongolia</option>
-<option value="ME">Montenegro</option>
-<option value="MS">Montserrat</option>
-<option value="MA">Morocco</option>
-<option value="MZ">Mozambique</option>
-<option value="MM">Myanmar</option>
-<option value="NA">Namibia</option>
-<option value="NR">Nauru</option>
-<option value="NP">Nepal</option>
-<option value="NL">Netherlands</option>
-<option value="NC">New Caledonia</option>
-<option value="NZ">New Zealand</option>
-<option value="NI">Nicaragua</option>
-<option value="NE">Niger</option>
-<option value="NG">Nigeria</option>
-<option value="NU">Niue</option>
-<option value="NF">Norfolk Island</option>
-<option value="MK">North Macedonia</option>
-<option value="MP">Northern Mariana Islands</option>
-<option value="NO">Norway</option>
-<option value="OM">Oman</option>
-<option value="PK">Pakistan</option>
-<option value="PW">Palau</option>
-<option value="PS">Palestine, State of</option>
-<option value="PA">Panama</option>
-<option value="PG">Papua New Guinea</option>
-<option value="PY">Paraguay</option>
-<option value="PE">Peru</option>
-<option value="PH">Philippines</option>
-<option value="PN">Pitcairn</option>
-<option value="PL">Poland</option>
-<option value="PT">Portugal</option>
-<option value="PR">Puerto Rico</option>
-<option value="QA">Qatar</option>
-<option value="RO">Romania</option>
-<option value="RU">Russian Federation</option>
-<option value="RW">Rwanda</option>
-<option value="RE">Réunion</option>
-<option value="BL">Saint Barthélemy</option>
-<option value="SH">Saint Helena, Ascension and Tristan da Cunha</option>
-<option value="KN">Saint Kitts and Nevis</option>
-<option value="LC">Saint Lucia</option>
-<option value="MF">Saint Martin (French part)</option>
-<option value="PM">Saint Pierre and Miquelon</option>
-<option value="VC">Saint Vincent and the Grenadines</option>
-<option value="WS">Samoa</option>
-<option value="SM">San Marino</option>
-<option value="ST">Sao Tome and Principe</option>
-<option value="SA">Saudi Arabia</option>
-<option value="SN">Senegal</option>
-<option value="RS">Serbia</option>
-<option value="SC">Seychelles</option>
-<option value="SL">Sierra Leone</option>
-<option value="SG">Singapore</option>
-<option value="SX">Sint Maarten (Dutch part)</option>
-<option value="SK">Slovakia</option>
-<option value="SI">Slovenia</option>
-<option value="SB">Solomon Islands</option>
-<option value="SO">Somalia</option>
-<option value="ZA">South Africa</option>
-<option value="GS">South Georgia and the South Sandwich Islands</option>
-<option value="SS">South Sudan</option>
-<option value="ES">Spain</option>
-<option value="LK">Sri Lanka</option>
-<option value="SD">Sudan</option>
-<option value="SR">Suriname</option>
-<option value="SJ">Svalbard and Jan Mayen</option>
-<option value="SE">Sweden</option>
-<option value="CH">Switzerland</option>
-<option value="SY">Syrian Arab Republic</option>
-<option value="TW">Taiwan, Province of China</option>
-<option value="TJ">Tajikistan</option>
-<option value="TZ">Tanzania, United Republic of</option>
-<option value="TH">Thailand</option>
-<option value="TL">Timor-Leste</option>
-<option value="TG">Togo</option>
-<option value="TK">Tokelau</option>
-<option value="TO">Tonga</option>
-<option value="TT">Trinidad and Tobago</option>
-<option value="TN">Tunisia</option>
-<option value="TM">Turkmenistan</option>
-<option value="TC">Turks and Caicos Islands</option>
-<option value="TV">Tuvalu</option>
-<option value="TR">Türkiye</option>
-<option value="UG">Uganda</option>
-<option value="UA">Ukraine</option>
-<option value="AE">United Arab Emirates</option>
-<option value="GB">United Kingdom</option>
-<option value="US">United States</option>
-<option value="UM">United States Minor Outlying Islands</option>
-<option value="UY">Uruguay</option>
-<option value="UZ">Uzbekistan</option>
-<option value="VU">Vanuatu</option>
-<option value="VE">Venezuela, Bolivarian Republic of</option>
-<option value="VN">Viet Nam</option>
-<option value="VG">Virgin Islands, British</option>
-<option value="VI">Virgin Islands, U.S.</option>
-<option value="WF">Wallis and Futuna</option>
-<option value="EH">Western Sahara</option>
-<option value="YE">Yemen</option>
-<option value="ZM">Zambia</option>
-<option value="ZW">Zimbabwe</option>
-<option value="AX">Åland Islands</option></select></div>
-      <div class="field"><label for="signup-phone">Phone number</label><input id="signup-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="24" placeholder="+2348012345678" required></div>
-      <small class="signup-note">Enter your full international phone number, including + and your country calling code. We will send a separate verification code to this number.</small>
-      <div class="auth-remember"><label for="remember-device"><input type="checkbox" id="remember-device" name="remember-device"><span><strong>Remember this device</strong><small>Stay signed in on this browser. Your password is never saved.</small></span></label></div>
-      <button class="button primary full auth-submit" id="signup-start" type="submit">Send verification codes</button>
-      <p id="signup-msg" class="status-line" role="status" aria-live="polite"></p>
-    </form>
-    <div class="auth-switch"><span>Already have a Frnxup account?</span><a href="index.html" id="switch-to-login">Log in</a></div>
-    <div class="auth-security-note"><span class="auth-security-icon" aria-hidden="true">✓</span>Your email and phone must both be verified before password setup.</div>
-  </section>
-  <footer class="auth-footer">© <span id="auth-year">2026</span> Frnxup. Connect. Express. Rise.</footer>
-</main>
-<script src="../js/config.js"></script>
-<script>
-(()=>{'use strict';
- const $=s=>document.querySelector(s), form=$('#signup-start-form'), button=$('#signup-start'), msg=$('#signup-msg');
- const cfg=window.FRNXUP_CONFIG||{}, REMEMBER='frnxup_remember_device';
- $('#auth-year').textContent=new Date().getFullYear();
- const params=new URLSearchParams(location.search), requestedNext=params.get('next')||'/index.html';
- function safeNext(raw){try{const u=new URL(raw,location.origin);if(u.origin!==location.origin||!u.pathname.startsWith('/')||u.pathname.startsWith('/Auth/')||u.pathname.startsWith('/Admin/'))return '/index.html';return u.pathname+u.search+u.hash;}catch{return '/index.html';}}
- const next=safeNext(requestedNext); const login=$('#switch-to-login'); if(login&&params.has('next'))login.href='index.html?next='+encodeURIComponent(next);
- const codeMap={NG:'+234',GH:'+233',KE:'+254',UG:'+256',ZA:'+27',GB:'+44',US:'+1',CA:'+1',IN:'+91',AU:'+61',NZ:'+64',IE:'+353',DE:'+49',FR:'+33',IT:'+39',ES:'+34',NL:'+31',BE:'+32',CH:'+41',SE:'+46',NO:'+47',DK:'+45',FI:'+358',PL:'+48',PT:'+351',AE:'+971',SA:'+966',QA:'+974',EG:'+20',TZ:'+255',RW:'+250',ET:'+251',ZM:'+260',ZW:'+263',CM:'+237',SN:'+221',CI:'+225',SL:'+232',LR:'+231',GM:'+220',JM:'+1',TT:'+1',BR:'+55',MX:'+52',AR:'+54',JP:'+81',CN:'+86',KR:'+82',SG:'+65',MY:'+60',ID:'+62',PH:'+63',PK:'+92',BD:'+880'};
- function normalizePhone(raw,country){let v=String(raw||'').trim().replace(/[\s().-]/g,'');if(v.startsWith('00'))v='+'+v.slice(2);if(!v.startsWith('+')){const prefix=codeMap[country];if(!prefix)throw new Error('Please enter the phone number with its international + country code.');if(v.startsWith('0'))v=v.slice(1);v=prefix+v;}if(!/^\+[1-9]\d{7,14}$/.test(v))throw new Error('Enter a valid international phone number, for example +2348012345678.');return v;}
- function setMessage(text,kind='info'){msg.textContent=text;msg.dataset.kind=kind;}
- async function callFunction(name,body){if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY)throw new Error('Frnxup registration configuration is missing.');const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);try{const response=await fetch(cfg.SUPABASE_URL.replace(/\/$/,'')+'/functions/v1/'+name,{method:'POST',headers:{'Content-Type':'application/json','apikey':cfg.SUPABASE_ANON_KEY,'Authorization':'Bearer '+cfg.SUPABASE_ANON_KEY},body:JSON.stringify(body),signal:ctrl.signal});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'The registration service could not complete this request.');return data;}finally{clearTimeout(timer);}}
- form.addEventListener('submit',async e=>{e.preventDefault();if(button.disabled)return;const username=$('#username').value.trim().replace(/^@/,'').toLowerCase(),email=$('#signup-email').value.trim().toLowerCase(),country=$('#signup-country').value,phoneRaw=$('#signup-phone').value;
-  if(!/^[a-z0-9_]{3,24}$/.test(username)){setMessage('Username must be 3–24 characters using letters, numbers or underscore.','error');$('#username').focus();return;}
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){setMessage('Enter a valid email address.','error');$('#signup-email').focus();return;}
-  if(!country){setMessage('Choose your country.','error');$('#signup-country').focus();return;}
-  let phone;try{phone=normalizePhone(phoneRaw,country);}catch(err){setMessage(err.message,'error');$('#signup-phone').focus();return;}
-  if(navigator.onLine===false){setMessage('You are offline. Connect to the internet and try again.','error');return;}
-  button.disabled=true;button.textContent='Sending verification codes…';setMessage('Sending separate codes to your email and phone…');
-  try{const countryName=$('#signup-country').selectedOptions[0].textContent;const result=await callFunction('signup-start',{username,email,country_code:country,country_name:countryName,phone_e164:phone});
-   sessionStorage.setItem('frnxup_signup_challenge',result.challenge_id);sessionStorage.setItem('frnxup_signup_phone_method',result.phone_method||'SMS');sessionStorage.setItem('frnxup_signup_email',email);sessionStorage.setItem('frnxup_signup_phone',phone);sessionStorage.setItem('frnxup_signup_username',username);sessionStorage.setItem('frnxup_signup_country_code',country);sessionStorage.setItem('frnxup_signup_country_name',countryName);sessionStorage.setItem('frnxup_signup_next',next);sessionStorage.setItem('frnxup_signup_remember',$('#remember-device').checked?'1':'0');
-   try{localStorage.setItem(REMEMBER,$('#remember-device').checked?'1':'0');}catch{}
-   location.href='/Auth/verify-signup.html';
-  }catch(err){setMessage(err.name==='AbortError'?'The verification request timed out. Check your connection and try again.':err.message,'error');button.disabled=false;button.textContent='Send verification codes';}
- });
-})();
-</script>
-</body></html>
+  <main class="auth-layout">
+    <a class="auth-brand" href="/Auth/index.html" aria-label="Frnxup sign up">
+      <img src="../Asset/frnxup-mark.svg" alt="Frnxup logo">
+      <span class="auth-brand-name">Frnxup</span>
+      <span class="auth-brand-tagline">CONNECT. EXPRESS. RISE.</span>
+    </a>
+
+    <div class="card auth-card">
+      <div class="auth-heading">
+        <span class="auth-eyebrow">JOIN THE COMMUNITY</span>
+        <h1>Create your account</h1>
+        <p>Set up your Frnxup account to connect, express and rise.</p>
+      </div>
+
+      <form id="signup-form" method="post" action="/Auth/signup.html" novalidate autocomplete="on">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" enterkeyhint="next" placeholder="letters, numbers and underscore" maxlength="24" required>
+        </div>
+        <div class="field">
+          <label for="signup-email">Email address</label>
+          <input id="signup-email" name="email" type="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" enterkeyhint="next" maxlength="254" placeholder="you@example.com" required>
+        </div>
+        <div class="field">
+          <label for="new-password">Password</label>
+          <input type="password" id="new-password" name="password" autocomplete="new-password" minlength="8" enterkeyhint="done" placeholder="At least 8 characters" required>
+        </div>
+        <small class="auth-hint">Use a unique password with at least 8 characters. Keep your login details private.</small>
+        <div class="auth-remember">
+          <label for="remember-device">
+            <input type="checkbox" id="remember-device" name="remember-device">
+            <span><strong>Remember this device</strong><small>Stay signed in on this browser. Your password is never saved.</small></span>
+          </label>
+        </div>
+        <button class="button primary full auth-submit" id="signup" type="submit" disabled aria-busy="true">Preparing registration…</button>
+        <p id="signup-msg" class="status-line" role="status" aria-live="polite" aria-atomic="true">Preparing secure registration…</p>
+        <button class="button secondary full" id="signup-retry" type="button" hidden>Retry loading registration</button>
+      </form>
+
+      <div class="auth-switch">
+        <span>Already have a Frnxup account?</span>
+        <a id="switch-to-login" href="index.html">Log in</a>
+      </div>
+      <div class="auth-security-note">
+        <span class="auth-security-icon" aria-hidden="true">✓</span>
+        Your account is protected by secure sign-in and session checks.
+      </div>
+    </div>
+
+    <footer class="auth-footer">© <span id="auth-year">2026</span> Frnxup. Connect. Express. Rise.</footer>
+  </main>
+
+  <div class="toast" id="fx-toast"></div>
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (selector) => document.querySelector(selector);
+      const form = $('#signup-form');
+      const button = $('#signup');
+      const status = $('#signup-msg');
+      const retryButton = $('#signup-retry');
+      const stateHost = document.createElement('div');
+      stateHost.id = 'signup-animated-state';
+      stateHost.className = 'signup-animated-state';
+      stateHost.hidden = true;
+      stateHost.setAttribute('role', 'status');
+      stateHost.setAttribute('aria-live', 'polite');
+      status?.insertAdjacentElement('afterend', stateHost);
+      const rememberCheckbox = $('#remember-device');
+      const year = $('#auth-year');
+      const ASSET_VERSION = 'frnxup-signup-20261122-r7';
+      const REMEMBER_DEVICE_KEY = 'frnxup_remember_device';
+      const loaded = Object.create(null);
+      let signupClient = null;
+      let initializing = false;
+      let handlerReady = false;
+      let pendingSignupRequest = null;
+
+      if (year) year.textContent = new Date().getFullYear();
+
+      const setMessage = (message, kind = 'info') => {
+        if (!status) return;
+        status.textContent = message;
+        status.dataset.kind = kind;
+        const lower = String(message || '').toLowerCase();
+        let state = '';
+        if (kind === 'success') state = 'success';
+        else if (kind === 'info' && /(connecting|creating your|preparing registration|still connecting)/.test(lower)) state = 'loading';
+        else if (kind === 'error' && /(offline|no internet)/.test(lower)) state = 'offline';
+        else if (kind === 'error' && /(timeout|taking too long|not received a response)/.test(lower)) state = 'slow';
+        else if (kind === 'error' && /(configuration|not configured|missing or incomplete)/.test(lower)) state = 'configuration';
+        else if (kind === 'error' && /(network|connection|could not connect|unavailable|failed to fetch|service could not connect)/.test(lower)) state = 'connection';
+        const types = { loading: ['loading.gif','Preparing your secure account connection'], offline: ['offline.gif','Your device is offline'], slow: ['slow.gif','The registration request timed out'], configuration: ['server.gif','Registration service configuration problem'], connection: ['connection.gif','A connection problem interrupted registration'], success: ['success.gif','Registration status'] };
+        const definition = types[state];
+        if (!definition || !stateHost) {
+          if (stateHost) { stateHost.hidden = true; stateHost.replaceChildren(); }
+          status.hidden = false;
+          return;
+        }
+        const reducedMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const image = document.createElement('img');
+        image.className = 'fx-state-gif';
+        image.width = 64; image.height = 64; image.alt = '';
+        image.src = `../Asset/States/${reducedMotion ? definition[0].replace('.gif','.png') : definition[0]}`;
+        const copy = document.createElement('div'); copy.className = 'fx-state-copy';
+        const title = document.createElement('b'); title.textContent = definition[1];
+        const detail = document.createElement('span'); detail.textContent = message;
+        copy.append(title, detail);
+        const card = document.createElement('section'); card.className = 'fx-state-card is-inline'; card.setAttribute('aria-live','polite'); card.append(image,copy);
+        stateHost.replaceChildren(card); stateHost.hidden = false; status.hidden = true;
+      };
+
+      const setRememberChoice = () => {
+        try {
+          localStorage.setItem(REMEMBER_DEVICE_KEY, rememberCheckbox?.checked ? '1' : '0');
+        } catch (_) {
+          // Session storage remains available as a fallback when local storage is blocked.
+        }
+      };
+
+      const getStore = (name) => {
+        try { return window[name] || null; } catch (_) { return null; }
+      };
+      const safeGet = (storage, key) => {
+        try { return storage ? storage.getItem(key) : null; } catch (_) { return null; }
+      };
+
+      // Match the storage adapter used by Frnxup's main Supabase client:
+      // remembered sessions live in localStorage; ordinary sessions in sessionStorage.
+      const authStorage = {
+        getItem(key) {
+          const local = getStore('localStorage');
+          const session = getStore('sessionStorage');
+          const choice = safeGet(local, REMEMBER_DEVICE_KEY);
+          if (choice === '1') return safeGet(local, key);
+          if (choice === '0') return safeGet(session, key);
+          const legacy = safeGet(local, key);
+          return legacy !== null ? legacy : safeGet(session, key);
+        },
+        setItem(key, value) {
+          const local = getStore('localStorage');
+          const session = getStore('sessionStorage');
+          const remember = safeGet(local, REMEMBER_DEVICE_KEY) === '1';
+          const target = remember ? local : session;
+          const other = remember ? session : local;
+          try { target?.setItem(key, value); } catch (_) {
+            try { session?.setItem(key, value); } catch (_) {}
+          }
+          try { other?.removeItem(key); } catch (_) {}
+        },
+        removeItem(key) {
+          try { getStore('localStorage')?.removeItem(key); } catch (_) {}
+          try { getStore('sessionStorage')?.removeItem(key); } catch (_) {}
+        }
+      };
+
+      const loadScript = (source, key, timeoutMs = 30000) => {
+        if (loaded[key]) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          let settled = false;
+          const timer = window.setTimeout(() => finish(new Error('Timed out while loading ' + key + '.')), timeoutMs);
+          const finish = (error) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            script.onload = null;
+            script.onerror = null;
+            if (error) {
+              script.remove();
+              reject(error);
+            } else {
+              loaded[key] = true;
+              resolve();
+            }
+          };
+          script.async = false;
+          script.src = source;
+          script.onload = () => finish();
+          script.onerror = () => finish(new Error('Could not download ' + key + '.'));
+          document.head.appendChild(script);
+        });
+      };
+
+      async function loadSupabaseSdk() {
+        if (window.supabase && typeof window.supabase.createClient === 'function') return;
+        const cdnUrls = [
+          'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js',
+          'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'
+        ];
+        let lastError = null;
+        for (let i = 0; i < cdnUrls.length; i += 1) {
+          try {
+            const url = new URL(cdnUrls[i]);
+            url.searchParams.set('fxv', ASSET_VERSION);
+            await loadScript(url.toString(), 'supabase-sdk-' + i, 35000);
+            if (window.supabase && typeof window.supabase.createClient === 'function') return;
+            throw new Error('The Supabase browser library did not expose createClient.');
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error('The Supabase browser library could not be loaded.');
+      }
+
+      function makeNextPath() {
+        const requested = new URLSearchParams(location.search).get('next');
+        const raw = requested || '/index.html';
+        try {
+          const target = new URL(raw, location.origin);
+          if (target.origin !== location.origin || !target.pathname.startsWith('/')) return '/index.html';
+          if (target.pathname === '/Auth/index.html' || target.pathname.startsWith('/Auth/')) return '/index.html';
+          if (target.pathname.startsWith('/Admin/')) return '/index.html';
+          return target.pathname + target.search + target.hash;
+        } catch (_) { return '/index.html'; }
+      }
+
+      function carryNextToLogin() {
+        const requested = new URLSearchParams(location.search).get('next');
+        const link = $('#switch-to-login');
+        if (!requested || !link) return;
+        try {
+          const target = new URL(link.getAttribute('href'), location.href);
+          target.searchParams.set('next', requested);
+          link.href = target.pathname + target.search + target.hash;
+        } catch (_) {}
+      }
+
+      function readableSignupError(error) {
+        const message = String(error?.message || error || '').trim();
+        const lower = `${error?.code || ''} ${message}`.toLowerCase();
+        if (lower.includes('frnxup registration is temporarily disabled') || lower.includes('registration is temporarily disabled')) {
+          return 'New account registration is temporarily disabled by Frnxup administrators.';
+        }
+        if (lower.includes('user already registered') || lower.includes('already been registered') || lower.includes('email_exists')) {
+          return 'This email may already have a Frnxup account. Try logging in or use Forgot password.';
+        }
+        if (lower.includes('username') && (lower.includes('duplicate') || lower.includes('already') || lower.includes('unique'))) {
+          return 'That username may already be taken. Please choose another username.';
+        }
+        if (lower.includes('password') && (lower.includes('weak') || lower.includes('short') || lower.includes('at least'))) {
+          return 'Please choose a stronger password that meets the password requirements.';
+        }
+        if (lower.includes('invalid email') || lower.includes('email address')) {
+          return 'Please check that your email address is valid.';
+        }
+        if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('email_send_rate_limit')) {
+          return 'Too many registration or confirmation emails were requested. Please wait a little and try again.';
+        }
+        if (lower.includes('failed to fetch') || lower.includes('network') || lower.includes('load failed') || lower.includes('connection')) {
+          return 'A network problem interrupted registration. Your entries are still here. Check your connection and try again.';
+        }
+        if (lower.includes('database error saving new user') || lower.includes('error creating user') || lower.includes('trigger')) {
+          return 'Frnxup could not finish creating your member profile. Please try again later. If this continues, contact Frnxup support.';
+        }
+        return message ? message.slice(0, 240) : 'Unable to create your account. Your entries are still here; please try again.';
+      }
+
+      function attachSignupHandler() {
+        if (handlerReady || !form || !signupClient?.auth?.signUp) return;
+        handlerReady = true;
+        window.__FRNXUP_SIGNUP_HANDLER_READY = true;
+
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (pendingSignupRequest) {
+            setMessage('Your previous registration is still processing. Please check your email or try logging in before submitting again.', 'info');
+            return;
+          }
+
+          const usernameField = $('#username');
+          const emailField = $('#signup-email');
+          const passwordField = $('#new-password');
+          const username = (usernameField?.value || '').trim().replace(/^@/, '').toLowerCase();
+          const email = (emailField?.value || '').trim().toLowerCase();
+          const password = passwordField?.value || '';
+
+          if (!/^[a-z0-9_]{3,24}$/.test(username)) {
+            setMessage('Username must be 3–24 characters using letters, numbers or underscore.', 'error');
+            usernameField?.focus();
+            return;
+          }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 254) {
+            setMessage('Enter a valid email address.', 'error');
+            emailField?.focus();
+            return;
+          }
+          if (password.length < 8) {
+            setMessage('Password must contain at least 8 characters.', 'error');
+            passwordField?.focus();
+            return;
+          }
+          if (navigator.onLine === false) {
+            setMessage('Your device appears to be offline. Connect to the internet and try again. Your entries will remain here.', 'error');
+            return;
+          }
+
+          setRememberChoice();
+          const originalLabel = button?.textContent || 'Create account';
+          if (button) {
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.textContent = 'Creating account…';
+          }
+          setMessage('Creating your Frnxup account…', 'info');
+
+          let timeoutId = null;
+          try {
+            const confirmationUrl = new URL('/Auth/confirmed.html', location.origin);
+            confirmationUrl.searchParams.set('next', makeNextPath());
+            const request = signupClient.auth.signUp({
+              email,
+              password,
+              options: {
+                emailRedirectTo: confirmationUrl.toString(),
+                data: { username }
+              }
+            });
+            pendingSignupRequest = request;
+            request.then(() => {
+              if (pendingSignupRequest === request) pendingSignupRequest = null;
+            }, () => {
+              if (pendingSignupRequest === request) pendingSignupRequest = null;
+            });
+
+            const outcome = await Promise.race([
+              request.then(value => ({ value }), error => ({ error })),
+              new Promise(resolve => { timeoutId = window.setTimeout(() => resolve({ timedOut: true }), 30000); })
+            ]);
+            if (outcome.timedOut) {
+              throw new Error('Frnxup has not received a response yet. Your details are still here. Check your email or try logging in before submitting again.');
+            }
+            if (outcome.error) throw outcome.error;
+            const { data, error } = outcome.value || {};
+            if (error) throw error;
+            if (!data?.user) throw new Error('Frnxup did not return a new account record. Please try again.');
+            if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+              setMessage('This email may already have a Frnxup account. Try logging in or use Forgot password.', 'error');
+              return;
+            }
+            if (data.session) {
+              setMessage('Your account is ready. Opening Frnxup…', 'success');
+              location.replace(makeNextPath());
+              return;
+            }
+            setMessage(`Account created. Check ${email} for the confirmation email, then return here to log in.`, 'success');
+          } catch (error) {
+            setMessage(readableSignupError(error), 'error');
+          } finally {
+            if (timeoutId) window.clearTimeout(timeoutId);
+            if (button) {
+              button.disabled = false;
+              button.removeAttribute('aria-busy');
+              button.textContent = originalLabel;
+            }
+          }
+        });
+
+        if (button) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          button.textContent = 'Create account';
+        }
+        setMessage('Secure registration is ready.', 'success');
+        window.setTimeout(() => {
+          if (status?.textContent === 'Secure registration is ready.') setMessage('');
+        }, 1800);
+      }
+
+      async function initializeRegistration() {
+        if (initializing || handlerReady) return;
+        initializing = true;
+        if (button) {
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+          button.textContent = 'Preparing registration…';
+        }
+        if (retryButton) retryButton.hidden = true;
+        setMessage('Connecting to Frnxup account services…', 'info');
+
+        try {
+          await loadSupabaseSdk();
+
+          if (!window.FRNXUP_CONFIG) {
+            const configUrl = new URL('../js/config.js', document.baseURI);
+            configUrl.searchParams.set('v', ASSET_VERSION);
+            await loadScript(configUrl.toString(), 'frnxup-config', 20000);
+          }
+          const config = window.FRNXUP_CONFIG || {};
+          if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
+            throw new Error('Frnxup public configuration is missing or incomplete.');
+          }
+
+          if (!signupClient) {
+            signupClient = window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, {
+              auth: {
+                storage: authStorage,
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true
+              }
+            });
+          }
+          if (!signupClient?.auth?.signUp) throw new Error('The account service did not initialize correctly.');
+
+          // Keep the user's remember-device selection in sync with the main app.
+          const savedChoice = safeGet(getStore('localStorage'), REMEMBER_DEVICE_KEY);
+          if (rememberCheckbox && savedChoice !== null) rememberCheckbox.checked = savedChoice === '1';
+          carryNextToLogin();
+          attachSignupHandler();
+
+          // Already-authenticated users should go straight into the site.
+          signupClient.auth.getSession().then(({ data, error }) => {
+            if (!error && data?.session?.user) location.replace(makeNextPath());
+          }).catch(() => {});
+        } catch (error) {
+          console.error('[Frnxup registration initialization]', error);
+          setMessage('Frnxup account services could not connect. Please check your internet connection and tap Retry. Your entries are safe.', 'error');
+          if (button) {
+            button.disabled = true;
+            button.removeAttribute('aria-busy');
+            button.textContent = 'Create account';
+          }
+          if (retryButton) retryButton.hidden = false;
+        } finally {
+          initializing = false;
+        }
+      }
+
+      // Never allow the browser to submit the form and reload the page while
+      // the secure registration handler is still being initialized.
+      form?.addEventListener('submit', (event) => {
+        if (handlerReady) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setMessage('Registration is still connecting. Please wait a moment or tap Retry. Your entries are safe.', 'info');
+        initializeRegistration();
+      }, true);
+
+      retryButton?.addEventListener('click', initializeRegistration);
+      window.addEventListener('online', () => {
+        if (!handlerReady) initializeRegistration();
+      });
+      rememberCheckbox?.addEventListener('change', setRememberChoice);
+      carryNextToLogin();
+      initializeRegistration();
+    })();
+  </script>
+</body>
+</html>
