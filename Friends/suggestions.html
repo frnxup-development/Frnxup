@@ -1,3 +1,56 @@
 <!doctype html>
-<html lang="en"><head><script src="../js/theme.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Find friends · Frnxup</title><link rel="stylesheet" href="../Css/app.css"></head>
-<body data-friends-view="suggestions"><div data-frnxup-shell></div><main class="page fx-friends-page"><a class="fx-back-link" href="index.html">‹ Friends</a><div class="page-heading"><div><span class="eyebrow">DISCOVER PEOPLE</span><h1>Find friends</h1><p>Search by name or username and explore suggestions.</p></div></div><div class="card fx-friends-list-card"><div class="searchbar"><input id="people-search" placeholder="Search username or display name" autocomplete="off"><button class="button primary" id="search-people">Search</button></div><div id="people-results" class="fx-people-results" style="margin-top:16px"><div class="empty">Start by searching for a name or username.</div></div></div></main><div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../js/config.js"></script><script src="../js/core.js"></script><script src="../js/layout.js"></script><script src="../js/friends.js"></script></body></html>
+<html lang="en">
+<head>
+  <script src="../js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f8ff">
+  <title>Find friends · Frnxup</title>
+  <link rel="stylesheet" href="../Css/app.css">
+  <link rel="stylesheet" href="../Css/friends-suggestions.css?v=20261124-discovery-v1">
+</head>
+<body data-friends-view="suggestions">
+  <div data-frnxup-shell></div>
+  <main class="page fx-discover-page">
+    <a class="fx-back-link" href="index.html">‹ Friends</a>
+
+    <header class="fx-discover-heading">
+      <div>
+        <span class="eyebrow">DISCOVER PEOPLE</span>
+        <h1>Find friends</h1>
+        <p>Meet people on Frnxup and grow your circle.</p>
+      </div>
+    </header>
+
+    <section class="card fx-discover-search" aria-label="Search Frnxup members">
+      <label class="fx-search-label" for="people-search">Search by name or username</label>
+      <div class="fx-search-row">
+        <input id="people-search" type="search" placeholder="Enter a name or username" autocomplete="off" spellcheck="false">
+        <button class="button primary" id="search-people" type="button">Search</button>
+      </div>
+      <p class="fx-search-hint">You can also browse people you may know below.</p>
+    </section>
+
+    <section class="fx-people-section" aria-labelledby="people-section-title">
+      <div class="fx-people-section-heading">
+        <div>
+          <span class="eyebrow">GROW YOUR CIRCLE</span>
+          <h2 id="people-section-title">People you may know</h2>
+          <p id="people-section-note">Discover active Frnxup members and send a friend request.</p>
+        </div>
+        <span class="fx-people-count" id="people-count" aria-live="polite"></span>
+      </div>
+      <div id="people-results" class="fx-people-grid" aria-live="polite">
+        <div class="empty">Loading people you may know…</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="fx-toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/core.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/friends.js?v=20261124-discovery-v1"></script>
+</body>
+</html>
