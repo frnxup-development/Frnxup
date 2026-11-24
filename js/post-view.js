@@ -33,13 +33,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       ${post.body ? `<div class="post-text">${FX.esc(post.body)}</div>` : ''}
       ${gallery}
       ${post.location_label ? `<small class="muted">⌖ ${FX.esc(post.location_label)}</small>` : ''}
-      <div class="post-actions">${FX.user ? `<button id="like-post" class="${mine ? 'active' : ''}">♡ ${post.post_reactions?.length || 0} Like</button><button id="bookmark-post">▣ Save</button>` : `<a class="small" href="/Auth/index.html?next=${encodeURIComponent(location.pathname + location.search)}">Log in to react or save</a>`}<button id="share-post">↗ Share</button></div>
+      <div class="post-actions">${FX.user ? `<button id="like-post" class="${mine ? 'active' : ''}">♡ ${post.post_reactions?.length || 0} Like</button><button id="bookmark-post">▣ Save</button>` : `<a class="small" href="/Auth/index.html?next=${encodeURIComponent(location.pathname + location.search)}">Log in to react or save</a>`}<button id="open-post-comments" type="button" aria-haspopup="dialog">💬 Comments</button><button id="share-post">↗ Share</button></div>
     </article>`;
     FXStates.loaded(postHost);
     if (FX.user) $('#like-post').onclick = async () => {
       const { error: reactionError } = await FX.client.from('post_reactions').insert({ post_id: postId, user_id: FX.user.id, reaction: 'like' });
       if (reactionError && reactionError.code !== '23505') FX.toast(reactionError.message);
       loadPost();
+    };
+    $('#open-post-comments').onclick = () => {
+      if (!window.FrnxupComments) return FX.toast('Comments are unavailable. Refresh and try again.');
+      window.FrnxupComments.openModal({ type: 'post', contextId: postId, title: 'Comments' });
     };
     $('#share-post').onclick = async () => {
       const url = location.href;
@@ -58,9 +62,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   await loadPost();
-  const commentsHost = $('#fx-post-comments');
-  if (commentsHost && window.FrnxupComments) {
-    window.FrnxupComments.mount(commentsHost, { type: 'post', contextId: postId, title: 'Comments' })
-      .catch(error => { commentsHost.textContent = error.message || 'Comments could not be loaded.'; });
+  // Backward-compatible direct links can open a comments-only sheet using
+  // /Posts/view.html?id=<post-id>&comments=1. The post remains outside the sheet.
+  if (new URLSearchParams(location.search).get('comments') === '1' &&
+      $('#post-detail')?.dataset.fxHasContent === 'true' && window.FrnxupComments) {
+    window.FrnxupComments.openModal({ type: 'post', contextId: postId, title: 'Comments' });
   }
 });

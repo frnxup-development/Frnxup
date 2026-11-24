@@ -81,9 +81,18 @@
     </section>`;
   }
 
-  async function mount(root, config) {
+  async function mount(root, config = {}) {
+    // The comments component receives discussion identifiers only. It never
+    // receives or queries the parent post body, photos, video or Reel metadata.
+    config = {
+      type: config.type,
+      contextId: config.contextId || config.id,
+      title: config.title,
+      scrollToLatest: config.scrollToLatest,
+      onCountChange: typeof config.onCountChange === 'function' ? config.onCountChange : null
+    };
     const contextType = String(config.type || 'post').toLowerCase();
-    const contextId = String(config.contextId || config.id || '');
+    const contextId = String(config.contextId || '');
     if (!ALLOWED_CONTEXTS.has(contextType) || !contextId) throw new Error('A valid Frnxup comment context is required.');
     root.innerHTML = shellMarkup(config.title || (contextType === 'reel' ? 'Reel comments' : contextType === 'room' ? 'Room comments' : contextType === 'group' ? 'Group comments' : 'Comments'));
     const list = $('[data-fx-comment-list]', root);
@@ -632,12 +641,21 @@
     return {refresh:async()=>{invalidateCache();rows=[];rootOffset=0;rootHasMore=true;replyCounts.clear();replyPages.clear();reactions.clear();return loadInitial();},dispose(){disposed=true;form.removeEventListener('submit',submit);lazyMediaObserver?.disconnect();if(voiceRecorder?.state==='recording')stopVoiceRecording(true);else stopVoiceTracks();if(voiceTimer)clearInterval(voiceTimer);}};
   }
 
-  function openModal(config) {
+  function openModal(config = {}) {
     closeModal();
+    // Whitelist the only data the comments panel is allowed to receive.
+    // Parent-post text/media/author fields are deliberately discarded.
+    const discussionConfig = {
+      type: config.type,
+      contextId: config.contextId || config.id,
+      title: config.title,
+      scrollToLatest: config.scrollToLatest,
+      onCountChange: typeof config.onCountChange === 'function' ? config.onCountChange : null
+    };
     const modal=document.createElement('div');modal.className='fx-unified-comments-modal';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.innerHTML=`<button class="fx-unified-comments-backdrop" type="button" data-fx-modal-close aria-label="Close comments"></button><div class="fx-unified-comments-panel"><div class="fx-unified-modal-top"><span></span><button type="button" data-fx-modal-close aria-label="Close comments">×</button></div><div data-fx-modal-content></div></div>`;
     document.body.appendChild(modal);document.body.classList.add('fx-comments-open');activeModal=modal;
     modal.querySelectorAll('[data-fx-modal-close]').forEach(button=>button.addEventListener('click',closeModal));
-    mount($('[data-fx-modal-content]',modal),config).then(instance=>{if(!modal.isConnected)instance.dispose();else modal._dispose=instance.dispose;}).catch(error=>{const host=$('[data-fx-modal-content]',modal);if(host.isConnected)host.innerHTML=`<div class="fx-unified-empty">${esc(error.message||'Comments could not be loaded.')}</div>`;});
+    mount($('[data-fx-modal-content]',modal),discussionConfig).then(instance=>{if(!modal.isConnected)instance.dispose();else modal._dispose=instance.dispose;}).catch(error=>{const host=$('[data-fx-modal-content]',modal);if(host.isConnected)host.innerHTML=`<div class="fx-unified-empty">${esc(error.message||'Comments could not be loaded.')}</div>`;});
     const closeOnEscape=event=>{if(event.key==='Escape')closeModal();};modal._closeOnEscape=closeOnEscape;document.addEventListener('keydown',closeOnEscape);
     return modal;
   }
