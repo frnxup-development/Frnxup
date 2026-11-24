@@ -1,0 +1,18 @@
+/* Restore a visible, always-available Reels entry on Home. */
+.fx-reels-entry-card{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  width:100%;margin:12px 0 16px;padding:15px 17px;border:1px solid var(--line);
+  border-radius:15px;background:linear-gradient(115deg,var(--surface),var(--surface-2));
+  box-shadow:0 4px 16px rgba(20,35,55,.07);min-width:0
+}
+.fx-reels-entry-copy{display:flex;align-items:center;gap:12px;min-width:0}
+.fx-reels-entry-mark{flex:0 0 44px;width:44px;height:44px;display:grid;place-items:center;
+  border-radius:13px;background:linear-gradient(135deg,#2478ec,#13a98a);color:white;
+  font-size:19px;font-weight:900;box-shadow:0 5px 14px rgba(25,123,190,.2)}
+.fx-reels-entry-copy strong{display:block;color:var(--text);font:800 15px Manrope,system-ui,sans-serif}
+.fx-reels-entry-copy p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.45}
+.fx-reels-entry-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.fx-reels-entry-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:99px;text-decoration:none;font-size:12px;font-weight:900;white-space:nowrap}
+.fx-reels-watch-link{background:var(--surface);border:1px solid var(--line);color:var(--text)}
+.fx-reels-create-link{background:linear-gradient(120deg,#287cf0,#13a987);color:#fff;box-shadow:0 5px 15px rgba(23,132,177,.18)}
+@media(max-width:520px){.fx-reels-entry-card{align-items:stretch;flex-direction:column;gap:12px;margin:10px 10px 14px;width:calc(100% - 20px)}.fx-reels-entry-actions{display:grid;grid-template-columns:1fr 1fr}.fx-reels-entry-actions a{width:100%;padding:0 8px}}

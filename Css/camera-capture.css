@@ -1,20 +1,23 @@
-/* Native fullscreen-style camera surface, optimized for mobile portrait capture. */
-.fx-camera-layer{position:fixed;z-index:10000;inset:0;display:none;grid-template-rows:auto minmax(0,1fr) auto auto auto;background:#05070b;color:#fff;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);overflow:hidden;isolation:isolate}
+/* Full-screen Frnxup front/back camera surface, optimized for mobile portrait capture. */
+.fx-camera-layer{position:fixed;z-index:10000;inset:0;display:none;grid-template-rows:auto minmax(0,1fr) auto auto;background:#05070b;color:#fff;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);overflow:hidden;isolation:isolate}
 .fx-camera-layer.open{display:grid}
 body.fx-camera-open{overflow:hidden!important;touch-action:none}
-.fx-camera-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;min-height:56px;background:linear-gradient(#10141c,#05070b)}
-.fx-camera-top b{font:800 16px Manrope,sans-serif;letter-spacing:.01em}
-.fx-camera-top button{width:42px;height:42px;border:1px solid #ffffff30;border-radius:50%;background:#ffffff12;color:#fff;font-size:26px;display:grid;place-items:center}
+.fx-camera-top{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:9px 10px;min-height:58px;background:linear-gradient(#10141c,#05070b)}
+.fx-camera-top>b{flex:1;min-width:0;text-align:center;font:800 14px Manrope,system-ui,sans-serif;letter-spacing:.01em}
+.fx-camera-top>button{width:38px;height:38px;flex:0 0 38px;border:1px solid #ffffff30;border-radius:50%;background:#ffffff12;color:#fff;font-size:24px;display:grid;place-items:center}
+.fx-camera-facing{display:flex;gap:4px;align-items:center;flex:0 0 auto}
+.fx-camera-facing button{min-width:44px;height:34px;padding:0 8px;border:1px solid #ffffff35;border-radius:99px;background:#ffffff12;color:#e9f0fa;font-size:11px;font-weight:900}
+.fx-camera-facing button.is-active{background:#fff;color:#111a26;border-color:#fff}
+.fx-camera-facing button:disabled,.fx-camera-top>button:disabled{opacity:.45}
 .fx-camera-stage{position:relative;min-height:0;display:grid;place-items:center;background:#000;overflow:hidden}
-.fx-camera-live,.fx-camera-preview,.fx-camera-file-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
-.fx-camera-preview{object-fit:contain}
+.fx-camera-live,.fx-camera-file-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
 .fx-camera-hint{position:absolute;left:20px;right:20px;bottom:18px;padding:10px;border-radius:10px;background:#0009;color:#fff;text-align:center;font-size:13px}
 .fx-camera-rec-dot{position:absolute;z-index:2;top:15px;left:15px;padding:7px 10px;border-radius:99px;background:#a11d32;color:#fff;font-size:12px;font-weight:900}
 .fx-camera-rec-dot[hidden]{display:none}
-.fx-camera-message{min-height:34px;padding:7px 14px;background:#080b11;color:#c8d2df;text-align:center;font-size:12px}
-.fx-camera-controls{display:flex;align-items:center;justify-content:space-around;gap:16px;padding:14px 16px 22px;background:#080b11}
+.fx-camera-message{min-height:38px;padding:8px 12px;background:#080b11;color:#c8d2df;text-align:center;font-size:12px;line-height:1.4}
+.fx-camera-controls{display:flex;align-items:center;justify-content:space-around;gap:12px;padding:13px 14px 22px;background:#080b11}
 .fx-camera-controls[hidden],.fx-camera-preview-actions[hidden]{display:none}
-.fx-camera-controls button{border:0;background:transparent;color:#fff;display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;font-weight:800;min-width:74px}
+.fx-camera-controls button{border:0;background:transparent;color:#fff;display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;font-weight:800;min-width:68px}
 .fx-camera-controls button span{font-size:12px}
 .fx-camera-shutter{width:68px!important;height:68px;border:4px solid #fff!important;border-radius:50%;min-width:68px!important}
 .fx-camera-shutter span{width:48px;height:48px;border-radius:50%;background:#fff;display:block}
@@ -28,4 +31,5 @@ body.fx-camera-open{overflow:hidden!important;touch-action:none}
 .fx-camera-preview-actions [data-camera-use]{background:linear-gradient(120deg,#287cf0,#13a987);color:#fff}
 .fx-camera-file{display:none}
 @media(min-width:760px){.fx-camera-layer{padding:0}.fx-camera-stage{width:min(100%,560px);justify-self:center}.fx-camera-top,.fx-camera-controls,.fx-camera-preview-actions,.fx-camera-message{width:min(100%,560px);justify-self:center}.fx-camera-top{margin-top:0}.fx-camera-controls{padding-bottom:20px}}
-@media(orientation:landscape) and (max-height:540px){.fx-camera-top{min-height:42px;padding:5px 12px}.fx-camera-top button{width:34px;height:34px}.fx-camera-controls{padding:6px 12px}.fx-camera-shutter{width:54px!important;height:54px}.fx-camera-shutter span{width:36px;height:36px}}
+@media(max-width:380px){.fx-camera-top{gap:4px;padding-left:7px;padding-right:7px}.fx-camera-top>b{font-size:12px}.fx-camera-facing button{min-width:39px;padding:0 6px;font-size:10px}.fx-camera-top>button{width:34px;height:34px;flex-basis:34px}}
+@media(orientation:landscape) and (max-height:540px){.fx-camera-top{min-height:42px;padding:5px 8px}.fx-camera-top>button{width:32px;height:32px;flex-basis:32px}.fx-camera-facing button{height:28px}.fx-camera-controls{padding:6px 12px}.fx-camera-shutter{width:54px!important;height:54px}.fx-camera-shutter span{width:36px;height:36px}}
