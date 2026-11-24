@@ -16,6 +16,7 @@
   let observer = null;
   let previewObjectUrl = null;
   const viewedThisSession = new Set();
+  let createRequested = new URLSearchParams(location.search).get('create') === '1';
 
   function showLoading() {
     feed.innerHTML = '<div class="fx-reels-loading"><span class="fx-reels-spinner"></span><b>Loading Reels</b><small>Finding videos from your Frnxup community.</small></div>';
@@ -63,6 +64,16 @@
         const next = `${location.pathname}${location.search}`;
         location.replace(`/Auth/index.html?next=${encodeURIComponent(next)}`);
         return;
+      }
+
+      // The second-header Create Reel shortcut opens the upload dialog directly.
+      // Consume the flag once so refreshing or reloading the feed does not reopen it.
+      if (createRequested) {
+        createRequested = false;
+        openUpload();
+        const cleanUrl = new URL(location.href);
+        cleanUrl.searchParams.delete('create');
+        history.replaceState(history.state, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
       }
 
       // Public videos from member profiles and active Frnxup Pages. RLS still
