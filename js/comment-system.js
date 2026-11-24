@@ -42,29 +42,31 @@
     if (type === 'image/gif' || /\.gif$/i.test(name)) return 'gif';
     if (type.startsWith('image/')) return 'image';
     if (type.startsWith('video/')) return 'video';
+    if (type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|oga|opus|webm)$/i.test(name)) return 'audio';
     if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|odt|ods|odp)$/i.test(name)) return 'document';
-    throw new Error('Choose an image, GIF, video or supported document.');
+    throw new Error('Choose an image, GIF, video, voice note or supported document.');
   }
 
   function shellMarkup(title) {
     return `<section class="fx-unified-comments" aria-label="${esc(title)}">
-      <header class="fx-unified-comments-head"><div><h2>${esc(title)}</h2><small data-fx-comment-count>Loading discussion…</small></div><label class="fx-unified-sort">Oldest first</label></header>
+      <header class="fx-unified-comments-head"><div><h2>${esc(title)}</h2><small data-fx-comment-count>Loading comments…</small></div><label class="fx-unified-sort">Discussion</label></header>
       <div class="fx-unified-thread" data-fx-comment-list><div class="fx-unified-empty">Loading comments…</div></div>
       <form class="fx-unified-composer" data-fx-comment-form>
         <div class="fx-unified-reply-context" data-fx-reply-context hidden></div>
         <div class="fx-unified-mention-suggestions" data-fx-mention-suggestions hidden></div>
         <div class="fx-unified-compose-top"><textarea data-fx-comment-input maxlength="2000" rows="2" placeholder="Write a comment… use @ to mention someone" aria-label="Write a comment"></textarea><button class="fx-unified-send" type="submit" aria-label="Post comment">➤</button></div>
         <div class="fx-unified-compose-tools">
-          <button type="button" data-fx-pick="image">▧ Photo</button><button type="button" data-fx-pick="gif">GIF</button><button type="button" data-fx-pick="video">▶ Video</button><button type="button" data-fx-pick="document">▤ Document</button><button type="button" data-fx-contact>▣ Contact</button>
-          <span class="fx-unified-tools-spacer"></span><small>Replies · media · mentions</small>
+          <button type="button" data-fx-pick="image">▧ Photo</button><button type="button" data-fx-pick="gif">GIF</button><button type="button" data-fx-pick="video">▶ Video</button><button type="button" data-fx-record-voice>🎙 Voice note</button><button type="button" data-fx-pick="audio">♫ Audio</button><button type="button" data-fx-pick="document">▤ Document</button><button type="button" data-fx-contact>▣ Share contact</button>
         </div>
+        <div class="fx-unified-voice-status" data-fx-voice-status hidden aria-live="polite"><span class="fx-unified-record-dot"></span><span data-fx-voice-time>Ready to record</span><button type="button" data-fx-cancel-record hidden>Cancel</button></div>
         <input type="file" data-fx-input="image" accept="image/*" multiple hidden>
         <input type="file" data-fx-input="gif" accept="image/gif" multiple hidden>
         <input type="file" data-fx-input="video" accept="video/*" multiple hidden>
+        <input type="file" data-fx-input="audio" accept="audio/*" multiple hidden>
         <input type="file" data-fx-input="document" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.odt,.ods,.odp,application/pdf,text/plain" multiple hidden>
         <div class="fx-unified-pending" data-fx-pending hidden></div>
-        <div class="fx-unified-contact" data-fx-contact-form hidden><label>Contact name<input data-fx-contact-name maxlength="100" autocomplete="name"></label><label>Phone number<input data-fx-contact-phone maxlength="40" inputmode="tel" autocomplete="tel"></label><label>Email address<input data-fx-contact-email type="email" maxlength="160" autocomplete="email"></label><div><button type="button" data-fx-contact-cancel>Cancel</button><button type="button" data-fx-contact-save>Add contact card</button></div></div>
-        <p class="fx-unified-composer-note" data-fx-comment-note>${window.FX?.user ? 'Comments appear in chronological order.' : 'Sign in to comment, reply or attach media.'}</p>
+        <div class="fx-unified-contact" data-fx-contact-form hidden><p>Device contact selection is unavailable in this browser. Add a contact card manually instead.</p><label>Contact name<input data-fx-contact-name maxlength="100" autocomplete="name"></label><label>Phone number<input data-fx-contact-phone maxlength="40" inputmode="tel" autocomplete="tel"></label><label>Email address<input data-fx-contact-email type="email" maxlength="160" autocomplete="email"></label><div><button type="button" data-fx-contact-cancel>Cancel</button><button type="button" data-fx-contact-save>Add contact card</button></div></div>
+        <p class="fx-unified-composer-note" data-fx-comment-note hidden></p>
       </form>
     </section>`;
   }
@@ -91,6 +93,16 @@
     let mentions = [];
     let mentionQueryToken = 0;
     let disposed = false;
+    let voiceRecorder = null;
+    let voiceStream = null;
+    let voiceChunks = [];
+    let voiceTimer = null;
+    let voiceStartedAt = 0;
+    let cancelVoiceOnStop = false;
+    const voiceButton = $('[data-fx-record-voice]', root);
+    const voiceStatus = $('[data-fx-voice-status]', root);
+    const voiceTime = $('[data-fx-voice-time]', root);
+    const voiceCancel = $('[data-fx-cancel-record]', root);
 
     function renderAttachment(item) {
       if (item.type === 'contact') {
@@ -100,6 +112,7 @@
       if (!url) return `<div class="fx-unified-attachment fx-unified-file">${esc(item.name || 'Attachment')} · unavailable</div>`;
       if (item.type === 'image' || item.type === 'gif') return `<a class="fx-unified-attachment fx-unified-image" href="${esc(url)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(url)}" alt="${esc(item.name || item.type)}"><small>${item.type === 'gif' ? 'GIF' : 'Image'}</small></a>`;
       if (item.type === 'video') return `<div class="fx-unified-attachment fx-unified-video"><video controls playsinline preload="metadata" src="${esc(url)}"></video><small>${esc(item.name || 'Video')}</small></div>`;
+      if (item.type === 'audio') return `<div class="fx-unified-attachment fx-unified-audio"><div class="fx-unified-audio-title">🎙 ${esc(item.name || 'Voice note')}</div><audio controls preload="metadata" src="${esc(url)}"></audio></div>`;
       return `<a class="fx-unified-attachment fx-unified-file" href="${esc(url)}" target="_blank" rel="noopener">▤ <span>${esc(item.name || 'Document')}</span><small>${esc(item.mime || 'File')}</small></a>`;
     }
     function renderComment(comment) {
@@ -138,7 +151,7 @@
       await Promise.all(attachmentTasks);
     }
     async function load() {
-      list.innerHTML = '<div class="fx-unified-empty">Loading chronological comments…</div>';
+      list.innerHTML = '<div class="fx-unified-empty">Loading comments…</div>';
       const collected = [];
       for (let start=0; ; start+=500) {
         const {data,error} = await FX.client.from('post_comments')
@@ -162,7 +175,7 @@
       }
       await hydrateRows(rows);
       const tree=buildTree(rows);
-      countNode.textContent=`${rows.length.toLocaleString()} comment${rows.length===1?'':'s'} · chronological`;
+      countNode.textContent=`${rows.length.toLocaleString()} comment${rows.length===1?'':'s'}`;
       list.innerHTML=tree.length?tree.map(renderComment).join(''):'<div class="fx-unified-empty">No comments yet. Start the conversation.</div>';
       if (config.onCountChange) config.onCountChange(rows.length);
       if (config.scrollToLatest !== false) list.scrollTop=list.scrollHeight;
@@ -200,13 +213,123 @@
         const path=`${FX.user.id}/comments/${context.type}/${context.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}_${safeName}`;
         const ext=(file.name.split('.').pop()||'').toLowerCase();
         const mimeFallback={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',ppt:'application/vnd.ms-powerpoint',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',txt:'text/plain',csv:'text/csv',odt:'application/vnd.oasis.opendocument.text',ods:'application/vnd.oasis.opendocument.spreadsheet',odp:'application/vnd.oasis.opendocument.presentation',gif:'image/gif'};
-        const mime=file.type || mimeFallback[ext] || 'application/octet-stream';
+        const mime=(file.type || mimeFallback[ext] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
         const {error}=await FX.client.storage.from('frnxup-media').upload(path,file,{cacheControl:'3600',upsert:false,contentType:mime});
         if(error) throw error;
         uploaded.push({type:item.type,path,name:file.name,mime:file.type,size:file.size});
       }
       return uploaded;
     }
+    function stopVoiceTracks() {
+      if (voiceStream) voiceStream.getTracks().forEach(track => track.stop());
+      voiceStream = null;
+    }
+    function resetVoiceUI() {
+      if (voiceTimer) clearInterval(voiceTimer);
+      voiceTimer = null;
+      if (voiceStatus) voiceStatus.hidden = true;
+      if (voiceCancel) voiceCancel.hidden = true;
+      if (voiceButton) { voiceButton.disabled = !FX.user; voiceButton.textContent = '🎙 Voice note'; }
+    }
+    function formatDuration(ms) {
+      const seconds = Math.max(0, Math.floor(ms / 1000));
+      return `${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`;
+    }
+    async function startVoiceRecording() {
+      if (!FX.user) return toast('Sign in to record a voice note.');
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+        return toast('Voice recording is not supported in this browser. You can attach an audio file instead.');
+      }
+      try {
+        voiceStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+        if (disposed || !root.isConnected) { stopVoiceTracks(); return; }
+        const candidates = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus','audio/ogg'];
+        const chosen = candidates.find(type => window.MediaRecorder.isTypeSupported?.(type)) || '';
+        voiceRecorder = chosen ? new MediaRecorder(voiceStream,{mimeType:chosen}) : new MediaRecorder(voiceStream);
+        voiceChunks = [];
+        cancelVoiceOnStop = false;
+        const activeRecorder = voiceRecorder;
+        activeRecorder.ondataavailable = event => { if (event.data?.size) voiceChunks.push(event.data); };
+        activeRecorder.onerror = () => { toast('Voice recording stopped because of a microphone error.'); cancelVoiceOnStop = true; };
+        activeRecorder.onstop = () => {
+          const rawType = activeRecorder.mimeType || voiceChunks.find(chunk => chunk.type)?.type || chosen || 'audio/webm';
+          const mime = rawType.split(';')[0].toLowerCase();
+          const blob = new Blob(voiceChunks,{type:mime});
+          if (!cancelVoiceOnStop && blob.size) {
+            if (blob.size > 25 * 1024 * 1024) toast('Voice notes must be 25 MB or smaller.');
+            else {
+              const ext = mime === 'audio/mp4' ? 'm4a' : mime === 'audio/ogg' ? 'ogg' : 'webm';
+              const file = new File([blob],`frnxup-voice-note-${Date.now()}.${ext}`,{type:mime});
+              pending.push({type:'audio',file});
+              updatePending();
+              toast('Voice note attached.');
+            }
+          }
+          voiceChunks = [];
+          stopVoiceTracks();
+          voiceRecorder = null;
+          resetVoiceUI();
+        };
+        activeRecorder.start(250);
+        voiceStartedAt = Date.now();
+        voiceStatus.hidden = false;
+        voiceCancel.hidden = false;
+        voiceButton.textContent = '■ Stop & attach';
+        voiceButton.disabled = false;
+        voiceTime.textContent = 'Recording 00:00';
+        voiceTimer = setInterval(() => {
+          const elapsed = Date.now() - voiceStartedAt;
+          voiceTime.textContent = `Recording ${formatDuration(elapsed)}`;
+          if (elapsed >= 120000 && voiceRecorder?.state === 'recording') {
+            toast('Voice note limit is 2 minutes.');
+            voiceRecorder.stop();
+          }
+        },500);
+      } catch (error) {
+        stopVoiceTracks();
+        voiceRecorder = null;
+        resetVoiceUI();
+        toast(error.name === 'NotAllowedError' ? 'Microphone permission was denied. Allow microphone access to record a voice note.' : error.message || 'Unable to start voice recording.');
+      }
+    }
+    function stopVoiceRecording(cancel = false) {
+      cancelVoiceOnStop = !!cancel;
+      if (voiceRecorder && voiceRecorder.state !== 'inactive') {
+        if (voiceButton) voiceButton.disabled = true;
+        if (voiceTime) voiceTime.textContent = cancel ? 'Cancelling recording…' : 'Preparing voice note…';
+        voiceRecorder.stop();
+      } else {
+        stopVoiceTracks();
+        resetVoiceUI();
+      }
+    }
+    async function pickDeviceContact() {
+      if (!FX.user) return toast('Sign in to share a contact.');
+      const picker = navigator.contacts?.select;
+      if (typeof picker !== 'function') {
+        contactForm.hidden = false;
+        toast('Your browser does not provide the device contact picker. You can add the contact details manually.');
+        return;
+      }
+      try {
+        // Calling the Contact Picker from this click opens the browser/OS contact permission and selection sheet.
+        const selected = await picker.call(navigator.contacts,['name','tel','email'],{multiple:false});
+        if (!selected?.length) return;
+        const contact = selected[0] || {};
+        const first = value => Array.isArray(value) ? (value.find(Boolean) || '') : (value || '');
+        const name = String(first(contact.name) || 'Frnxup contact').trim();
+        const phone = String(first(contact.tel)).trim();
+        const email = String(first(contact.email)).trim();
+        if (!phone && !email) return toast('The selected contact has no phone number or email to share.');
+        pending.push({type:'contact',contact:{name,phone,email}});
+        updatePending();
+        toast('Contact added. It will be shared when you post your comment.');
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        toast(error.name === 'NotAllowedError' ? 'Contact access was not granted. You can try again or add a contact manually.' : error.message || 'Could not open your device contacts.');
+      }
+    }
+
     async function submit(event) {
       event.preventDefault();
       if(!FX.user){location.href='/Auth/index.html?next='+encodeURIComponent(location.pathname+location.search);return;}
@@ -263,7 +386,9 @@
     input.addEventListener('keydown',event=>{if(event.key==='Escape'){mentionBox.hidden=true;}});
     root.addEventListener('click',async event=>{
       const pick=event.target.closest('[data-fx-pick]');if(pick){const kind=pick.dataset.fxPick;const inputFile=$(`[data-fx-input="${kind}"]`,root);inputFile?.click();return;}
-      const contactBtn=event.target.closest('[data-fx-contact]');if(contactBtn){contactForm.hidden=!contactForm.hidden;return;}
+      const contactBtn=event.target.closest('[data-fx-contact]');if(contactBtn){await pickDeviceContact();return;}
+      if(event.target.closest('[data-fx-record-voice]')){if(voiceRecorder?.state==='recording')stopVoiceRecording(false);else await startVoiceRecording();return;}
+      if(event.target.closest('[data-fx-cancel-record]')){stopVoiceRecording(true);return;}
       if(event.target.closest('[data-fx-contact-cancel]')){contactForm.hidden=true;return;}
       if(event.target.closest('[data-fx-contact-save]')){
         const name=$('[data-fx-contact-name]',root).value.trim(),phone=$('[data-fx-contact-phone]',root).value.trim(),email=$('[data-fx-contact-email]',root).value.trim();
@@ -275,19 +400,19 @@
       const reaction=event.target.closest('[data-fx-reaction]');if(reaction){try{await react(reaction.dataset.fxReactionId,reaction.dataset.fxReaction);}catch(error){toast(error.message);}return;}
       const reply=event.target.closest('[data-fx-reply], [data-fx-edit], [data-fx-delete], [data-fx-share], [data-fx-report]');if(reply){try{await handleAction(reply);}catch(error){toast(error.message);}return;}
       const reactBtn=event.target.closest('[data-fx-react]');if(reactBtn){const tray=$(`[data-fx-tray="${CSS.escape(reactBtn.dataset.fxReact)}"]`,root);if(tray)tray.hidden=!tray.hidden;return;}
-      const saveContact=event.target.closest('[data-fx-save-contact]');if(saveContact){const comment=rows.find(r=>r.id===saveContact.dataset.fxSaveContact);const item=comment?._attachments?.[Number(saveContact.dataset.fxContactIndex)];if(!item||item.type!=='contact')return;const lines=['BEGIN:VCARD','VERSION:3.0',`FN:${item.name||''}`,item.phone?`TEL:${item.phone}`:'',item.email?`EMAIL:${item.email}`:'','END:VCARD'].filter(Boolean);const blob=new Blob([lines.join('\r\n')],{type:'text/vcard'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${(item.name||'contact').replace(/[^a-z0-9_-]/gi,'_')}.vcf`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);return;}
+      const saveContact=event.target.closest('[data-fx-save-contact]');if(saveContact){const comment=rows.find(r=>r.id===saveContact.dataset.fxSaveContact);const item=comment?._attachments?.[Number(saveContact.dataset.fxContactIndex)];if(!item||item.type!=='contact')return;const vcardEscape=value=>String(value||'').replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');const lines=['BEGIN:VCARD','VERSION:3.0',`FN:${vcardEscape(item.name)}`,item.phone?`TEL:${vcardEscape(item.phone)}`:'',item.email?`EMAIL:${vcardEscape(item.email)}`:'','END:VCARD'].filter(Boolean);const blob=new Blob([lines.join('\r\n')],{type:'text/vcard'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${(item.name||'contact').replace(/[^a-z0-9_-]/gi,'_')}.vcf`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);return;}
       if(event.target.closest('[data-fx-cancel-reply]')){replyTarget=null;replyContext.hidden=true;replyContext.innerHTML='';input.placeholder='Write a comment… use @ to mention someone';}
     });
     root.querySelectorAll('[data-fx-input]').forEach(fileInput=>fileInput.addEventListener('change',()=>{
       const kind=fileInput.dataset.fxInput;
       for(const file of [...(fileInput.files||[])]){
-        try{const inferred=classifyFile(file);if(kind==='gif'&&inferred!=='gif')throw new Error('Choose a GIF file.');if(kind==='image'&&inferred!=='image')throw new Error('Choose an image file.');if(kind==='video'&&inferred!=='video')throw new Error('Choose a video file.');if(kind==='document'&&inferred!=='document')throw new Error('Choose a supported document.');const limit=inferred==='document'?25*1024*1024:100*1024*1024;if(file.size>limit)throw new Error(`${inferred==='document'?'Documents':'Media'} must be ${inferred==='document'?'25':'100'} MB or smaller.`);if(pending.length>=10)throw new Error('You can attach up to 10 items to one comment.');pending.push({type:inferred,file});}catch(error){toast(error.message);}
+        try{const inferred=classifyFile(file);if(kind==='gif'&&inferred!=='gif')throw new Error('Choose a GIF file.');if(kind==='image'&&inferred!=='image')throw new Error('Choose an image file.');if(kind==='video'&&inferred!=='video')throw new Error('Choose a video file.');if(kind==='audio'&&inferred!=='audio')throw new Error('Choose an audio file.');if(kind==='document'&&inferred!=='document')throw new Error('Choose a supported document.');const limit=(inferred==='document'||inferred==='audio')?25*1024*1024:100*1024*1024;if(file.size>limit)throw new Error(`${inferred==='document'?'Documents':inferred==='audio'?'Audio files':'Media'} must be ${limit/(1024*1024)} MB or smaller.`);if(pending.length>=10)throw new Error('You can attach up to 10 items to one comment.');pending.push({type:inferred,file});}catch(error){toast(error.message);}
       }
       fileInput.value='';updatePending();
     }));
-    if(!FX.user){input.disabled=true;send.disabled=true;root.querySelectorAll('[data-fx-pick],[data-fx-contact]').forEach(b=>b.disabled=true);$('[data-fx-comment-note]',root).innerHTML=`<a href="/Auth/index.html?next=${encodeURIComponent(location.pathname+location.search)}">Sign in</a> to comment, reply or attach media.`;}
+    if(!FX.user){input.disabled=true;send.disabled=true;root.querySelectorAll('[data-fx-pick],[data-fx-contact],[data-fx-record-voice]').forEach(b=>b.disabled=true);const note=$('[data-fx-comment-note]',root);note.hidden=false;note.innerHTML=`<a href="/Auth/index.html?next=${encodeURIComponent(location.pathname+location.search)}">Sign in</a> to comment, reply or attach media.`;}
     await load();
-    return {refresh:load,dispose(){disposed=true;form.removeEventListener('submit',submit);}};
+    return {refresh:load,dispose(){disposed=true;form.removeEventListener('submit',submit);if(voiceRecorder?.state==='recording')stopVoiceRecording(true);else stopVoiceTracks();if(voiceTimer)clearInterval(voiceTimer);}};
   }
 
   function openModal(config) {
@@ -295,10 +420,10 @@
     const modal=document.createElement('div');modal.className='fx-unified-comments-modal';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.innerHTML=`<button class="fx-unified-comments-backdrop" type="button" data-fx-modal-close aria-label="Close comments"></button><div class="fx-unified-comments-panel"><div class="fx-unified-modal-top"><span></span><button type="button" data-fx-modal-close aria-label="Close comments">×</button></div><div data-fx-modal-content></div></div>`;
     document.body.appendChild(modal);document.body.classList.add('fx-comments-open');activeModal=modal;
     modal.querySelectorAll('[data-fx-modal-close]').forEach(button=>button.addEventListener('click',closeModal));
-    mount($('[data-fx-modal-content]',modal),config).catch(error=>{const host=$('[data-fx-modal-content]',modal);host.innerHTML=`<div class="fx-unified-empty">${esc(error.message||'Comments could not be loaded.')}</div>`;});
+    mount($('[data-fx-modal-content]',modal),config).then(instance=>{if(!modal.isConnected)instance.dispose();else modal._dispose=instance.dispose;}).catch(error=>{const host=$('[data-fx-modal-content]',modal);if(host.isConnected)host.innerHTML=`<div class="fx-unified-empty">${esc(error.message||'Comments could not be loaded.')}</div>`;});
     const closeOnEscape=event=>{if(event.key==='Escape')closeModal();};modal._closeOnEscape=closeOnEscape;document.addEventListener('keydown',closeOnEscape);
     return modal;
   }
-  function closeModal(){if(!activeModal)return;document.removeEventListener('keydown',activeModal._closeOnEscape);activeModal.remove();activeModal=null;document.body.classList.remove('fx-comments-open');}
+  function closeModal(){if(!activeModal)return;document.removeEventListener('keydown',activeModal._closeOnEscape);activeModal._dispose?.();activeModal.remove();activeModal=null;document.body.classList.remove('fx-comments-open');}
   window.FrnxupComments={mount,openModal,closeModal};
 })();
