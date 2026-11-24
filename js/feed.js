@@ -2,10 +2,11 @@
 const $=FX.qs; let activeFilter='latest', activeContentFilter='all', feedMediaObserver=null;
 async function person(p, actionHtml=''){
  let photo='';try{photo=p.avatar_path?await FX.mediaUrl(p.avatar_path):''}catch(_){}
- return `<article class="fx-home-suggestion"><a class="fx-home-suggestion-profile" href="/Dashboard/profile.html?id=${encodeURIComponent(p.id)}">${photo?`<img src="${FX.esc(photo)}" alt="">`:`<span>${FX.esc((p.display_name||p.username||'F').slice(0,1).toUpperCase())}</span>`}</a><b>${FX.esc(p.display_name||p.username)}</b><small>@${FX.esc(p.username||'member')}</small>${actionHtml}</article>`;
+ const label=p.display_name||p.username||'Frnxup member';
+ return `<article class="fx-home-suggestion" data-suggestion-id="${FX.esc(p.id)}"><a class="fx-home-suggestion-profile" href="/Dashboard/profile.html?id=${encodeURIComponent(p.id)}" aria-label="View ${FX.esc(label)}'s profile">${photo?`<img src="${FX.esc(photo)}" alt="${FX.esc(label)} profile picture" loading="lazy">`:`<span>${FX.esc(label.slice(0,1).toUpperCase())}</span>`}</a><div class="fx-home-suggestion-info"><b>${FX.esc(label)}</b><small>@${FX.esc(p.username||'member')}</small></div><div class="fx-home-suggestion-actions">${actionHtml}</div></article>`;
 }
 async function loadSuggestions(){
- const host=$('#suggestions');if(!host)return;if(!FX.client){FXStates.render(host,'configuration');return;}if(host.dataset.fxHasContent!=='true')FXStates.loading(host,{title:'Loading people you may know',message:'Finding relevant Frnxup members.'});if(!FX.user){FXStates.empty(host,{title:'Sign in to see suggestions',message:'People you may know will appear here after you sign in.'});return;}
+ const host=$('#suggestions');if(!host)return;host.classList.add('fx-home-suggestions-track');host.setAttribute('aria-label','People you may know. Swipe horizontally to explore members.');if(!FX.client){FXStates.render(host,'configuration');return;}if(host.dataset.fxHasContent!=='true')FXStates.loading(host,{title:'Loading people you may know',message:'Finding relevant Frnxup members.'});if(!FX.user){FXStates.empty(host,{title:'Sign in to see suggestions',message:'People you may know will appear here after you sign in.'});return;}
  const {data,error}=await FX.client.rpc('frnxup_friend_suggestions',{p_limit:6});
  if(error){FXStates.fail(host,error,{retry:loadSuggestions});return;}
  if(!data?.length){FXStates.empty(host,{title:'No suggestions right now',message:'New people you may know will appear here.'});return;}
