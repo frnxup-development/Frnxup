@@ -71,10 +71,9 @@
       // applies, so blocked, hidden, deleted and otherwise restricted posts stay hidden.
       const requestedPost = new URLSearchParams(location.search).get('post');
       const { data: recentPosts, error } = await FX.client.from('posts')
-        .select('id,user_id,page_id,body,media_path,media_type,content_type,visibility,created_at')
+        .select('id,user_id,page_id,body,media_path,media_type,visibility,created_at')
         .eq('status', 'published')
         .eq('media_type', 'video')
-        .eq('content_type', 'reel')
         .order('created_at', { ascending: false })
         .limit(60);
       if (error) throw error;
@@ -83,8 +82,8 @@
       // Fetch that one row separately; RLS still decides whether this viewer can see it.
       if (requestedPost && !posts.some((post) => post.id === requestedPost)) {
         const { data: targetPost, error: targetError } = await FX.client.from('posts')
-          .select('id,user_id,page_id,body,media_path,media_type,content_type,visibility,created_at')
-          .eq('id', requestedPost).eq('status', 'published').eq('content_type', 'reel').maybeSingle();
+          .select('id,user_id,page_id,body,media_path,media_type,visibility,created_at')
+          .eq('id', requestedPost).eq('status', 'published').maybeSingle();
         if (targetError) throw targetError;
         if (targetPost) posts = [targetPost, ...posts];
       }
@@ -387,7 +386,6 @@
         body: caption,
         media_path: path,
         media_type: 'video',
-        content_type: 'reel',
         visibility: 'public'
       }).select('id').single();
       if (error) throw error;
@@ -438,13 +436,6 @@
 
   $('#reel-camera').addEventListener('click', openUpload);
   $('#reel-create-fab').addEventListener('click', openUpload);
-  $('#reel-record-camera').addEventListener('click', () => {
-    if (!window.FXCamera) { uploadMessage.textContent = 'Camera unavailable. Choose a video from your device instead.'; return; }
-    window.FXCamera.open({ mode: 'video', onFile(file) {
-      const transfer = new DataTransfer(); transfer.items.add(file); fileInput.files = transfer.files;
-      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    }});
-  });
   $$('[data-reel-close]').forEach((button) => button.addEventListener('click', closeUpload));
   $('#reel-publish').addEventListener('click', publishReel);
   $$('[data-comments-close]').forEach((button) => button.addEventListener('click', closeComments));
@@ -514,5 +505,5 @@
     }
   });
 
-  loadReels().then(() => { if (new URLSearchParams(location.search).get('create') === '1') openUpload(); });
+  loadReels();
 })();
