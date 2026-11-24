@@ -20,9 +20,27 @@
   const profileCache = new Map();
 
   function toast(message) { window.FX?.toast?.(message); }
-  function bodyMarkup(text) {
-    const safe = esc(text || '');
-    return safe.replace(/(^|\s)(@[A-Za-z0-9_.]{1,40})/g, '$1<span class="fx-unified-mention">$2</span>');
+  function bodyMarkup(text, mentionRows = []) {
+    // Only link @handles that were selected from Frnxup's verified member
+    // suggestions and saved with a profile ID. Unverified text stays plain.
+    const safeText = String(text || '');
+    const verified = new Map((Array.isArray(mentionRows) ? mentionRows : [])
+      .filter(m => m && m.id && m.username)
+      .map(m => [String(m.username).toLowerCase(), String(m.id)]));
+    const tokenPattern = /(^|\s)(@[A-Za-z0-9_.]{1,40})/g;
+    let out = '', last = 0, match;
+    while ((match = tokenPattern.exec(safeText)) !== null) {
+      out += esc(safeText.slice(last, match.index)) + esc(match[1]);
+      const handle = match[2].slice(1);
+      const id = verified.get(handle.toLowerCase());
+      if (id) {
+        out += `<a class="fx-unified-mention fx-mention-profile-link" href="/Dashboard/profile.html?id=${encodeURIComponent(id)}" data-fx-mentioned-profile="${esc(id)}" aria-label="View @${esc(handle)}’s profile">${esc(match[2])}</a>`;
+      } else {
+        out += `<span class="fx-unified-mention">${esc(match[2])}</span>`;
+      }
+      last = tokenPattern.lastIndex;
+    }
+    return out + esc(safeText.slice(last));
   }
   function buildTree(rows) {
     const nodes = new Map(rows.map(row => [row.id, {...row,children:[]} ]));
@@ -172,7 +190,7 @@
       const avatarMarkup = avatarPath ? `<img data-fx-lazy-type="image" data-fx-lazy-path="${esc(avatarPath)}" loading="lazy" alt="">` : esc(name.slice(0,1).toUpperCase());
       return `<article class="fx-unified-comment" id="fx-comment-${comment.id}" data-fx-comment="${comment.id}">
         <div class="fx-unified-comment-main"><div class="fx-unified-avatar">${avatarMarkup}</div>
-          <div class="fx-unified-comment-content"><div class="fx-unified-comment-bubble"><div class="fx-unified-comment-byline"><b>${esc(name)}</b><time datetime="${esc(comment.created_at)}">${esc(FX.relative(comment.created_at))}</time>${mine?'<small>You</small>':''}</div><div class="fx-unified-comment-text ${deleted?'deleted':''}">${deleted?'This comment was deleted.':bodyMarkup(comment.body)}</div>${attachments ? `<div class="fx-unified-attachments">${attachments}</div>` : ''}</div>
+          <div class="fx-unified-comment-content"><div class="fx-unified-comment-bubble"><div class="fx-unified-comment-byline"><b>${esc(name)}</b><time datetime="${esc(comment.created_at)}">${esc(FX.relative(comment.created_at))}</time>${mine?'<small>You</small>':''}</div><div class="fx-unified-comment-text ${deleted?'deleted':''}">${deleted?'This comment was deleted.':bodyMarkup(comment.body, comment.mentions)}</div>${attachments ? `<div class="fx-unified-attachments">${attachments}</div>` : ''}</div>
             ${summary ? `<div class="fx-unified-reactions">${summary}</div>` : '<div class="fx-unified-reactions" hidden></div>'}${actions}${replyControl}${reactionTray}
           </div></div>
         ${children.length ? `<div class="fx-unified-children">${children.map(renderComment).join('')}</div>` : ''}
