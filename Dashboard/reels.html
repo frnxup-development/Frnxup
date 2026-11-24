@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="/js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f8fc">
+  <title>Profile Reels · Frnxup</title>
+  <link rel="stylesheet" href="/Css/app.css">
+  <link rel="stylesheet" href="/Css/profile-reels.css?v=20261124-option1-option2">
+</head>
+<body class="fx-profile-reels-page">
+  <div data-frnxup-shell></div>
+  <main class="fx-profile-reels-wrap">
+    <a id="profile-reels-back" class="fx-profile-reels-back" href="/Dashboard/profile.html">‹ Back to profile</a>
+
+    <section class="fx-profile-reels-card" aria-label="Member profile">
+      <div class="fx-profile-reels-cover" id="profile-reels-cover"></div>
+      <div class="fx-profile-reels-identity">
+        <div class="fx-profile-reels-avatar" id="profile-reels-avatar">F</div>
+        <div class="fx-profile-reels-copy">
+          <h1 id="profile-reels-name">Loading profile…</h1>
+          <p id="profile-reels-handle">@member</p>
+          <div class="fx-profile-reels-stats"><span><b id="profile-reels-followers">—</b> Followers</span><span><b id="profile-reels-following">—</b> Following</span></div>
+        </div>
+      </div>
+      <div class="fx-profile-reels-actions">
+        <button id="profile-reels-upload" class="fx-profile-reels-upload" type="button" hidden>▣ Upload Reel</button>
+        <button id="profile-reels-follow" class="fx-profile-reels-follow" type="button" hidden>Follow</button>
+        <a id="profile-reels-edit" class="fx-profile-reels-edit" href="/Dashboard/profile-settings.html" hidden>Edit Profile</a>
+      </div>
+    </section>
+
+    <nav class="fx-profile-reels-tabs" aria-label="Profile media sections">
+      <button type="button" data-profile-filter="all" class="active" aria-current="page">All</button>
+      <button type="button" data-profile-filter="photos">Photos</button>
+      <button type="button" data-profile-filter="reels">Reels</button>
+      <button type="button" data-profile-filter="mentions">Mentions</button>
+    </nav>
+
+    <section id="profile-reels-grid" class="fx-profile-reels-grid" aria-live="polite">
+      <div class="fx-profile-reels-state"><span class="fx-profile-reels-spinner"></span><b>Loading profile media…</b></div>
+    </section>
+  </main>
+
+  <input id="profile-reel-file" type="file" accept="video/mp4,video/webm,video/quicktime" hidden>
+  <section class="fx-profile-reel-modal" id="profile-reel-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="profile-reel-modal-title">
+    <div class="fx-profile-reel-modal-panel">
+      <header><div><small>CREATE SOMETHING</small><h2 id="profile-reel-modal-title">Upload a Reel</h2></div><button type="button" id="profile-reel-close" aria-label="Close upload">×</button></header>
+      <p>Choose one short video to add to your profile and the Frnxup Reels feed. Your Reel will be public.</p>
+      <label class="fx-profile-reel-picker" for="profile-reel-file"><span>＋</span><b>Choose video</b><small>MP4, WebM or MOV · up to 100 MB</small></label>
+      <div class="fx-profile-reel-preview" id="profile-reel-preview-wrap" hidden><video id="profile-reel-preview" controls muted playsinline></video></div>
+      <label class="fx-profile-reel-caption-label" for="profile-reel-caption">Caption</label>
+      <textarea id="profile-reel-caption" maxlength="2200" rows="3" placeholder="Write a caption…"></textarea>
+      <div class="fx-profile-reel-modal-footer"><span id="profile-reel-message" role="status"></span><button id="profile-reel-publish" type="button" disabled>Share Reel</button></div>
+    </div>
+  </section>
+
+  <div id="fx-toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="/js/layout.js"></script>
+  <script src="/js/profile-reels.js?v=20261124-option1-option2"></script>
+</body>
+</html>
