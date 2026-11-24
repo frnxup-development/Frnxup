@@ -117,3 +117,5 @@
   .fx-person-suggestion-actions .button{max-width:170px!important;width:100%!important;justify-self:center!important}
 }
 @media(prefers-reduced-motion:reduce){.fx-person-suggestion{transition:none!important}.fx-person-suggestion:hover{transform:none!important}}
+
+.fx-person-suggestion-actions .cancel-request{background:#fff5e8!important;color:#8b4b11!important;border:1px solid #f0d0a9!important}

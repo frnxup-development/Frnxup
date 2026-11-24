@@ -1,0 +1,55 @@
+/* Social Life additions: birthdays, memories and close-circle feed */
+.fx-close-circle{margin:16px 0 20px;padding:16px;overflow:hidden}
+.fx-close-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.fx-close-heading h2{margin:2px 0 4px;font:850 18px Manrope,Arial,sans-serif;color:var(--text)}
+.fx-close-heading p{margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.fx-close-heading>a{font-size:12px!important;font-weight:800;color:var(--blue);text-decoration:none;white-space:nowrap}
+.fx-close-avatars{display:flex;align-items:center;padding:5px 0 13px}
+.fx-close-avatar{width:38px;height:38px;border:3px solid var(--surface);border-radius:50%;margin-right:-8px;overflow:hidden;display:grid;place-items:center;background:var(--surface-2);color:var(--text);font:800 13px Manrope;text-decoration:none}
+.fx-close-avatar img,.fx-close-post-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.fx-close-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fx-close-post{min-width:0;padding:12px;border:1px solid var(--line);border-radius:15px;background:var(--surface-2)}
+.fx-close-post header{display:flex;align-items:center;gap:9px;min-width:0}
+.fx-close-post-avatar{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:50%;overflow:hidden;background:var(--message-avatar-bg);color:var(--text);font:800 13px Manrope;text-decoration:none}
+.fx-close-post header>div{min-width:0;display:grid;gap:3px}
+.fx-close-post header b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fx-close-post header b a{color:var(--text);text-decoration:none}
+.fx-close-post header small{font-size:10px;color:var(--muted)}
+.fx-close-post>p{margin:10px 0;color:var(--text);font-size:12px;line-height:1.5;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.fx-close-post .fx-collage,.fx-close-post .fx-media-collage{margin:8px 0;border-radius:10px;overflow:hidden}
+.fx-close-view{display:inline-block;margin-top:8px;color:var(--blue);font-size:11px;font-weight:800;text-decoration:none}
+.fx-birthday-card{display:flex;align-items:center;gap:17px;flex-wrap:wrap;padding:18px 20px;margin:0 0 16px;border-radius:18px;border:1px solid #f0c9df;background:radial-gradient(circle at 5% 15%,#fff 0 7%,transparent 8%),linear-gradient(120deg,#fff3f8,#fff9ea 55%,#f5f0ff);box-shadow:0 10px 30px rgba(180,90,145,.09)}
+.fx-birthday-card[hidden]{display:none!important}
+.fx-birthday-flower{font-size:36px;letter-spacing:2px;line-height:1.2}
+.fx-birthday-copy{flex:1;min-width:180px}
+.fx-birthday-copy .eyebrow{color:#b44c86;font-size:10px;font-weight:900;letter-spacing:.12em}
+.fx-birthday-copy h2{margin:4px 0;color:#80345f;font:900 23px Manrope,Arial,sans-serif}
+.fx-birthday-copy p{margin:0;color:#765b70;font-size:12px;line-height:1.5}
+.fx-birthday-card .button{min-height:42px;border-radius:12px;background:#a83b78;color:#fff;border:0;font-weight:850}
+.fx-memories-page{max-width:980px}
+.fx-memories-heading{margin:18px 0 18px}
+.fx-memories-heading h1{margin:3px 0;font:900 clamp(28px,5vw,38px) Manrope,Arial,sans-serif;color:var(--text)}
+.fx-memories-heading p{margin:0;color:var(--muted);font-size:14px}
+.fx-memories-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.fx-memory-card{min-width:0;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 8px 24px rgba(30,60,100,.05)}
+.fx-memory-card-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.fx-memory-flower{font-size:24px}
+.fx-memory-kind{font:850 13px Manrope,Arial,sans-serif;color:var(--blue)}
+.fx-memory-card time{margin-left:auto;color:var(--muted);font-size:10px}
+.fx-memory-card>p{margin:12px 0;font-size:13px;line-height:1.55;color:var(--text);overflow-wrap:anywhere}
+.fx-memory-card .fx-collage,.fx-memory-card .fx-media-collage{margin:10px 0;border-radius:12px;overflow:hidden}
+.fx-memory-card .button{display:inline-flex;margin-top:9px}
+.cancel-request{background:#fff5e8!important;color:#8b4b11!important;border:1px solid #f0d0a9!important}
+.dark .fx-birthday-card{background:linear-gradient(120deg,#382338,#302b21 55%,#28243a);border-color:#704364}
+.dark .fx-birthday-copy h2{color:#ffd3ed}.dark .fx-birthday-copy p{color:#efd6e6}
+@media(max-width:700px){.fx-close-grid{grid-template-columns:1fr}.fx-close-circle{padding:13px}.fx-close-post{padding:11px}.fx-birthday-card{align-items:flex-start;gap:10px;padding:15px}.fx-birthday-card .button{width:100%}.fx-memories-grid{grid-template-columns:1fr}}
+.fx-home-suggestion{display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto auto auto;align-items:center;column-gap:9px;row-gap:2px;padding:9px 0;border-bottom:1px solid var(--line);min-width:0}
+.fx-home-suggestion:last-child{border-bottom:0}
+.fx-home-suggestion-profile{grid-row:1/4;width:44px;height:44px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--surface-2);color:var(--text);font-weight:850;text-decoration:none}
+.fx-home-suggestion-profile img{width:100%;height:100%;object-fit:cover}
+.fx-home-suggestion>b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.fx-home-suggestion>small{font-size:10px;color:var(--muted)}
+.fx-home-suggestion .button{grid-column:2;justify-self:start;min-height:29px;padding:5px 10px;font-size:10px;border-radius:8px;margin-top:4px}
+.fx-notification-row{text-decoration:none;color:var(--text)}
+.fx-notification-row:hover{background:var(--surface-2)}
+@media(max-width:700px){.fx-home-suggestion{padding:8px 0}}
