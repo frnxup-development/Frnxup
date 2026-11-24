@@ -104,3 +104,5 @@ body.fx-reels-page{margin:0!important;min-height:100dvh;background:#08090d!impor
   .fx-reels-topbar{padding-left:13px;padding-right:13px}
 }
 @media(prefers-reduced-motion:reduce){.fx-reels-spinner{animation:none}.fx-reels-tap-state{transition:none}}
+
+.fx-reel-record-camera{width:100%;margin-top:10px;min-height:46px;border:1px solid #cbdcf0;border-radius:12px;background:#eff6ff;color:#155fc0;font-size:13px;font-weight:900;cursor:pointer}.fx-reel-record-camera:active{transform:scale(.99)}
