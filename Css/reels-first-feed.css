@@ -44,18 +44,3 @@
 .fx-feed-reel-follow{border:1px solid #ffffffd9;border-radius:99px;background:#0004;color:#fff;padding:5px 12px;font-size:12px;font-weight:900;backdrop-filter:blur(7px)}
 .fx-feed-reel-follow.following{background:#ffffff28}
 .fx-feed-reel-follow{pointer-events:auto}
-
-
-/* Long image/video captions: compact preview with an accessible See all toggle. */
-.fx-post-caption{min-width:0;max-width:100%}
-.fx-post-caption .fx-caption-text{white-space:pre-wrap;overflow-wrap:anywhere}
-.fx-post-caption.is-collapsed .fx-caption-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}
-.fx-post-caption.is-expanded .fx-caption-text{display:block;overflow:visible}
-.fx-post-caption .fx-caption-toggle{display:inline-flex;align-items:center;min-height:28px;margin:4px 0 0;padding:2px 0;border:0;background:transparent;color:#087f70;font:800 13px Manrope,sans-serif;text-decoration:none;cursor:pointer}
-.fx-post-caption .fx-caption-toggle[hidden]{display:none!important}
-.dark .fx-post-caption .fx-caption-toggle{color:#6fe3c8}
-.fx-feed-reel-caption{max-width:100%;pointer-events:auto}
-.fx-feed-reel-caption .fx-caption-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;max-height:none}
-.fx-feed-reel-caption.is-expanded .fx-caption-text{display:block;max-height:24svh;overflow-y:auto;padding-right:3px}
-.fx-feed-reel-caption .fx-caption-toggle{display:inline-flex;align-items:center;min-height:24px;padding:2px 0;border:0;background:transparent;color:#fff;font:900 12px Manrope,sans-serif;text-decoration:underline;text-shadow:0 1px 5px #000;cursor:pointer;pointer-events:auto}
-.fx-feed-reel-caption .fx-caption-toggle[hidden]{display:none!important}

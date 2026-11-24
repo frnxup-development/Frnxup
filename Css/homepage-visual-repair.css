@@ -1,0 +1,97 @@
+/* Frnxup homepage visual recovery + horizontal People You May Know carousel.
+   Loaded after app, reels, wide-card and social-life styles to make the home layout deterministic. */
+
+/* Homepage columns and content widths */
+main.page{width:min(100% - 32px,1500px);max-width:1500px;margin:22px auto;padding:0 16px;box-sizing:border-box}
+main.page>.two-col{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start;min-width:0}
+main.page .feed-col,main.page .aside-col{min-width:0;width:100%}
+main.page .aside-col>.card{min-width:0;overflow:hidden}
+
+/* People You May Know — touch-friendly horizontal card rail */
+#suggestions.fx-home-suggestions-track{
+  display:flex!important;flex-flow:row nowrap!important;align-items:stretch!important;gap:12px!important;
+  width:100%!important;max-width:100%!important;min-width:0!important;margin:12px 0 0!important;padding:3px 2px 12px!important;
+  overflow-x:auto!important;overflow-y:hidden!important;overscroll-behavior-inline:contain!important;
+  -webkit-overflow-scrolling:touch!important;scroll-snap-type:x mandatory!important;scrollbar-width:thin!important;
+  scrollbar-color:#aeb9cb transparent!important;touch-action:pan-x pan-y!important;
+}
+#suggestions.fx-home-suggestions-track>.fx-home-suggestion{
+  box-sizing:border-box!important;display:flex!important;flex:0 0 184px!important;flex-direction:column!important;
+  align-items:center!important;justify-content:flex-start!important;gap:0!important;width:184px!important;min-width:184px!important;
+  min-height:218px!important;padding:14px 12px 12px!important;margin:0!important;border:1px solid var(--line,#e5eaf2)!important;
+  border-radius:17px!important;background:var(--surface,#fff)!important;color:var(--text,#172033)!important;
+  box-shadow:0 5px 18px rgba(25,45,75,.07)!important;text-align:center!important;scroll-snap-align:start!important;overflow:hidden!important;
+}
+#suggestions.fx-home-suggestions-track>.fx-home-suggestion:last-child{border-bottom:1px solid var(--line,#e5eaf2)!important}
+#suggestions .fx-home-suggestion-profile{
+  display:grid!important;place-items:center!important;position:relative!important;flex:0 0 88px!important;
+  width:88px!important;height:88px!important;min-width:88px!important;min-height:88px!important;max-width:88px!important;max-height:88px!important;
+  margin:0 auto 10px!important;padding:0!important;border:3px solid var(--surface,#fff)!important;border-radius:50%!important;
+  overflow:hidden!important;background:linear-gradient(145deg,#e5eeff,#b7d1ff)!important;color:#2058a5!important;
+  box-shadow:0 0 0 1px var(--line,#e5eaf2),0 5px 14px rgba(25,74,145,.12)!important;text-decoration:none!important;
+  font:850 27px/1 Manrope,'DM Sans',sans-serif!important;
+}
+#suggestions .fx-home-suggestion-profile img{
+  position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;
+  max-width:none!important;max-height:none!important;object-fit:cover!important;object-position:center!important;border:0!important;border-radius:50%!important
+}
+#suggestions .fx-home-suggestion-info{display:flex!important;flex-direction:column!important;align-items:center!important;gap:4px!important;width:100%!important;min-width:0!important;min-height:43px!important;margin:0 0 9px!important}
+#suggestions .fx-home-suggestion-info b{display:block!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:var(--text,#172033)!important;font:800 14px/1.3 Manrope,'DM Sans',sans-serif!important}
+#suggestions .fx-home-suggestion-info small{display:block!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:var(--muted,#7c8799)!important;font:600 11px/1.3 'DM Sans',sans-serif!important}
+#suggestions .fx-home-suggestion-actions{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;margin-top:auto!important}
+#suggestions .fx-home-suggestion-actions .button{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-width:0!important;min-height:38px!important;padding:8px 9px!important;margin:0!important;border-radius:10px!important;font:800 12px/1.2 Manrope,'DM Sans',sans-serif!important;white-space:nowrap!important;text-align:center!important}
+#suggestions .fx-home-suggestion-actions .button.primary{background:var(--blue,#287cf0)!important;color:#fff!important}
+#suggestions .fx-home-suggestion-actions .button.cancel-request{background:#fff4e8!important;color:#8a4d16!important;border:1px solid #f1d0a8!important}
+#suggestions .fx-home-suggestion-actions .button:disabled{opacity:.75!important}
+#suggestions.fx-home-suggestions-track>.empty,#suggestions.fx-home-suggestions-track>.fx-state-card{flex:0 0 100%!important;width:100%!important;min-width:100%!important;box-sizing:border-box!important}
+.dark #suggestions.fx-home-suggestions-track>.fx-home-suggestion{background:var(--surface,#121c2b)!important;border-color:var(--line,#2b3b52)!important;color:var(--text,#f4f7ff)!important}
+.dark #suggestions .fx-home-suggestion-profile{border-color:var(--surface,#121c2b)!important;background:linear-gradient(145deg,#273d5f,#345c8e)!important;color:#eef5ff!important}
+.dark #suggestions .fx-home-suggestion-info b{color:var(--text,#f4f7ff)!important}
+.dark #suggestions .fx-home-suggestion-info small{color:var(--muted,#a6b2c6)!important}
+
+/* Restore post-card visual hierarchy even if an optional earlier CSS file was not retained. */
+#feed-list{display:block!important;width:100%!important;min-width:0!important}
+#feed-list>.post-card{
+  display:block!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;margin:0 0 14px!important;padding:0!important;
+  overflow:hidden!important;border:1px solid var(--line,#e4eaf2)!important;border-radius:15px!important;
+  background:var(--surface,#fff)!important;color:var(--text,#172033)!important;box-shadow:0 3px 14px rgba(20,35,55,.07)!important
+}
+#feed-list>.post-card .post-header{display:flex!important;align-items:center!important;gap:11px!important;padding:14px 17px 9px!important}
+#feed-list>.post-card .post-header .avatar{display:grid!important;flex:0 0 44px!important;width:44px!important;height:44px!important;border-radius:50%!important;overflow:hidden!important}
+#feed-list>.post-card .post-head-copy{flex:1 1 auto!important;min-width:0!important}
+#feed-list>.post-card .post-head-copy b{font-size:14px!important;line-height:1.3!important}
+#feed-list>.post-card .post-head-copy small{display:block!important;margin-top:3px!important;color:var(--muted)!important;font-size:11px!important;line-height:1.4!important}
+#feed-list>.post-card .post-text,#feed-list>.post-card .fx-post-caption:not(.fx-feed-reel-caption){display:block!important;padding:0 17px!important;margin:7px 0 14px!important;color:var(--text)!important;font-size:clamp(16px,1.9vw,20px)!important;line-height:1.55!important;overflow-wrap:anywhere!important;white-space:pre-wrap!important}
+#feed-list>.post-card .post-actions{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;align-items:center!important;gap:3px!important;margin:0!important;padding:9px 8px!important;border-top:1px solid var(--line)!important}
+#feed-list>.post-card .post-actions button{display:flex!important;align-items:center!important;justify-content:center!important;min-width:0!important;min-height:42px!important;padding:7px 3px!important;border:0!important;border-radius:8px!important;background:transparent!important;color:var(--muted)!important;font-size:12px!important;font-weight:800!important;white-space:nowrap!important}
+#feed-list>.post-card .post-actions button:hover{background:var(--surface-2)!important}
+#feed-list>.post-card .fx-collage{width:100%!important;margin:0!important;max-width:100%!important;border-radius:0!important;overflow:hidden!important}
+#feed-list>.post-card .fx-feed-video-card{width:100%!important;margin:0!important;border-radius:0!important;overflow:hidden!important}
+#feed-list>.post-card .fx-feed-video-card video{display:block!important;width:100%!important;height:auto!important;max-height:88svh!important;object-fit:contain!important;background:#05070a!important}
+#feed-list>.fx-post-card-reel .fx-feed-reel-media{width:100%!important;max-width:100%!important;margin:0!important;border-radius:0!important}
+.fx-feed-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 9px;min-width:0}
+.fx-feed-heading h2{margin:0;color:var(--text);font:800 18px/1.25 Manrope,'DM Sans',sans-serif}
+.fx-feed-filters{display:flex;align-items:center;gap:8px;width:100%;padding:4px 0 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.fx-feed-filters::-webkit-scrollbar{display:none}
+.fx-feed-filters button{flex:0 0 auto;min-height:36px;padding:8px 13px;border:1px solid var(--line);border-radius:22px;background:var(--surface);color:var(--muted);font:750 12px Manrope,'DM Sans',sans-serif}
+.fx-feed-filters button[aria-pressed="true"]{border-color:var(--blue);background:var(--blue);color:#fff}
+
+@media(max-width:700px){
+  main.page{width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
+  main.page>.page-heading{margin:0!important;padding:16px 14px 10px!important}
+  main.page>.two-col{display:block!important;width:100%!important;margin:0!important}
+  main.page>.two-col>.feed-col{width:100%!important;min-width:0!important}
+  main.page>.two-col>.aside-col{width:auto!important;max-width:none!important;margin:15px 12px!important}
+  .fx-home-composer,.fx-home-stories{margin:9px 10px 13px!important;border-radius:14px!important}
+  .fx-close-circle{margin:10px!important;padding:13px!important}
+  .fx-feed-heading{margin:17px 14px 9px!important}
+  .fx-feed-filters{padding:4px 13px 11px!important}
+  #feed-list>.post-card{width:100%!important;margin:0 0 8px!important;border-left:0!important;border-right:0!important;border-radius:0!important;box-shadow:none!important}
+  #feed-list>.post-card .post-header{padding:12px 14px 8px!important}
+  #feed-list>.post-card .post-text,#feed-list>.post-card .fx-post-caption:not(.fx-feed-reel-caption){padding-inline:14px!important;font-size:18px!important}
+  #feed-list>.post-card .post-actions{padding:7px 5px!important;gap:1px!important}
+  #feed-list>.post-card .post-actions button{min-height:43px!important;font-size:12px!important}
+  #suggestions.fx-home-suggestions-track>.fx-home-suggestion{flex-basis:164px!important;width:164px!important;min-width:164px!important;min-height:205px!important;padding:12px 10px 10px!important}
+  #suggestions .fx-home-suggestion-profile{flex-basis:78px!important;width:78px!important;height:78px!important;min-width:78px!important;min-height:78px!important;max-width:78px!important;max-height:78px!important}
+}
+@media(max-width:380px){#suggestions.fx-home-suggestions-track>.fx-home-suggestion{flex-basis:154px!important;width:154px!important;min-width:154px!important}#feed-list>.post-card .post-actions button{font-size:11px!important}}
