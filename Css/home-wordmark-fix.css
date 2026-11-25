@@ -1,0 +1,28 @@
+/* Keep the shared Frnxup wordmark visible on the home page. */
+body.fx-home-page .brand-header .brand {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  min-width: max-content !important;
+  text-decoration: none !important;
+}
+body.fx-home-page .brand-header .brand > span {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  overflow: visible !important;
+  clip: auto !important;
+  white-space: nowrap !important;
+  color: var(--text) !important;
+  font: 800 24px/1 Manrope, sans-serif !important;
+  letter-spacing: -1px !important;
+}
+@media (max-width: 700px) {
+  body.fx-home-page .brand-header .brand > span {
+    font-size: 21px !important;
+  }
+}
