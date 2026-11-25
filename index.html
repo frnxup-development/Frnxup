@@ -1,51 +1,131 @@
-<!doctype html><html lang="en"><head>
-<script>
-(() => {
-  const path = location.pathname;
-  const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
-  if (publicEntry) return;
+<!doctype html>
+<html lang="en">
+<head>
+  <script>
+    (() => {
+      const path = location.pathname;
+      const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
+      if (publicEntry) return;
+      document.documentElement.classList.add('fx-auth-pending');
+      const style = document.createElement('style');
+      style.textContent = `html.fx-auth-pending,html.fx-auth-pending body{background:#f4faf7!important}html.fx-auth-pending body{visibility:hidden!important}html.fx-auth-pending::before{content:'';position:fixed;inset:0;z-index:2147483646;background:#f4faf7 url('/Asset/frnxup-mark.svg') center calc(50% - 25px)/76px 76px no-repeat}html.fx-auth-pending::after{content:'Loading EDU-AFRIKA';position:fixed;z-index:2147483647;top:calc(50% + 34px);left:50%;transform:translateX(-50%);color:#31555d;font:600 14px system-ui,sans-serif;animation:fxedu-pulse 1.2s ease-in-out infinite}@keyframes fxedu-pulse{0%,100%{opacity:.55}50%{opacity:1}}`;
+      document.head.appendChild(style);
+      window.__frnxupAuthGateTimer = setTimeout(() => {
+        if (!document.documentElement.classList.contains('fx-auth-pending')) return;
+        const url = new URL('/Auth/index.html', location.origin);
+        url.searchParams.set('next', location.pathname + location.search + location.hash);
+        url.searchParams.set('sessionCheck', 'timeout');
+        location.replace(url.toString());
+      }, 12000);
+    })();
+  </script>
+  <script src="../js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07523f">
+  <meta name="description" content="Prepare for Nigerian and international examinations with EDU-AFRIKA on Frnxup.">
+  <title>EDU-AFRIKA · Frnxup</title>
+  <link rel="stylesheet" href="../Css/app.css">
+  <link rel="stylesheet" href="../Css/edu-afrika.css?v=20261125-7">
+<link rel="stylesheet" href="/Css/frnxup-wordmark.css?v=20261125-option7"></head>
+<body class="edu-afrika-page">
+  <div data-frnxup-shell aria-hidden="true"></div>
+  <header class="edu-topbar">
+    <a class="edu-brand" href="/Dashboard/index.html" aria-label="FRNXUP EDU-AFRIKA"><img src="/Asset/frnxup-mark.svg" alt=""><span><span class="frnxup-wordmark-text" role="img" aria-label="FRNXUP"><span class="frnxup-navy">FRN</span><span class="frnxup-x">X</span><span class="frnxup-navy">UP</span></span><b>EDU-AFRIKA</b></span></a>
+    <div class="edu-top-actions"><span id="edu-top-email" class="edu-email-chip"></span><a href="/Dashboard/index.html">← Frnxup Dashboard</a></div>
+  </header>
+  <main class="edu-shell">
+    <section class="edu-hero">
+      <div class="edu-hero-copy"><span class="edu-eyebrow">LEARN · PRACTISE · EXCEL</span><h1>Prepare with purpose.<br><em>Pass with confidence.</em></h1><p>One practice space for Nigerian, international and professional examinations. Choose your exam and subjects, then take a timed test built from the EDU-AFRIKA question bank.</p><div class="edu-hero-tags"><span>JAMB</span><span>WAEC</span><span>NECO</span><span>POST-UTME</span><span>ICAN</span><span>+ more</span></div></div>
+      <div class="edu-hero-mark"><div class="edu-orbit">EA</div><strong>EDU-AFRIKA</strong><span>Your next result starts with practice.</span></div>
+    </section>
 
-  const html = document.documentElement;
-  html.classList.add('fx-auth-pending');
-  const style = document.createElement('style');
-  style.textContent = `
-    html.fx-auth-pending, html.fx-auth-pending body { background: #f7fbfc !important; }
-    html.fx-auth-pending body { visibility: hidden !important; }
-    html.fx-auth-pending::before {
-      content: ''; position: fixed; inset: 0; z-index: 2147483646;
-      background: #f7fbfc url('/Asset/frnxup-mark.svg') center calc(50% - 25px) / 76px 76px no-repeat;
-    }
-    html.fx-auth-pending::after {
-      content: 'Loading'; position: fixed; z-index: 2147483647;
-      top: calc(50% + 34px); left: 50%; transform: translateX(-50%);
-      color: #31555d; font: 600 14px system-ui, sans-serif; letter-spacing: .04em;
-      animation: frnxup-loading-pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes frnxup-loading-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
-  `;
-  document.head.appendChild(style);
+    <section id="edu-loading" class="edu-panel edu-state"><div class="edu-spinner"></div><p>Connecting your Frnxup account…</p></section>
+    <section id="edu-error" class="edu-alert" role="alert" hidden></section>
 
-  // Never leave a visitor on an endless loader if a script or auth request fails.
-  window.__frnxupAuthGateTimer = window.setTimeout(() => {
-    if (!html.classList.contains('fx-auth-pending')) return;
-    const next = location.pathname + location.search + location.hash;
-    const login = new URL('/Auth/index.html', location.origin);
-    login.searchParams.set('next', next || '/');
-    login.searchParams.set('sessionCheck', 'timeout');
-    location.replace(login.toString());
-  }, 12000);
-})();
-</script>
+    <section id="edu-create-panel" class="edu-panel edu-auth-panel" hidden>
+      <div class="edu-panel-title"><span class="edu-step">01</span><div><h2>Create your EDU-AFRIKA account</h2><p>Your account is linked to the verified email on your Frnxup profile.</p></div></div>
+      <label class="edu-label" for="edu-create-email">Frnxup email address</label><input id="edu-create-email" class="edu-input" type="email" readonly>
+      <div class="edu-info"><b>One-time password generation</b><p>EDU-AFRIKA will generate a unique 12-character password containing letters and numbers. Save it somewhere private. You will need it every time you open EDU-AFRIKA.</p></div>
+      <label class="edu-check"><input id="edu-confirm-account" type="checkbox"><span>I understand that my EDU-AFRIKA password will be displayed only once and I am responsible for keeping it safe.</span></label>
+      <button id="edu-create-account" class="edu-button edu-button-primary" type="button">Create EDU-AFRIKA Account</button>
+      <p class="edu-small-note">Your Frnxup account must have a verified email address before registration.</p>
+    </section>
 
-<script src="js/theme.js"></script>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><title>Frnxup — Connect. Express. Rise.</title><link rel="icon" href="Asset/frnxup-mark.svg"><link rel="stylesheet" href="Css/app.css"><link rel="stylesheet" href="Css/comments.css?v=20261124-comments-fullscreen-mediafix"><link rel="stylesheet" href="Css/reels-first-feed.css?v=20261124-caption-expand"><link rel="stylesheet" href="Css/camera-capture.css?v=20261124"><link rel="stylesheet" href="Css/feed-wide-cards.css?v=20261124-wide-feed"></head><body><div data-frnxup-shell></div>
-<main class="page"><div class="page-heading"><div><span class="eyebrow">YOUR PEOPLE. YOUR PLACE.</span><h1>Home feed</h1><p>Catch up with friends and communities.</p></div><a class="button secondary" href="/Rooms/index.html">Explore rooms ↗</a></div>
-<div class="two-col"><section class="feed-col">
-<div class="card composer fx-home-composer"><div class="composer-top"><div class="avatar" id="composer-avatar">F</div><button class="composer-open" id="open-post">What's on your mind?</button><button type="button" class="fx-composer-photo" id="post-photo-top" aria-label="Add a photo">▧<span>Photo</span></button></div><div class="composer-tools"><button id="post-photo">▧ Photo</button><button id="post-video">▶ Video</button><button id="post-camera">📷 Camera</button><a class="fx-create-reel-shortcut" href="/Reels/index.html?create=1">▣ Create Reel</a><button id="post-poll">▤ Poll</button><button id="post-location">⌖ Location</button></div></div>
-<div class="card status-card fx-home-stories"><div class="fx-stories-heading"><b>Stories & status</b><button class="button subtle" id="add-status">＋ Add status</button></div><div id="status-list" class="status-list"><div class="empty">Sign in to see status updates from your community.</div></div></div>
-<div class="fx-feed-heading"><div><h2>Your feed</h2><small class="muted">Reels, photos, videos and updates from your community</small></div><select id="feed-filter" class="control" style="width:auto"><option value="latest">Latest</option><option value="friends">Friends</option></select></div><nav class="fx-feed-filters" id="feed-content-filters" aria-label="Filter feed content"><button type="button" data-feed-type="all" aria-pressed="true">All feeds</button><button type="button" data-feed-type="reel" aria-pressed="false">▶ Reels</button><button type="button" data-feed-type="image" aria-pressed="false">▧ Photos</button><button type="button" data-feed-type="video" aria-pressed="false">▣ Videos</button><button type="button" data-feed-type="text" aria-pressed="false">T Text posts</button></nav><div id="feed-list" data-feed-type="all"><div class="empty">Connect your Frnxup Supabase project and sign in to load your live feed.</div></div>
-</section><aside class="aside-col"><div class="card" style="padding:16px;margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font:700 14px Manrope">People you may know</b><a class="small" href="/Friends/suggestions.html">See all</a></div><div id="suggestions" class="list" style="margin-top:12px"><div class="empty">Friend suggestions appear here.</div></div></div>
-<div class="card" style="padding:16px;margin-bottom:14px"><div style="display:flex;justify-content:space-between"><b style="font:700 14px Manrope">Popular rooms</b><a class="small" href="/Rooms/index.html">Explore</a></div><div id="popular-rooms" class="list" style="margin-top:12px"><div class="empty">Discover interest-based rooms.</div></div></div><div class="card" style="padding:16px"><b style="font:700 14px Manrope">Your Frnxup space</b><p class="muted" style="font-size:11px;line-height:1.6">Make friends, share moments and find conversations that matter.</p><a class="button primary full" href="/Dashboard/index.html">Open my dashboard</a></div></aside></div></main>
-<div class="modal-backdrop" id="post-modal"><div class="modal"><div class="modal-head"><h2>Create a post</h2><button class="close" data-close="post-modal">×</button></div><div class="field"><label for="post-content">What's on your mind?</label><textarea id="post-content" maxlength="5000" placeholder="Share an update with your community..."></textarea></div><div class="field"><label>Photo or video</label><div class="fx-post-capture-actions"><button type="button" id="post-take-photo">📷 Take photo</button><button type="button" id="post-record-video">● Record video</button><label class="fx-post-gallery-pick" for="post-media">▧ Choose from device</label></div><input id="post-media" type="file" accept="image/*,video/*" multiple></div><div class="field"><label for="post-location-label">Location (optional)</label><input id="post-location-label" maxlength="120" placeholder="Add a city or place name"></div><div class="field"><label for="post-visibility">Who can see this?</label><select id="post-visibility"><option value="public">Public</option><option value="friends">Friends</option><option value="only_me">Only me</option></select></div><div id="poll-builder" class="poll-builder" hidden><div class="field"><label for="poll-question">Poll question</label><input id="poll-question" maxlength="240" placeholder="Ask your community a question"></div><div id="poll-options"><div class="field"><label>Poll options</label><input class="poll-option" maxlength="80" placeholder="Option 1"><input class="poll-option" maxlength="80" placeholder="Option 2"></div></div><button class="button subtle" type="button" id="add-poll-option">＋ Add option</button><div class="field"><label for="poll-duration">Poll duration</label><select id="poll-duration"><option value="1">1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option></select></div></div><div class="modal-actions"><small class="muted">Be respectful. Build community.</small><button class="button primary" id="publish-post">Publish post</button></div><p id="post-message" class="status-line"></p></div></div>
-<div class="modal-backdrop" id="status-modal"><div class="modal"><div class="modal-head"><h2>Share a status</h2><button class="close" data-close="status-modal">×</button></div><div class="field"><label for="status-text">Write a status (optional if adding media)</label><textarea id="status-text" maxlength="700" placeholder="What's happening? It disappears after 24 hours."></textarea></div><div class="field"><label for="status-media">Photo or short video</label><input id="status-media" type="file" accept="image/*,video/*"></div><div class="field"><label for="status-visibility">Audience</label><select id="status-visibility"><option value="friends">Friends</option><option value="public">Public</option></select></div><button class="button primary full" id="publish-status">Share status</button><p id="status-message" class="status-line"></p></div></div>
-<div id="fx-toast" class="toast"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js"></script><script src="js/core.js"></script><script src="js/layout.js"></script><script src="js/media-tools.js"></script><script src="js/comment-system.js?v=20261124-comments-fullscreen-mediafix"></script><script src="js/camera-capture.js?v=20261124"></script><script src="js/feed.js?v=20261124-instant-comments-performance-v2"></script><script src="js/post-actions.js"></script></body></html>
+    <section id="edu-login-panel" class="edu-panel edu-auth-panel" hidden>
+      <div class="edu-panel-title"><span class="edu-step">02</span><div><h2>Welcome back</h2><p>Enter your EDU-AFRIKA password to open your student workspace.</p></div></div>
+      <label class="edu-label" for="edu-login-email">Registered Frnxup email</label><input id="edu-login-email" class="edu-input" type="email" readonly>
+      <label class="edu-label" for="edu-login-password">12-character EDU-AFRIKA password</label><div class="edu-password-wrap"><input id="edu-login-password" class="edu-input" type="password" minlength="12" maxlength="12" autocomplete="current-password" placeholder="Enter your EDU password"><button id="edu-toggle-password" type="button" aria-label="Show password">Show</button></div>
+      <button id="edu-login-button" class="edu-button edu-button-primary" type="button">Sign in to EDU-AFRIKA</button>
+      <button id="edu-recover-button" class="edu-button edu-button-quiet" type="button">Forgot password? Generate a new one using your signed-in Frnxup account</button>
+      <p class="edu-small-note">EDU-AFRIKA access is separate from Frnxup sign-in. Your Frnxup session verifies that this is your account.</p>
+    </section>
+
+    <section id="edu-password-issued" class="edu-panel edu-issued-panel" hidden>
+      <div class="edu-issued-icon">✓</div><span class="edu-eyebrow">ACCOUNT READY</span><h2>Your EDU-AFRIKA password</h2><p>This is the only time this password will be displayed. Copy it and keep it safe before continuing.</p>
+      <div class="edu-issued-password"><code id="edu-issued-password-value"></code><button id="edu-copy-password" type="button">Copy</button></div>
+      <div class="edu-info"><b>Important</b><p>Do not share this password. It is not your Frnxup password. Your verified Frnxup account can be used to generate a replacement if you lose it.</p></div>
+      <label class="edu-check"><input id="edu-password-saved" type="checkbox"><span>I have safely saved my EDU-AFRIKA password.</span></label>
+      <button id="edu-continue-issued" class="edu-button edu-button-primary" type="button" disabled>Continue to student workspace</button>
+    </section>
+
+    <section id="edu-workspace" hidden>
+      <div class="edu-welcome-row"><div><span class="edu-eyebrow">STUDENT WORKSPACE</span><h2>Welcome, <span id="edu-student-name">Student</span></h2><p>Choose your examination, select the subjects you are preparing for and start a practice test.</p></div><span class="edu-secure-badge">✓ EDU account verified</span></div>
+      <div id="edu-resume-banner" class="edu-resume-banner" hidden><div><b>You have an unfinished exam</b><span id="edu-resume-caption">Resume your last practice session.</span></div><button id="edu-resume-button" class="edu-button edu-button-light" type="button">Resume exam →</button></div>
+      <div class="edu-workspace-grid">
+        <section class="edu-panel edu-selection-panel">
+          <div class="edu-panel-title"><span class="edu-step">03</span><div><h3>Build your practice test</h3><p>Choose one exam and the subjects you want to practise.</p></div></div>
+          <label class="edu-label" for="edu-exam-type">Examination type</label><select id="edu-exam-type" class="edu-input"><option value="">Loading examinations…</option></select>
+          <div class="edu-exam-page-action"><button id="edu-open-exam-page" class="edu-button edu-button-quiet" type="button" disabled>Open this exam's dedicated webpage ↗</button><span>Every examination has its own information and logo page.</span></div>
+          <div id="edu-exam-meta" class="edu-exam-meta"></div>
+          <div id="edu-programme-wrap" class="edu-programme-wrap" hidden>
+            <label class="edu-label" id="edu-programme-label" for="edu-programme-select">Course / subject combination</label>
+            <select id="edu-programme-select" class="edu-input"><option value="">Choose your course / combination</option></select>
+            <p id="edu-programme-help" class="edu-path-note">Choose the approved course or subject combination for this examination.</p>
+          </div>
+          <div id="edu-manual-path-wrap">
+            <label class="edu-label" for="edu-study-path">Study course / field (optional)</label><select id="edu-study-path" class="edu-input"><option value="">Choose a study pathway for subject suggestions</option><option value="SCIENCE_HEALTH">Science / Medicine / Health</option><option value="ENGINEERING_TECH">Engineering / Technology</option><option value="BUSINESS_ACCOUNTING">Business / Banking / Accounting</option><option value="ARTS_HUMANITIES">Arts / Humanities</option><option value="LAW_SOCIAL">Law / Social Sciences</option><option value="AGRICULTURE">Agriculture / Environmental studies</option><option value="EDUCATION">Education</option><option value="GENERAL">General / undecided</option></select>
+            <p class="edu-path-note">Your pathway preselects related subjects when they are available. You can add or remove subjects below.</p>
+          </div>
+          <div class="edu-subject-heading"><label class="edu-label">Select subjects</label><span id="edu-subject-count">0 selected</span></div>
+          <div id="edu-subject-list" class="edu-subject-list"><p class="edu-muted">Choose an examination to view subjects with available questions.</p></div>
+          <label class="edu-label" for="edu-exam-mode">Practice mode</label><select id="edu-exam-mode" class="edu-input"><option value="practice">Practice Mode · Learn at your pace</option><option value="timed">Timed Mode · Time management</option><option value="mock">Mock Examination · Balanced paper</option><option value="revision">Revision Mode · Topic-focused revision</option><option value="challenge">Challenge Mode · Higher difficulty (65% advanced)</option></select>
+          <div id="edu-revision-topic-wrap" class="edu-revision-topic-wrap" hidden><label class="edu-label" for="edu-revision-topic">Revision topic</label><select id="edu-revision-topic" class="edu-input"><option value="">Choose a topic</option></select><p class="edu-path-note">Only approved, never-issued questions from this topic will be used.</p></div>
+          <div class="edu-type-choice"><span class="edu-label">Question format</span><label><input type="checkbox" id="edu-type-mcq" checked> Multiple choice</label><label><input type="checkbox" id="edu-type-gap" checked> Fill in the gap</label></div>
+          <div class="edu-question-timer-choice"><label class="edu-timer-switch"><input id="edu-question-timer-toggle" type="checkbox" checked><span class="edu-switch-ui"></span><span><b>30-second question timer</b><small>Automatically moves to the next question when time runs out.</small></span></label><div class="edu-timer-recommendation"><b>Recommended: ON</b> — timed practice helps build exam mastery, pacing and time-management skills. You can switch it OFF before starting.</div></div>
+          <label class="edu-label" for="edu-question-count">Number of questions</label><select id="edu-question-count" class="edu-input"><option value="10">10 questions</option><option value="20" selected>20 questions</option><option value="30">30 questions</option><option value="40">40 questions</option><option value="50">50 questions</option><option value="60">60 questions</option><option value="80">80 questions</option><option value="100">100 questions</option><option value="150">150 questions</option><option value="200">200 questions</option><option value="250">250 questions</option><option value="300">300 questions</option><option value="350">350 questions</option><option value="400">400 questions (maximum)</option></select>
+          <div class="edu-score-note">Each question carries the mark value set by the EDU-AFRIKA exam administrators. Your total score is calculated automatically.</div>
+          <button id="edu-start-button" class="edu-button edu-button-primary" type="button" disabled>Generate my practice test →</button>
+          <p id="edu-selection-message" class="edu-form-message" aria-live="polite"></p>
+        </section>
+        <aside class="edu-side-stack">
+          <section class="edu-panel edu-stat-panel"><h3>Your practice record</h3><div class="edu-stat-grid"><div><b id="edu-attempt-total">—</b><span>Tests taken</span></div><div><b id="edu-best-score">—</b><span>Best score</span></div></div><p>Complete more practice tests to track your progress.</p></section>
+          <section class="edu-panel edu-tip-panel"><span>✦ STUDY TIP</span><h3>Practise across your subjects</h3><p>Build a balanced revision routine. Your questions are shuffled for every new attempt, so each practice session can feel different.</p></section>
+          <section class="edu-panel edu-history-panel"><div class="edu-panel-title"><div><h3>Recent attempts</h3><p>Your latest practice sessions.</p></div></div><div id="edu-history-list"><p class="edu-muted">Your completed tests will appear here.</p></div></section>
+          <section class="edu-panel edu-analytics-panel"><div class="edu-panel-title"><div><h3>Subject performance</h3><p>See where you are improving and where to revise.</p></div></div><div id="edu-student-analytics"><p class="edu-muted">Complete a test to unlock subject analytics.</p></div></section>
+            <div class="edu-topic-analytics-panel"><h3>Topic performance</h3><div id="edu-topic-analytics"><p class="edu-muted">Complete a test to unlock topic analytics.</p></div></div>
+          <button id="edu-reset-password" class="edu-button edu-button-quiet" type="button">Generate a new EDU password</button>
+        </aside>
+      </div>
+    </section>
+
+    <section id="edu-exam-view" class="edu-panel edu-exam-view" hidden>
+      <div class="edu-exam-top"><div><span class="edu-eyebrow">PRACTICE EXAM</span><h2 id="edu-exam-heading">Your examination</h2><p id="edu-exam-subheading"></p></div><div class="edu-timer"><span id="edu-timer-label">QUESTION TIMER · 30 SEC</span><b id="edu-timer-value">00:30</b></div></div>
+      <div class="edu-progress-track"><span id="edu-progress-bar"></span></div>
+      <div class="edu-exam-layout"><aside class="edu-question-nav"><b>Questions</b><div id="edu-question-numbers"></div><small>Green = answered</small></aside><div class="edu-question-stage"><div class="edu-question-meta"><span id="edu-question-position">Question 1 of 20</span><span id="edu-question-mark">1 mark</span></div><div id="edu-question-card"></div><div class="edu-question-controls"><button id="edu-question-prev" class="edu-button edu-button-quiet" type="button">← Previous</button><button id="edu-question-next" class="edu-button edu-button-primary" type="button">Next →</button></div><div class="edu-submit-row"><span id="edu-answered-count">0 answered</span><button id="edu-submit-exam" class="edu-button edu-button-submit" type="button">Submit examination</button></div><p id="edu-save-state" class="edu-form-message" aria-live="polite"></p></div></div>
+    </section>
+
+    <section id="edu-result-view" class="edu-panel edu-result-view" hidden>
+      <div class="edu-result-head"><span class="edu-eyebrow">PRACTICE SESSION COMPLETE</span><h2 id="edu-result-title">Your result</h2><div class="edu-score-circle" id="edu-score-circle"><div><b id="edu-result-percent">0%</b><span>Score</span></div></div><div class="edu-result-stats"><div><b id="edu-result-earned">0</b><span>Marks earned</span></div><div><b id="edu-result-total">0</b><span>Total marks</span></div><div><b id="edu-result-status">Submitted</b><span>Exam status</span></div></div><div class="edu-result-actions"><button id="edu-back-workspace" class="edu-button edu-button-primary" type="button">Back to student workspace</button><button id="edu-share-friends" class="edu-button edu-button-light" type="button">Share score with Frnxup friends</button><button id="edu-share-externally" class="edu-button edu-button-quiet" type="button">Share score…</button></div><p id="edu-share-feedback" class="edu-share-feedback" role="status" aria-live="polite"></p></div>
+      <div class="edu-review"><div class="edu-panel-title"><div><h3>Answer review</h3><p>Review correct answers and explanations to learn from this attempt.</p></div></div><div id="edu-review-list"></div></div>
+    </section>
+
+    <div id="edu-toast" class="edu-toast" role="status" aria-live="polite"></div>
+  </main>
+  <footer class="edu-footer"><span>EDU-AFRIKA · A Frnxup learning service</span><a href="/Dashboard/index.html">Return to Frnxup</a></footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/core.js"></script>
+  <script src="../js/edu-afrika.js?v=20261125-7"></script>
+</body>
+</html>
