@@ -40,7 +40,8 @@
     subjects = subjectResult.data || [];
     const activeSubjects = subjects.filter(x=>x.is_active);
     $('edu-question-subject').innerHTML = optionsHTML(activeSubjects,'code','name','Select subject');
-    $('edu-ai-subject').innerHTML = optionsHTML(activeSubjects,'code','name','Choose subject');
+    $('edu-ai-subject').innerHTML = optionsHTML(activeSubjects,'code','name','Choose a subject or use bulk selection');
+    $('edu-ai-bulk-subjects').innerHTML = activeSubjects.map(x=>`<option value="${esc(x.code)}">${esc(x.name)} · ${esc(x.code)}</option>`).join('');
     $('edu-blueprint-subject').innerHTML = optionsHTML(activeSubjects,'code','name','Choose subject');
     const examOptions = exams.filter(x=>x.is_active);
     $('edu-logo-exam').innerHTML = optionsHTML(exams,'code','name','Choose an examination');
@@ -153,7 +154,13 @@
       const short=(q.question_text||'').length>125?q.question_text.slice(0,122)+'…':q.question_text;
       const examNames=(q.exam_codes||[]).map(examLabel).join(', ');
       const status=`<span class="edu-admin-status ${q.review_status==='published'&&q.is_active?'':'is-off'}">${esc((q.review_status||'draft').toUpperCase())}${q.is_active?' · ACTIVE':''}</span>`;
-      return `<tr><td class="edu-question-cell"><b>${esc(short)}</b><small>${esc(q.difficulty)} · ${esc(q.question_type==='mcq'?'Multiple choice':'Fill in the gap')} · ${esc(q.source_type||'admin_authored')} ${q.source_year?'· '+esc(q.source_year):''}</small></td><td>${esc(subjectLabel(q.subject_code))}<small>${esc(q.topic_code||'')}</small></td><td>${(q.programme_ids||[]).length?esc((q.programme_ids||[]).map(id=>programmes.find(p=>p.id===id)?.programme_name||'Programme').join(', ')):'General'}</td><td>${esc(examNames)}</td><td>${Number(q.marks).toLocaleString()}</td><td>${status}</td><td><div class="edu-row-actions"><button type="button" data-edu-action="edit" data-id="${esc(q.id)}">Edit</button>${q.review_status==='published'?`<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>`:`<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Approve</button>`}<button type="button" data-edu-action="toggle" data-id="${esc(q.id)}">${q.is_active?'Deactivate':'Activate'}</button><button type="button" class="is-danger" data-edu-action="delete" data-id="${esc(q.id)}">Delete</button></div></td></tr>`;
+      const isAiDraft=q.source_type==='ai_draft';
+      const stageAction=isAiDraft
+        ? q.review_status==='review' ? `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Approve (inactive)</button>`
+          : q.review_status==='approved' ? `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Publish</button>`
+          : q.review_status==='published' ? `<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>` : ''
+        : q.review_status==='published' ? `<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>` : `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Approve</button>`;
+      return `<tr><td class="edu-question-cell"><b>${esc(short)}</b><small>${esc(q.difficulty)} · ${esc(q.question_type==='mcq'?'Multiple choice':'Fill in the gap')} · ${esc(q.source_type||'admin_authored')} ${q.source_year?'· '+esc(q.source_year):''}</small></td><td>${esc(subjectLabel(q.subject_code))}<small>${esc(q.topic_code||'')}</small></td><td>${(q.programme_ids||[]).length?esc((q.programme_ids||[]).map(id=>programmes.find(p=>p.id===id)?.programme_name||'Programme').join(', ')):'General'}</td><td>${esc(examNames)}</td><td>${Number(q.marks).toLocaleString()}</td><td>${status}</td><td><div class="edu-row-actions"><button type="button" data-edu-action="edit" data-id="${esc(q.id)}">Edit</button>${stageAction}${isAiDraft?'':`<button type="button" data-edu-action="toggle" data-id="${esc(q.id)}">${q.is_active?'Deactivate':'Activate'}</button>`}<button type="button" class="is-danger" data-edu-action="delete" data-id="${esc(q.id)}">Delete</button></div></td></tr>`;
     }).join('');
     const first=questionTotal?questionPage*questionPageSize+1:0, last=Math.min(questionTotal,(questionPage+1)*questionPageSize);
     $('edu-question-table').innerHTML=`<table class="admin-table"><thead><tr><th>Question</th><th>Subject / topic</th><th>Course scope</th><th>Examination(s)</th><th>Marks</th><th>Review status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table><div class="edu-pagination"><span>Showing ${first}–${last} of ${questionTotal} · Page ${questionPage+1} of ${pageCount}</span><button type="button" id="edu-question-prev-page" ${questionPage===0?'disabled':''}>Previous</button><button type="button" id="edu-question-next-page" ${questionPage>=pageCount-1?'disabled':''}>Next</button></div>`;
@@ -289,7 +296,9 @@
       if(!correct){feedback('edu-question-feedback','Enter the correct fill-in answer.');return;}
     }
     const publish=$('edu-question-active').checked;
-    const payload={question_text:prompt,subject_code:subject,exam_codes:examCodes,question_type:type,options,correct_answer:correct,accepted_answers:type==='fill_gap'?$('edu-accepted-fill').value.split('|').map(x=>x.trim()).filter(Boolean):[],explanation:$('edu-question-explanation').value.trim(),marks:Number($('edu-question-marks').value),difficulty:$('edu-question-difficulty').value,is_active:publish,review_status:publish?'published':'draft',source_type:$('edu-question-source-type').value,source_year:Number($('edu-question-year').value)||null,source_reference:$('edu-question-source-reference').value.trim(),topic_code:$('edu-question-topic').value.trim(),programme_ids:selectedValues($('edu-question-programmes')),updated_at:new Date().toISOString()};
+    const existingQuestion=id?questions.find(x=>x.id===id):null;
+    const isAiDraft=existingQuestion?.source_type==='ai_draft';
+    const payload={question_text:prompt,subject_code:subject,exam_codes:examCodes,question_type:type,options,correct_answer:correct,accepted_answers:type==='fill_gap'?$('edu-accepted-fill').value.split('|').map(x=>x.trim()).filter(Boolean):[],explanation:$('edu-question-explanation').value.trim(),marks:Number($('edu-question-marks').value),difficulty:$('edu-question-difficulty').value,is_active:isAiDraft?false:publish,review_status:isAiDraft?'review':publish?'published':'draft',source_type:isAiDraft?'ai_draft':$('edu-question-source-type').value,source_year:Number($('edu-question-year').value)||null,source_reference:$('edu-question-source-reference').value.trim(),topic_code:$('edu-question-topic').value.trim(),programme_ids:selectedValues($('edu-question-programmes')),updated_at:new Date().toISOString(),...(isAiDraft?{ai_reviewed_by:null,ai_reviewed_at:null}:{})};
     if(!Number.isFinite(payload.marks)||payload.marks<=0){feedback('edu-question-feedback','Enter a valid mark value greater than zero.');return;}
     const button=$('edu-question-save');setBusy(button,true,id?'Updating…':'Saving…');feedback('edu-question-feedback','');
     try{
@@ -300,6 +309,7 @@
       resetQuestionForm();
       await Promise.all([fetchQuestions(),loadStats()]);
       feedback('edu-question-feedback',id?'Question updated successfully.':'Question added to the bank.',true);
+      if(isAiDraft) window.dispatchEvent(new CustomEvent('eduAiReviewUpdated'));
       notify(id?'Question updated.':'Question added to the question bank.');
     }catch(error){feedback('edu-question-feedback',error.message||'The question could not be saved.');}
     finally{setBusy(button,false);}
@@ -317,14 +327,17 @@
     try{
       let payload;
       if(action==='toggle') payload={is_active:!q.is_active,updated_at:new Date().toISOString()};
-      else if(action==='approve') payload={review_status:'published',is_active:true,updated_at:new Date().toISOString()};
+      else if(action==='approve') payload=q.source_type==='ai_draft'&&q.review_status==='review'
+        ? {review_status:'approved',is_active:false,ai_reviewed_by:FX.user.id,ai_reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}
+        : {review_status:'published',is_active:true,ai_reviewed_by:q.source_type==='ai_draft'?FX.user.id:undefined,ai_reviewed_at:q.source_type==='ai_draft'?new Date().toISOString():undefined,updated_at:new Date().toISOString()};
       else if(action==='unpublish') payload={review_status:'approved',is_active:false,updated_at:new Date().toISOString()};
       let result;
       if(action==='delete') result=await FX.client.from('edu_questions').delete().eq('id',q.id);
       else result=await FX.client.from('edu_questions').update(payload).eq('id',q.id);
       if(result.error)throw result.error;
       await Promise.all([fetchQuestions(),loadStats()]);
-      notify(action==='delete'?'Question deleted.':action==='approve'?'Question approved and published.':action==='unpublish'?'Question removed from student delivery.':`Question ${q.is_active?'deactivated':'activated'}.`);
+      if(q.source_type==='ai_draft') window.dispatchEvent(new CustomEvent('eduAiReviewUpdated'));
+      notify(action==='delete'?'Question deleted.':action==='approve'?(q.source_type==='ai_draft'&&q.review_status==='review'?'AI draft approved and kept inactive.': 'Question approved and published.'):action==='unpublish'?'Question removed from student delivery.':`Question ${q.is_active?'deactivated':'activated'}.`);
     }catch(error){notify(error.message||'Unable to update this question.');}
     finally{button.disabled=false;}
   }
@@ -478,101 +491,58 @@
   async function generateAIDrafts(event) {
     event.preventDefault();
     const exam=exams.find(x=>x.code===$('edu-ai-exam').value);
-    const subject=subjects.find(x=>x.code===$('edu-ai-subject').value);
-    if(!exam||!subject){feedback('edu-ai-feedback','Choose an examination and subject.');return;}
+    if(!exam){feedback('edu-ai-feedback','Choose an examination destination.');return;}
+    const bulkCodes=selectedValues($('edu-ai-bulk-subjects')).filter(Boolean);
+    const subjectCodes=bulkCodes.length?bulkCodes:[$('edu-ai-subject').value].filter(Boolean);
+    if(!subjectCodes.length){feedback('edu-ai-feedback','Choose one subject or select one or more bulk subject destinations.');return;}
+    if(subjectCodes.length>10){feedback('edu-ai-feedback','Select no more than 10 subjects per bulk generation run.');return;}
+    const providerCode=$('edu-ai-provider-select')?.value;
+    if(!providerCode){feedback('edu-ai-feedback','Select an AI provider in Step 1 and save its API configuration.');return;}
     const count=Number($('edu-ai-count').value);
-    if(!Number.isInteger(count)||count<1||count>100){feedback('edu-ai-feedback','Generate between 1 and 100 drafts per request.');return;}
-    const button=$('edu-ai-generate'); setBusy(button,true,'Generating originals…'); feedback('edu-ai-feedback',''); $('edu-ai-preview').hidden=true;
+    if(!Number.isInteger(count)||count<1||count>100){feedback('edu-ai-feedback','Generate between 1 and 100 questions per selected subject.');return;}
+    const selectedProgrammeId=$('edu-ai-programme').value||null;
+    const selectedProgramme=programmes.find(p=>p.id===selectedProgrammeId)||null;
+    const button=$('edu-ai-generate'); setBusy(button,true,'Generating destination batches…');
+    feedback('edu-ai-feedback',''); $('edu-ai-preview').hidden=true;
+    const results=[];
     try{
-      const chosenTopic=topics.find(t=>t.subject_code===subject.code&&t.topic_code===$('edu-ai-topic').value);
-      const selectedProgrammeId=$('edu-ai-programme').value||null;
-      const selectedProgramme=programmes.find(p=>p.id===selectedProgrammeId)||null;
-      const {data,error}=await FX.client.functions.invoke('edu-afrika-generate-questions',{body:{exam_code:exam.code,exam_name:exam.name,subject_code:subject.code,subject_name:subject.name,topic_code:chosenTopic?.topic_code||'',topic_name:chosenTopic?.topic_name||'',programme_id:selectedProgrammeId,programme_name:selectedProgramme?.programme_name||'',count,format:$('edu-ai-format').value,difficulty:$('edu-ai-difficulty').value,syllabus_year:Number($('edu-ai-year').value)||null}});
-      if(error)throw error;
-      if(!data?.questions?.length)throw new Error(data?.error||'No question drafts were returned.');
-      aiDrafts=data.questions.map(q=>({...q,exam_codes:[exam.code],subject_code:subject.code,programme_ids:selectedProgrammeId?[selectedProgrammeId]:[],source_type:'ai_draft',source_reference:'AI-generated original practice draft',source_year:Number($('edu-ai-year').value)||null,is_active:false,review_status:'review',created_by:FX.user.id}));
-      const preview=aiDrafts.slice(0,5).map((q,i)=>`<article><b>${i+1}. ${esc(q.question_type.toUpperCase())} · ${esc(q.difficulty)}</b><p>${esc(q.question_text)}</p><small>${esc(q.explanation||'No explanation returned.')}</small></article>`).join('');
-      $('edu-ai-preview').innerHTML=`<div class="edu-preview-head"><b>${aiDrafts.length} draft questions generated</b><button type="button" id="edu-ai-import-drafts" class="admin-action action-green">Add all drafts to review queue</button></div>${preview}<small>Previewing the first five. All ${aiDrafts.length} remain unpublished until reviewed.</small>`;
-      $('edu-ai-preview').hidden=false;
-      $('edu-ai-import-drafts').addEventListener('click',importAIDrafts);
-      feedback('edu-ai-feedback',`${aiDrafts.length} original question drafts are ready for review.`,true);
-    }catch(error){feedback('edu-ai-feedback',error.message||'AI generation failed. Check Edge Function deployment and OPENAI_API_KEY / OPENAI_MODEL secrets.');}
-    finally{setBusy(button,false);}
-  }
-  async function importAIDrafts() {
-    if(!aiDrafts.length)return;
-    const button=$('edu-ai-import-drafts');setBusy(button,true,'Saving drafts…');
-    try{
-      for(let i=0;i<aiDrafts.length;i+=50){
-        const {error}=await FX.client.from('edu_questions').insert(aiDrafts.slice(i,i+50));
-        if(error)throw error;
+      for(let index=0;index<subjectCodes.length;index++){
+        const subject=subjects.find(x=>x.code===subjectCodes[index]);
+        if(!subject||!subject.is_active)throw new Error(`Subject destination ${subjectCodes[index]} is missing or inactive.`);
+        const chosenTopic=subjectCodes.length===1?topics.find(t=>t.subject_code===subject.code&&t.topic_code===$('edu-ai-topic').value):null;
+        feedback('edu-ai-feedback',`Generating ${subject.name} · destination ${index+1} of ${subjectCodes.length}…`);
+        let staffSessionToken=null;try{staffSessionToken=sessionStorage.getItem('frnxup_admin_staff_session')}catch(_){}
+        const {data,error}=await FX.client.functions.invoke('edu-afrika-generate-questions',{body:{
+          action:'generate',staff_session_token:staffSessionToken,provider_code:providerCode,exam_code:exam.code,exam_name:exam.name,
+          subject_code:subject.code,subject_name:subject.name,topic_code:chosenTopic?.topic_code||'',
+          topic_name:chosenTopic?.topic_name||'',programme_id:selectedProgrammeId,
+          programme_name:selectedProgramme?.programme_name||'',count,format:$('edu-ai-format').value,
+          difficulty:$('edu-ai-difficulty').value,syllabus_year:Number($('edu-ai-year').value)||null,
+          second_pass_check:$('edu-ai-second-pass').checked
+        }});
+        if(error){
+          let message=error.message||'AI generation failed.';
+          try{const payload=await error.context?.json?.();if(payload?.error)message=payload.error;}catch(_){}
+          throw new Error(`${subject.name}: ${message}`);
+        }
+        if(data?.error)throw new Error(`${subject.name}: ${data.error}`);
+        results.push({...data,subject_name:subject.name});
       }
-      await FX.client.from('edu_question_imports').insert({uploaded_by:FX.user.id,file_name:'AI question generator',import_type:'ai_generation',total_rows:aiDrafts.length,accepted_rows:aiDrafts.length,rejected_rows:0,status:'completed',details:{exam_code:aiDrafts[0].exam_codes[0],subject_code:aiDrafts[0].subject_code}});
-      notify(`${aiDrafts.length} AI drafts added to the review queue.`);aiDrafts=[];$('edu-ai-preview').hidden=true;feedback('edu-ai-feedback','Drafts saved. Review and publish them from the question bank.',true);
-      await Promise.all([fetchQuestions(),loadStats()]);
-    }catch(error){feedback('edu-ai-feedback',error.message||'Could not save generated drafts.');}
-    finally{if(button)setBusy(button,false);}
-  }
-
-  // CSV bulk import -----------------------------------------------------------
-  function parseCSV(text) {
-    const rows=[];let row=[],cell='',quoted=false;
-    for(let i=0;i<text.length;i++){
-      const c=text[i],next=text[i+1];
-      if(c==='"'&&quoted&&next==='"'){cell+='"';i++;}
-      else if(c==='"'){quoted=!quoted;}
-      else if(c===','&&!quoted){row.push(cell);cell='';}
-      else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&next==='\n')i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell='';}
-      else cell+=c;
-    }
-    row.push(cell);if(row.some(x=>x.trim()))rows.push(row);
-    if(rows.length<2)return [];
-    const headers=rows.shift().map(x=>x.trim().toLowerCase());
-    return rows.map(values=>Object.fromEntries(headers.map((h,i)=>[h,(values[i]||'').trim()])));
-  }
-  function listValue(value) { return String(value||'').split(/[;|]/).map(x=>x.trim().toUpperCase()).filter(Boolean); }
-
-  async function importProgrammesCSV(event) {
-    event.preventDefault();
-    const file=$('edu-programme-import-file').files?.[0]; if(!file){feedback('edu-programme-import-feedback','Choose a programme CSV file.');return;}
-    if(file.size>5*1024*1024){feedback('edu-programme-import-feedback','Programme CSV must be 5 MB or smaller.');return;}
-    const button=$('edu-programme-import-button');setBusy(button,true,'Validating…');feedback('edu-programme-import-feedback','');
-    try {
-      const rows=parseCSV(await file.text()); if(!rows.length)throw new Error('The file is empty or missing a header row.');
-      const examSet=new Set(exams.map(x=>x.code)); const subjectSet=new Set(subjects.map(x=>x.code));
-      const accepted=[],errors=[],seen=new Set();
-      const existingKeys=new Set(programmes.map(p=>[p.exam_code,p.programme_code,p.institution_name||''].join('|')));
-      rows.forEach((r,index)=>{
-        const line=index+2,exam=String(r.exam_code||'').trim().toUpperCase(),code=String(r.programme_code||'').trim().toUpperCase().replace(/[^A-Z0-9_]+/g,'_'),name=String(r.programme_name||'').trim();
-        const type=String(r.programme_type||'course').trim().toLowerCase();
-        const required=listValue(r.required_subject_codes),allowed=listValue(r.allowed_subject_codes);
-        const min=Number(r.min_subject_count||1),max=Number(r.max_subject_count||4),institution=String(r.institution_name||'').trim();
-        const key=[exam,code,institution].join('|');
-        if(!examSet.has(exam)||!code||!name){errors.push(`Line ${line}: unknown exam or missing programme code/name.`);return;}
-        if(!['course','stream','trade','module','level','specialization','track'].includes(type)){errors.push(`Line ${line}: invalid programme_type.`);return;}
-        if(!allowed.length||new Set(allowed).size!==allowed.length||required.some(x=>!allowed.includes(x))||allowed.some(x=>!subjectSet.has(x))){errors.push(`Line ${line}: allowed subjects must be valid subject codes and include every required subject.`);return;}
-        if(!Number.isInteger(min)||!Number.isInteger(max)||min<1||max<min||max>12||min>allowed.length){errors.push(`Line ${line}: invalid subject count limits.`);return;}
-        if(seen.has(key)){errors.push(`Line ${line}: duplicate programme in this file.`);return;}seen.add(key);
-        if(existingKeys.has(key)){errors.push(`Line ${line}: this programme already exists. Edit the existing row instead of importing over its verification status.`);return;}
-        let selectionRules; try { selectionRules=normalizeSelectionRules(r.selection_rules||'',allowed,min,max); } catch(error) { errors.push(`Line ${line}: ${error.message}`); return; }
-        accepted.push({exam_code:exam,programme_code:code,programme_name:name,programme_type:type,institution_name:institution,syllabus_year:Number(r.syllabus_year)||null,required_subject_codes:required,allowed_subject_codes:allowed,min_subject_count:min,max_subject_count:max,instructions:String(r.instructions||'').slice(0,1200),selection_rules:selectionRules,source_url:String(r.source_url||'').slice(0,500),verification_note:String(r.verification_note||'Imported as an unverified draft. Confirm current official rules before publishing.').slice(0,1000),is_verified:false,is_active:false,created_by:FX.user.id,updated_at:new Date().toISOString()});
-      });
-      if(!accepted.length)throw new Error(`No valid combinations to import. ${errors.slice(0,4).join(' · ')}`);
-      for(let i=0;i<accepted.length;i+=100){const {error}=await FX.client.from('edu_exam_programmes').insert(accepted.slice(i,i+100));if(error)throw error;}
-      const summary=`Imported ${accepted.length} course combinations as unpublished drafts; ${rows.length-accepted.length} row(s) skipped.`;
-      $('edu-programme-import-preview').innerHTML=`<b>${esc(summary)}</b>${errors.length?`<ul>${errors.slice(0,20).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p>No validation errors.</p>'}`;$('edu-programme-import-preview').hidden=false;
-      feedback('edu-programme-import-feedback',summary,true);await Promise.all([loadProgrammes(),loadStats()]);notify(summary);
-    }catch(error){feedback('edu-programme-import-feedback',error.message||'Programme import failed.');}
+      const accepted=results.reduce((sum,x)=>sum+Number(x.accepted||0),0);
+      const duplicates=results.reduce((sum,x)=>sum+Number(x.duplicate_count||0),0);
+      const invalid=results.reduce((sum,x)=>sum+Number(x.invalid_count||0),0);
+      const tokens=results.reduce((sum,x)=>sum+Number(x.input_tokens||0)+Number(x.output_tokens||0),0);
+      const preview=results.map(r=>{
+        const samples=(r.questions||[]).map(q=>`<article><b>${esc(q.question_text)}</b><p>${esc(q.options?.map(o=>`${o.key}. ${o.text}`).join(' · ')||'Fill in the gap')}<br><small>Topic: ${esc(q.topic_code||'—')} · ${esc(q.difficulty||'')}</small></p><small>Proposed answer: ${esc(q.correct_answer)} · Flags: ${esc((q.ai_quality_flags||[]).join(', '))}</small></article>`).join('');
+        return `<div class="edu-ai-destination-result"><b>${esc(r.subject_name)} · ${esc(r.exam_code)} ${r.programme_id?'· programme destination':''}</b><p>${Number(r.accepted||0)} saved for review · ${Number(r.duplicate_count||0)} duplicates blocked · ${Number(r.invalid_count||0)} invalid · ${Number(r.generated||0)} returned · ${esc(r.status||'')}</p>${samples||'<small>No sample questions were accepted for this destination.</small>'}<small>Batch ID: ${esc(r.batch_id||'—')}</small></div>`;
+      }).join('');
+      $('edu-ai-preview').innerHTML=`<div class="edu-preview-head"><b>Bulk generation completed · ${accepted.toLocaleString()} draft(s) saved</b><span>${results.length} destination batch(es) · ${tokens.toLocaleString()} reported tokens</span></div>${preview}<small>Every accepted question is saved as an inactive AI draft. The review centre must approve and then publish it before students can receive it.</small>`;
+      $('edu-ai-preview').hidden=false;
+      feedback('edu-ai-feedback',`${accepted} drafts saved across ${results.length} destination(s). ${duplicates} exact duplicates blocked; ${invalid} rows failed validation.`,true);
+      window.dispatchEvent(new CustomEvent('eduAiBatchCreated',{detail:results}));
+    }catch(error){feedback('edu-ai-feedback',error.message||'AI generation failed. Check the Edge Function deployment, encryption secret, provider configuration and provider quota.');}
     finally{setBusy(button,false);}
   }
-  function downloadProgrammeTemplate(){
-    const headers=['exam_code','programme_code','programme_name','programme_type','institution_name','syllabus_year','required_subject_codes','allowed_subject_codes','min_subject_count','max_subject_count','instructions','selection_rules','source_url','verification_note'];
-    const sample=['JAMB','COMPUTER_SCIENCE_UNI_X','Computer Science','course','Example University',2027,'ENGLISH;MATHEMATICS;PHYSICS;CHEMISTRY','ENGLISH;MATHEMATICS;PHYSICS;CHEMISTRY',4,4,'Verify against current official course/institution rules before publishing.','{}','https://eligibility.jamb.gov.ng/','Draft only; pending official verification.'];
-    const csv=[headers,sample].map(row=>row.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\r\n');
-    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='edu-afrika-programme-import-template.csv';a.click();URL.revokeObjectURL(url);
-  }
-
-
   async function importCSV(event) {
     event.preventDefault();
     const file=$('edu-import-file').files?.[0];if(!file){feedback('edu-import-feedback','Choose a CSV file.');return;}

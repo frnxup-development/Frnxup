@@ -1,0 +1,263 @@
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = value => window.FX?.esc ? window.FX.esc(value ?? '') : String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  let providers = [];
+  let configs = [];
+  let busy = false;
+
+  function setFeedback(id, message, good = false) {
+    const el = $(id); if (!el) return;
+    el.textContent = message || '';
+    el.style.color = good ? '#9cf0b6' : '#ffb8b8';
+  }
+  function setButtonBusy(id, state, label) {
+    const el = $(id); if (!el) return;
+    if (state) { el.dataset.previousText = el.textContent; el.textContent = label || 'Working…'; el.disabled = true; }
+    else { el.textContent = el.dataset.previousText || el.textContent; el.disabled = false; delete el.dataset.previousText; }
+  }
+  function selectedProvider() { return providers.find(p => p.code === $('edu-ai-provider-select')?.value) || null; }
+  function savedConfig(code) { return configs.find(c => c.provider_code === code) || null; }
+
+  async function invoke(payload) {
+    if (!window.FX?.client) throw new Error('Frnxup database client is not ready. Refresh the admin page and sign in again.');
+    let staffToken = null;
+    try { staffToken = sessionStorage.getItem('frnxup_admin_staff_session'); } catch (_) {}
+    const { data, error } = await FX.client.functions.invoke('edu-afrika-generate-questions', { body: { ...payload, staff_session_token: staffToken } });
+    if (error) {
+      let message = error.message || 'The AI service request failed.';
+      try { const detail = await error.context?.json?.(); if (detail?.error) message = detail.error; } catch (_) {}
+      throw new Error(message);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  function renderProviderDirectory() {
+    const host = $('edu-ai-provider-directory');
+    if (!host) return;
+    if (!providers.length) { host.innerHTML = '<p class="edu-admin-empty">Provider directory is unavailable. Check the Edge Function deployment.</p>'; return; }
+    host.innerHTML = providers.map(p => {
+      const config = p.config || savedConfig(p.code);
+      const tag = p.accessLabel || 'Check provider pricing / account eligibility';
+      return `<article class="edu-ai-provider-card"><header><b>${esc(p.name)}</b><span class="edu-ai-provider-tag">${tag}</span></header><p>${esc(p.freeAccess || 'Check provider pricing and eligibility.')}</p><div><a href="${esc(p.keyUrl)}" target="_blank" rel="noopener noreferrer">API key / console ↗</a><a href="${esc(p.website)}" target="_blank" rel="noopener noreferrer">Website ↗</a><a href="${esc(p.docsUrl)}" target="_blank" rel="noopener noreferrer">Docs ↗</a></div><small class="${config?.is_enabled ? 'is-configured' : ''}">${config ? (config.is_enabled ? `Configured · key ending ${esc(config.key_last_four || '••••')}` : 'Saved but disabled') : 'Not configured'}</small><button type="button" data-ai-provider-pick="${esc(p.code)}">${config ? 'Manage provider' : 'Configure provider'}</button></article>`;
+    }).join('');
+  }
+
+  function showSelectedProvider() {
+    const p = selectedProvider();
+    if (!p) return;
+    const config = p.config || savedConfig(p.code);
+    $('edu-ai-provider-model').value = config?.model || p.model || '';
+    $('edu-ai-provider-base-url').value = config?.api_base_url || p.baseUrl || '';
+    $('edu-ai-provider-key').value = '';
+    $('edu-ai-provider-enabled').checked = config ? !!config.is_enabled : true;
+    $('edu-ai-input-rate').value = config?.input_cost_per_million ?? '';
+    $('edu-ai-output-rate').value = config?.output_cost_per_million ?? '';
+    $('edu-ai-daily-batch-limit').value = config?.daily_batch_limit ?? '';
+    $('edu-ai-daily-question-limit').value = config?.daily_question_limit ?? '';
+    $('edu-ai-cloudflare-account').value = config?.account_id || '';
+    $('edu-ai-cloudflare-account-wrap').hidden = p.code !== 'cloudflare';
+    $('edu-ai-provider-free-note').textContent = (p.freeAccess || 'Review the provider pricing and account conditions before generating.') + (p.code === 'alibaba' ? ' IMPORTANT: replace YOUR_WORKSPACE_ID in the base URL with your Model Studio workspace ID and use the matching region.' : '');
+    const keyLink = $('edu-ai-provider-key-link');
+    keyLink.href = p.keyUrl; keyLink.hidden = !p.keyUrl;
+    const docsLink = $('edu-ai-provider-docs-link');
+    docsLink.href = p.docsUrl; docsLink.hidden = !p.docsUrl;
+    $('edu-ai-provider-config-status').textContent = config ? `${config.is_enabled ? 'Enabled' : 'Disabled'} · key ending ${config.key_last_four || '••••'} · test: ${config.last_test_status || 'not tested'}${config.last_test_message ? ' · ' + config.last_test_message : ''}` : 'API key not configured yet.';
+    setFeedback('edu-ai-provider-feedback', '');
+  }
+
+  async function loadProviders() {
+    const select = $('edu-ai-provider-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">Loading providers…</option>';
+    try {
+      const data = await invoke({ action: 'list' });
+      providers = Array.isArray(data.providers) ? data.providers : [];
+      configs = providers.map(p => p.config).filter(Boolean);
+      select.innerHTML = '<option value="">Choose an AI provider</option>' + providers.map(p => `<option value="${esc(p.code)}">${esc(p.name)}${p.config ? (p.config.is_enabled ? ' · configured' : ' · disabled') : ' · not configured'}</option>`).join('');
+      if (providers.length) {
+        const preferred = providers.find(p => p.config?.is_enabled) || providers[0];
+        select.value = preferred.code;
+        showSelectedProvider();
+      }
+      renderProviderDirectory();
+    } catch (error) {
+      select.innerHTML = '<option value="">Provider list could not be loaded</option>';
+      $('edu-ai-provider-directory').innerHTML = `<p class="edu-admin-empty">${esc(error.message)}. Deploy the updated <code>edu-afrika-generate-questions</code> Edge Function and apply the AI Production Centre migration.</p>`;
+    }
+  }
+
+  async function saveProvider() {
+    if (busy) return;
+    const p = selectedProvider();
+    if (!p) { setFeedback('edu-ai-provider-feedback', 'Choose a provider.'); return; }
+    busy = true; setButtonBusy('edu-ai-provider-save', true, 'Encrypting and saving…');
+    try {
+      const result = await invoke({
+        action: 'save_provider', provider_code: p.code,
+        model: $('edu-ai-provider-model').value.trim(),
+        api_base_url: $('edu-ai-provider-base-url').value.trim(),
+        api_key: $('edu-ai-provider-key').value.trim(),
+        account_id: $('edu-ai-cloudflare-account').value.trim(),
+        input_cost_per_million: $('edu-ai-input-rate').value === '' ? null : Number($('edu-ai-input-rate').value),
+        output_cost_per_million: $('edu-ai-output-rate').value === '' ? null : Number($('edu-ai-output-rate').value),
+        daily_batch_limit: $('edu-ai-daily-batch-limit').value === '' ? null : Number($('edu-ai-daily-batch-limit').value),
+        daily_question_limit: $('edu-ai-daily-question-limit').value === '' ? null : Number($('edu-ai-daily-question-limit').value),
+        is_enabled: $('edu-ai-provider-enabled').checked,
+      });
+      $('edu-ai-provider-key').value = '';
+      setFeedback('edu-ai-provider-feedback', result.message || 'Provider configuration saved securely.', true);
+      await loadProviders();
+      $('edu-ai-provider-select').value = p.code;
+      showSelectedProvider();
+    } catch (error) { setFeedback('edu-ai-provider-feedback', error.message); }
+    finally { busy = false; setButtonBusy('edu-ai-provider-save', false); }
+  }
+
+  async function testProvider() {
+    if (busy) return;
+    const p = selectedProvider();
+    if (!p) { setFeedback('edu-ai-provider-feedback', 'Choose a provider.'); return; }
+    busy = true; setButtonBusy('edu-ai-provider-test', true, 'Testing API connection…');
+    try {
+      const result = await invoke({ action: 'test_provider', provider_code: p.code });
+      setFeedback('edu-ai-provider-feedback', result.message || 'Provider connection succeeded.', true);
+      await loadProviders();
+      $('edu-ai-provider-select').value = p.code;
+      showSelectedProvider();
+    } catch (error) { setFeedback('edu-ai-provider-feedback', error.message); await loadProviders(); $('edu-ai-provider-select').value = p.code; showSelectedProvider(); }
+    finally { busy = false; setButtonBusy('edu-ai-provider-test', false); }
+  }
+
+  function optionText(question) {
+    if (!Array.isArray(question.options) || !question.options.length) return 'Fill in the gap';
+    return question.options.map(o => `${o.key || ''}. ${o.text || ''}`).join(' · ');
+  }
+  function renderReviewQueue(rows) {
+    const host = $('edu-ai-review-queue');
+    $('edu-ai-review-count').textContent = `${rows.length} REVIEW / APPROVED`;
+    if (!rows.length) { host.innerHTML = '<p class="edu-admin-empty">No AI drafts are waiting for review or publication.</p>'; return; }
+    host.innerHTML = rows.map(q => {
+      const flags = Array.isArray(q.ai_quality_flags) ? q.ai_quality_flags : [];
+      const options = optionText(q);
+      const actions = q.review_status === 'review'
+        ? `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve (keep inactive)</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`
+        : `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
+      return `<article class="edu-ai-review-card"><header><div><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc((q.review_status || 'review').toUpperCase())}</span><b>${esc(q.subject_code)} · ${(q.exam_codes || []).map(esc).join(', ')}</b></div><small>${esc(q.ai_provider_code || 'AI')} / ${esc(q.ai_model || '')} · ${esc(q.created_at || '')}</small></header><h3>${esc(q.question_text)}</h3><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review still required.</span>'}</div><footer class="edu-row-actions">${actions}</footer></article>`;
+    }).join('');
+  }
+
+  async function loadReviewQueue() {
+    const host = $('edu-ai-review-queue');
+    host.innerHTML = '<p class="edu-admin-empty">Loading AI question review queue…</p>';
+    const { data, error } = await FX.client.from('edu_questions')
+      .select('id,question_text,subject_code,exam_codes,question_type,options,correct_answer,explanation,marks,difficulty,topic_code,review_status,ai_quality_flags,ai_provider_code,ai_model,created_at')
+      .eq('source_type','ai_draft').in('review_status',['review','approved'])
+      .order('created_at',{ascending:false}).limit(100);
+    if (error) throw error;
+    renderReviewQueue(data || []);
+  }
+
+  function editInQuestionBank(id, text, status) {
+    const source = $('edu-bank-source'); const review = $('edu-bank-review'); const search = $('edu-bank-search');
+    source.value = 'ai_draft'; review.value = status || 'review'; search.value = text.slice(0, 100);
+    $('edu-bank-search-button').click();
+    const editor = $('edu-question-form');
+    setTimeout(() => {
+      const rowButton = document.querySelector(`[data-edu-action="edit"][data-id="${CSS.escape(id)}"]`);
+      if (rowButton) rowButton.click();
+      else editor.scrollIntoView({behavior:'smooth',block:'start'});
+    }, 450);
+  }
+
+  async function reviewAction(event) {
+    const button = event.target.closest('[data-ai-review-action]');
+    if (!button) return;
+    const action = button.dataset.aiReviewAction;
+    const id = button.dataset.id;
+    const { data: question, error: loadError } = await FX.client.from('edu_questions').select('id,question_text,review_status').eq('id',id).single();
+    if (loadError) { window.alert(loadError.message); return; }
+    if (action === 'edit') { editInQuestionBank(id, question.question_text, question.review_status); return; }
+    if (action === 'publish' && !window.confirm('Publish this approved question? It will become active and eligible for future student examinations.')) return;
+    if (action === 'reject' && !window.confirm('Reject this AI-generated draft? It will remain in the bank but cannot be delivered to students.')) return;
+    button.disabled = true;
+    try {
+      const actorId = window.FX?.user?.id || null;
+      const patch = action === 'approve'
+        ? { review_status:'approved', is_active:false, ai_reviewed_by:actorId, ai_reviewed_at:new Date().toISOString(), updated_at:new Date().toISOString() }
+        : action === 'publish'
+          ? { review_status:'published', is_active:true, ai_reviewed_by:actorId, ai_reviewed_at:new Date().toISOString(), updated_at:new Date().toISOString() }
+          : { review_status:'rejected', is_active:false, ai_reviewed_by:actorId, ai_reviewed_at:new Date().toISOString(), updated_at:new Date().toISOString() };
+      const { error } = await FX.client.from('edu_questions').update(patch).eq('id',id);
+      if (error) throw error;
+      await Promise.all([loadReviewQueue(), loadHistory()]);
+      if (typeof window.refreshEduAfrikaAdmin === 'function') window.refreshEduAfrikaAdmin().catch(() => {});
+      setFeedback('edu-ai-provider-feedback', action === 'publish' ? 'Question published to the student-eligible bank.' : action === 'approve' ? 'Question approved; it remains inactive until separately published.' : 'Question rejected and kept inactive.', true);
+    } catch (error) { window.alert(error.message || 'Unable to update this question.'); }
+    finally { button.disabled = false; }
+  }
+
+  function renderHistory(rows) {
+    const host = $('edu-ai-history-table');
+    const totalDrafts = rows.reduce((sum,r)=>sum+Number(r.accepted_count||0),0);
+    const totalTokens = rows.reduce((sum,r)=>sum+Number(r.total_tokens||0),0);
+    const totalDuplicates = rows.reduce((sum,r)=>sum+Number(r.duplicate_count||0),0);
+    const pricedRows = rows.filter(r=>r.estimated_cost_usd !== null && r.estimated_cost_usd !== undefined);
+    const estimatedCost = pricedRows.reduce((sum,r)=>sum+Number(r.estimated_cost_usd||0),0);
+    $('edu-ai-usage-summary').innerHTML = [
+      ['Generation batches',rows.length],['Saved drafts',totalDrafts],['Tokens reported',totalTokens.toLocaleString()],['Duplicates blocked',totalDuplicates],['Estimated cost (USD)',pricedRows.length ? '$'+estimatedCost.toFixed(4) : 'Unavailable']
+    ].map(([label,value])=>`<article><small>${esc(label)}</small><b>${esc(value)}</b></article>`).join('');
+    if (!rows.length) { host.innerHTML = '<p class="edu-admin-empty">No AI generation batches have been recorded yet.</p>'; return; }
+    host.innerHTML = `<table class="admin-table"><thead><tr><th>Created</th><th>Provider / model</th><th>Destination</th><th>Requested / accepted</th><th>Duplicates / invalid</th><th>Tokens</th><th>Estimated cost (USD)</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(new Date(r.created_at).toLocaleString())}<small>Batch ${esc(String(r.id).slice(0,8))}</small></td><td><b>${esc(r.provider_name)}</b><small>${esc(r.model)}</small></td><td>${esc(r.exam_code)}<small>${esc(r.subject_code)}${r.programme_id?' · programme':''}${r.topic_code?' · '+esc(r.topic_code):''}</small></td><td>${Number(r.requested_count||0)} / <b>${Number(r.accepted_count||0)}</b></td><td>${Number(r.duplicate_count||0)} / ${Number(r.invalid_count||0)}</td><td>${Number(r.total_tokens||0).toLocaleString()}<small>Input ${Number(r.input_tokens||0).toLocaleString()} · Output ${Number(r.output_tokens||0).toLocaleString()}</small></td><td>${r.estimated_cost_usd===null||r.estimated_cost_usd===undefined?'Unavailable':'$'+Number(r.estimated_cost_usd).toFixed(6)}</td><td><span class="edu-admin-status ${r.status==='completed'?'':'is-off'}">${esc(String(r.status||'').toUpperCase())}</span>${r.error_message?`<small>${esc(r.error_message)}</small>`:''}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  async function loadHistory() {
+    const host = $('edu-ai-history-table');
+    host.innerHTML = '<p class="edu-admin-empty">Loading AI generation history…</p>';
+    const { data, error } = await FX.client.from('edu_ai_generation_batches')
+      .select('id,provider_name,model,exam_code,subject_code,programme_id,topic_code,requested_count,generated_count,accepted_count,duplicate_count,invalid_count,status,input_tokens,output_tokens,total_tokens,duration_ms,estimated_cost_usd,error_message,created_at')
+      .order('created_at',{ascending:false}).limit(100);
+    if (error) throw error;
+    renderHistory(data || []);
+  }
+
+  async function refreshAll() {
+    const tasks = await Promise.allSettled([loadProviders(),loadReviewQueue(),loadHistory()]);
+    const failed = tasks.filter(t => t.status === 'rejected');
+    if (failed.length) console.warn('Some EDU-AFRIKA AI production panels could not refresh:', failed.map(x=>x.reason));
+  }
+
+  function bind() {
+    $('edu-ai-provider-select')?.addEventListener('change',showSelectedProvider);
+    $('edu-ai-provider-save')?.addEventListener('click',saveProvider);
+    $('edu-ai-provider-test')?.addEventListener('click',testProvider);
+    $('edu-ai-provider-directory')?.addEventListener('click',event=>{
+      const button=event.target.closest('[data-ai-provider-pick]'); if(!button)return;
+      $('edu-ai-provider-select').value=button.dataset.aiProviderPick; showSelectedProvider();
+      $('edu-ai-provider-select').scrollIntoView({behavior:'smooth',block:'center'});
+    });
+    $('edu-ai-review-queue')?.addEventListener('click',reviewAction);
+    $('edu-ai-review-refresh')?.addEventListener('click',()=>loadReviewQueue().catch(e=>setFeedback('edu-ai-provider-feedback',e.message)));
+    $('edu-ai-history-refresh')?.addEventListener('click',()=>loadHistory().catch(e=>{ $('edu-ai-history-table').innerHTML=`<p class="edu-admin-empty">${esc(e.message)}</p>`; }));
+    $('admin-refresh')?.addEventListener('click',()=>refreshAll());
+    window.addEventListener('eduAiBatchCreated',()=>{loadReviewQueue().catch(()=>{});loadHistory().catch(()=>{});});
+    window.addEventListener('eduAiReviewUpdated',()=>{loadReviewQueue().catch(()=>{});loadHistory().catch(()=>{});});
+  }
+
+  let startAttempts = 0;
+  async function start() {
+    if (!window.FX?.client) { if (++startAttempts < 40) setTimeout(start, 150); return; }
+    try {
+      await window.FX.loadUser();
+      const access = await window.FX.admin('verify_access');
+      if (!access?.ok || !access.staff_session_valid || !['admin','owner'].includes(access.role)) throw new Error('An active Frnxup admin/owner staff session is required.');
+      bind(); refreshAll();
+    } catch (error) {
+      const host = $('edu-ai-provider-directory');
+      if (host) host.innerHTML = `<p class="edu-admin-empty">${esc(error.message || 'Admin authentication is required to open the AI Production Centre.')}</p>`;
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+})();
