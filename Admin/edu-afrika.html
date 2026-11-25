@@ -5,7 +5,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>EDU-AFRIKA Exam Automation Room · Frnxup Admin</title>
   <link rel="stylesheet" href="css/admin.css">
-  <link rel="stylesheet" href="css/edu-afrika-admin.css?v=20261125-compact-1">
+  <link rel="stylesheet" href="css/edu-afrika-admin.css?v=20261125-student-publish-1">
 </head>
 <body data-view="edu-afrika">
   <aside class="admin-side"><a class="brand" href="index.html"><img src="../Asset/frnxup-mark.svg">Frnxup</a><small>PLATFORM CONTROL CENTRE</small><nav><a href="index.html">▦ Overview</a><a href="control-room.html">⌘ Action control room</a><a href="edu-afrika.html" class="active">🎓 EDU-AFRIKA</a></nav><div class="side-foot">FRNXUP ADMIN<br><span>Privileged actions are logged.</span></div></aside>
@@ -162,7 +162,7 @@ Apply them to examples"></textarea></label>
 
     <section class="admin-panel edu-ai-review-panel">
       <div class="panel-head"><div><h2>AI question quality-control & approval centre</h2><p>Inspect full question text, options, proposed answer, explanation and quality flags. Editing, approving and publishing are separate actions.</p></div><span class="badge" id="edu-ai-review-count">LOADING REVIEW QUEUE</span></div>
-      <div class="edu-ai-review-tools"><span>Review → Approved (inactive) → Published (active and eligible for student exams)</span><button type="button" id="edu-ai-review-refresh" class="admin-action action-green">Refresh review queue</button></div>
+      <div class="edu-ai-review-tools edu-ai-publish-tools"><span>Review → Approved (inactive) → Published (active and available on the student examination page). Only approved questions with active, verified syllabus mappings can be sent.</span><div class="edu-ai-publish-actions"><button type="button" id="edu-ai-publish-approved" class="admin-action action-green" disabled>Publish approved questions to students</button><button type="button" id="edu-ai-review-refresh" class="admin-action action-green">Refresh review queue</button></div><span id="edu-ai-publish-feedback" role="status" aria-live="polite"></span></div>
       <div class="edu-ai-review-filters"><input id="edu-ai-review-search" type="search" placeholder="Search draft question, subject, exam or topic…" aria-label="Search AI review drafts"><select id="edu-ai-review-filter" aria-label="Filter AI review drafts"><option value="all">All review drafts</option><option value="review">Needs review</option><option value="approved">Approved</option></select><span id="edu-ai-review-visible" aria-live="polite">Loading drafts…</span></div>
       <div id="edu-ai-review-queue" class="edu-ai-review-queue"><p class="edu-admin-empty">Loading AI-generated drafts…</p></div>
     </section>
@@ -249,6 +249,6 @@ Apply them to examples"></textarea></label>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script><script src="../js/core.js"></script>
-  <script src="js/edu-afrika-admin.js?v=20261125-compact-1"></script><script src="js/edu-afrika-syllabus-manager.js?v=20261125-compact-1"></script><script src="js/edu-afrika-ai-production.js?v=20261125-compact-1"></script><script src="js/admin.js"></script><script src="js/edu-afrika-compact-view.js?v=20261125-1"></script>
+  <script src="js/edu-afrika-admin.js?v=20261125-compact-1"></script><script src="js/edu-afrika-syllabus-manager.js?v=20261125-compact-1"></script><script src="js/edu-afrika-ai-production.js?v=20261125-student-publish-1"></script><script src="js/admin.js"></script><script src="js/edu-afrika-compact-view.js?v=20261125-1"></script>
 </body>
 </html>
