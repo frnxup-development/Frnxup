@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  let exams = [], subjects = [], questions = [], programmes = [], blueprints = [], topics = [], aiDrafts = [];
+  let exams = [], subjects = [], questions = [], programmes = [], blueprints = [], topics = [], topicExamMappings = [], aiDrafts = [];
   let questionPage = 0, questionTotal = 0;
   const questionPageSize = 50;
   const esc = value => FX.esc(value ?? '');
@@ -139,7 +139,7 @@
     const search=($('edu-bank-search').value||'').trim().replace(/[(),%]/g,' ');
     const type=$('edu-bank-type').value, active=$('edu-bank-status').value;
     const review=$('edu-bank-review').value, source=$('edu-bank-source')?.value||'';
-    let query=FX.client.from('edu_questions').select('id,question_text,subject_code,exam_codes,question_type,options,correct_answer,accepted_answers,explanation,marks,difficulty,is_active,review_status,source_type,source_year,source_reference,topic_code,programme_ids,created_at',{count:'exact'})
+    let query=FX.client.from('edu_questions').select('id,question_text,subject_code,exam_codes,question_type,options,correct_answer,accepted_answers,explanation,marks,difficulty,is_active,review_status,source_type,source_year,source_reference,topic_code,programme_ids,ai_syllabus_mapping_id,ai_syllabus_verification_status,created_at',{count:'exact'})
       .order('created_at',{ascending:false});
     if(search) query=query.or(`question_text.ilike.%${search}%,subject_code.ilike.%${search}%,topic_code.ilike.%${search}%,source_reference.ilike.%${search}%`);
     if(type)query=query.eq('question_type',type);
@@ -183,15 +183,31 @@
   }
   function refreshAITopicOptions(selected='') {
     const subject=$('edu-ai-subject')?.value;
-    const list=topics.filter(t=>t.subject_code===subject&&t.is_active);
-    $('edu-ai-topic').innerHTML='<option value="">Any topic / balanced subject coverage</option>'+list.map(t=>`<option value="${esc(t.topic_code)}">${esc(t.topic_name)}${t.syllabus_year?` · ${t.syllabus_year}`:''}</option>`).join('');
+    const exam=$('edu-ai-exam')?.value;
+    const mappedIds=new Set(topicExamMappings.filter(m=>m.exam_code===exam&&m.is_active).map(m=>m.topic_id));
+    const list=topics.filter(t=>t.subject_code===subject&&t.is_active&&(!exam||mappedIds.has(t.id)));
+    $('edu-ai-topic').innerHTML='<option value="">Any mapped topic / balanced subject coverage</option>'+list.map(t=>`<option value="${esc(t.topic_code)}">${esc(t.topic_name)}${t.syllabus_year?` · ${t.syllabus_year}`:''}</option>`).join('');
     if(selected && list.some(t=>t.topic_code===selected))$('edu-ai-topic').value=selected;
   }
+  async function loadExamTopicMappings() {
+    const exam=$('edu-ai-exam')?.value;
+    if(!exam){topicExamMappings=[];refreshAITopicOptions('');return;}
+    // Load only the selected examination's mappings to stay below PostgREST row caps.
+    const {data,error}=await FX.client.from('edu_subject_topic_exam_map')
+      .select('id,topic_id,subject_code,exam_code,syllabus_year,is_active,verification_status')
+      .eq('exam_code',exam).eq('is_active',true).limit(1000);
+    if(error)throw error;
+    topicExamMappings=data||[];
+    refreshAITopicOptions('');
+  }
   async function loadTopics() {
-    const {data,error}=await FX.client.from('edu_subject_topics').select('id,subject_code,topic_code,topic_name,syllabus_year,is_active,created_at').order('subject_code').order('topic_name');
+    const {data,error}=await FX.client.from('edu_subject_topics')
+      .select('id,subject_code,topic_code,topic_name,syllabus_year,is_active,created_at,topic_description,learning_outcomes,source_status,source_reference')
+      .order('subject_code').order('topic_name').limit(1000);
     if(error)throw error;
     topics=data||[];
-    $('edu-topic-table').innerHTML=topics.length?`<table class="admin-table"><thead><tr><th>Subject</th><th>Topic</th><th>Year</th><th>Status</th><th>Action</th></tr></thead><tbody>${topics.map(t=>`<tr><td>${esc(subjectLabel(t.subject_code))}</td><td><b>${esc(t.topic_name)}</b><small>${esc(t.topic_code)}</small></td><td>${t.syllabus_year||'Any year'}</td><td><span class="edu-admin-status ${t.is_active?'':'is-off'}">${t.is_active?'ACTIVE':'INACTIVE'}</span></td><td><div class="edu-row-actions"><button type="button" data-topic-action="edit" data-id="${esc(t.id)}">Edit</button><button type="button" data-topic-action="toggle" data-id="${esc(t.id)}">${t.is_active?'Deactivate':'Activate'}</button></div></td></tr>`).join('')}</tbody></table>`:'<p class="edu-admin-empty">No subject topics yet. Add topics before assigning topic-focused questions.</p>';
+    await loadExamTopicMappings();
+    $('edu-topic-table').innerHTML=topics.length?`<table class="admin-table"><thead><tr><th>Subject</th><th>Topic</th><th>Year</th><th>Source status</th><th>Status</th><th>Action</th></tr></thead><tbody>${topics.map(t=>`<tr><td>${esc(subjectLabel(t.subject_code))}</td><td><b>${esc(t.topic_name)}</b><small>${esc(t.topic_code)}${t.topic_description?`<br>${esc(t.topic_description)}`:''}</small></td><td>${t.syllabus_year||'Any year'}</td><td>${esc(t.source_status||'draft')}</td><td><span class="edu-admin-status ${t.is_active?'':'is-off'}">${t.is_active?'ACTIVE':'INACTIVE'}</span></td><td><div class="edu-row-actions"><button type="button" data-topic-action="edit" data-id="${esc(t.id)}">Edit</button><button type="button" data-topic-action="toggle" data-id="${esc(t.id)}">${t.is_active?'Deactivate':'Activate'}</button></div></td></tr>`).join('')}</tbody></table>`:'<p class="edu-admin-empty">No subject topics yet. Use the bulk CSV import or add topics above.</p>';
     refreshQuestionTopicOptions($('edu-question-topic').value);
     refreshAITopicOptions($('edu-ai-topic').value);
   }
@@ -202,7 +218,7 @@
   function editTopic(id) {
     const t=topics.find(x=>x.id===id); if(!t)return;
     $('edu-topic-id').value=t.id; $('edu-topic-subject').value=t.subject_code; $('edu-topic-code').value=t.topic_code;
-    $('edu-topic-name').value=t.topic_name; $('edu-topic-year').value=t.syllabus_year||''; $('edu-topic-active').checked=!!t.is_active;
+    $('edu-topic-name').value=t.topic_name; $('edu-topic-year').value=t.syllabus_year||''; $('edu-topic-active').checked=!!t.is_active; $('edu-topic-description').value=t.topic_description||''; $('edu-topic-outcomes').value=Array.isArray(t.learning_outcomes)?t.learning_outcomes.join('\n'):'';
     $('edu-topic-save').textContent='Update topic'; $('edu-topic-cancel').hidden=false; $('edu-topic-form').scrollIntoView({behavior:'smooth',block:'start'});
   }
   async function saveTopic(event) {
@@ -211,12 +227,16 @@
     const code=$('edu-topic-code').value.trim().toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80);
     const name=$('edu-topic-name').value.trim();
     if(!subject||!code||!name){feedback('edu-topic-feedback','Choose a subject and enter a topic code and name.');return;}
-    const payload={subject_code:subject,topic_code:code,topic_name:name,syllabus_year:Number($('edu-topic-year').value)||null,is_active:$('edu-topic-active').checked};
+    const payload={subject_code:subject,topic_code:code,topic_name:name,syllabus_year:Number($('edu-topic-year').value)||2026,is_active:$('edu-topic-active').checked,topic_description:$('edu-topic-description').value.trim(),learning_outcomes:$('edu-topic-outcomes').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,20),source_status:'draft',source_reference:'Administrator-maintained EDU-AFRIKA topic outline; verify against current official syllabus',updated_at:new Date().toISOString()};
     const id=$('edu-topic-id').value; const button=$('edu-topic-save'); setBusy(button,true,id?'Updating…':'Saving…');
     try{
       const result=id?await FX.client.from('edu_subject_topics').update(payload).eq('id',id):await FX.client.from('edu_subject_topics').insert(payload);
       if(result.error)throw result.error;
-      resetTopicForm(); await loadTopics(); feedback('edu-topic-feedback','Topic saved. You can now assign it to questions.',true); notify('Subject topic saved.');
+      if(id){
+        const {error:mappingError}=await FX.client.from('edu_subject_topic_exam_map').update({subject_code:subject,verification_status:'draft',review_note:'Topic content or subject was edited. Re-check this topic against the selected examination syllabus before re-verifying.',updated_at:new Date().toISOString()}).eq('topic_id',id);
+        if(mappingError)throw mappingError;
+      }
+      resetTopicForm(); await loadTopics(); feedback('edu-topic-feedback',id?'Topic updated. Existing examination mappings were returned to Draft for re-verification.':'Topic saved. You can now map it to examination destinations.',true); notify('Subject topic saved.');
     }catch(error){feedback('edu-topic-feedback',error.message||'Could not save topic.');}
     finally{setBusy(button,false);}
   }
@@ -226,9 +246,14 @@
     if(button.dataset.topicAction==='edit'){editTopic(topic.id);return;}
     button.disabled=true;
     try{
-      const {error}=await FX.client.from('edu_subject_topics').update({is_active:!topic.is_active}).eq('id',topic.id);
+      const nextActive=!topic.is_active;
+      const {error}=await FX.client.from('edu_subject_topics').update({is_active:nextActive,updated_at:new Date().toISOString()}).eq('id',topic.id);
       if(error)throw error;
-      await loadTopics(); notify(topic.is_active?'Topic deactivated.':'Topic activated.');
+      if(!nextActive){
+        const {error:mappingError}=await FX.client.from('edu_subject_topic_exam_map').update({is_active:false,verification_status:'draft',review_note:'Topic deactivated. Re-enable and re-verify each examination mapping before generation or publication.',updated_at:new Date().toISOString()}).eq('topic_id',topic.id);
+        if(mappingError)throw mappingError;
+      }
+      await loadTopics(); notify(topic.is_active?'Topic deactivated and all examination mappings disabled.':'Topic activated. Re-enable suitable examination mappings in the Syllabus Manager.');
     }catch(error){notify(error.message||'Could not update topic.');}finally{button.disabled=false;}
   }
 
@@ -334,6 +359,13 @@
     try{
       let payload;
       if(action==='toggle') payload={is_active:!q.is_active,updated_at:new Date().toISOString()};
+      else if(action==='approve'&&q.source_type==='ai_draft'&&q.review_status==='approved'){
+        if(!q.ai_syllabus_mapping_id)throw new Error('This AI draft has no linked examination-topic mapping. Re-generate it after mapping the topic.');
+        const {data:mapping,error:mappingError}=await FX.client.from('edu_subject_topic_exam_map').select('is_active,verification_status').eq('id',q.ai_syllabus_mapping_id).maybeSingle();
+        if(mappingError)throw mappingError;
+        if(!mapping?.is_active||mapping.verification_status==='draft')throw new Error('Publishing is blocked until this topic-to-examination mapping is active and marked Reviewed or Official source verified in the Syllabus Manager.');
+        payload={review_status:'published',is_active:true,ai_reviewed_by:FX.user.id,ai_reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+      }
       else if(action==='approve') payload=q.source_type==='ai_draft'&&q.review_status==='review'
         ? {review_status:'approved',is_active:false,ai_reviewed_by:FX.user.id,ai_reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}
         : {review_status:'published',is_active:true,ai_reviewed_by:q.source_type==='ai_draft'?FX.user.id:undefined,ai_reviewed_at:q.source_type==='ai_draft'?new Date().toISOString():undefined,updated_at:new Date().toISOString()};
@@ -540,7 +572,7 @@
       const invalid=results.reduce((sum,x)=>sum+Number(x.invalid_count||0),0);
       const tokens=results.reduce((sum,x)=>sum+Number(x.input_tokens||0)+Number(x.output_tokens||0),0);
       const preview=results.map(r=>{
-        const samples=(r.questions||[]).map(q=>`<article><b>${esc(q.question_text)}</b><p>${esc(q.options?.map(o=>`${o.key}. ${o.text}`).join(' · ')||'Fill in the gap')}<br><small>Topic: ${esc(q.topic_code||'—')} · ${esc(q.difficulty||'')}</small></p><small>Proposed answer: ${esc(q.correct_answer)} · Flags: ${esc((q.ai_quality_flags||[]).join(', '))}</small></article>`).join('');
+        const samples=(r.questions||[]).map(q=>`<article><b>${esc(q.question_text)}</b><p>${esc(q.options?.map(o=>`${o.key}. ${o.text}`).join(' · ')||'Fill in the gap')}<br><small>Topic: ${esc(q.topic_code||'—')} · ${esc(q.difficulty||'')}</small><small>Syllabus mapping: ${esc((q.ai_syllabus_verification_status||'draft').replace(/_/g,' ').toUpperCase())}${q.ai_syllabus_source_url?` · <a href="${esc(q.ai_syllabus_source_url)}" target="_blank" rel="noopener noreferrer">Source ↗</a>`:''}</small></p><small>Proposed answer: ${esc(q.correct_answer)} · Flags: ${esc((q.ai_quality_flags||[]).join(', '))}</small></article>`).join('');
         return `<div class="edu-ai-destination-result"><b>${esc(r.subject_name)} · ${esc(r.exam_code)} ${r.programme_id?'· programme destination':''}</b><p>${Number(r.accepted||0)} saved for review · ${Number(r.duplicate_count||0)} duplicates blocked · ${Number(r.invalid_count||0)} invalid · ${Number(r.generated||0)} returned · ${esc(r.status||'')}</p>${samples||'<small>No sample questions were accepted for this destination.</small>'}<small>Batch ID: ${esc(r.batch_id||'—')}</small></div>`;
       }).join('');
       $('edu-ai-preview').innerHTML=`<div class="edu-preview-head"><b>Bulk generation completed · ${accepted.toLocaleString()} draft(s) saved</b><span>${results.length} destination batch(es) · ${tokens.toLocaleString()} reported tokens</span></div>${preview}<small>Every accepted question is saved as an inactive AI draft. The review centre must approve and then publish it before students can receive it.</small>`;
@@ -607,6 +639,7 @@
     const csv=[headers,sample].map(row=>row.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\r\n');
     const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='edu-afrika-programme-import-template.csv';a.click();URL.revokeObjectURL(url);
   }
+
 
 
 
@@ -702,7 +735,7 @@
       $('edu-question-type').addEventListener('change',toggleQuestionFields);
       $('edu-question-subject').addEventListener('change',()=>refreshQuestionTopicOptions(''));
       $('edu-exam-checks').addEventListener('change',()=>refreshQuestionProgrammeOptions(selectedValues($('edu-question-programmes'))));
-      $('edu-ai-exam').addEventListener('change',()=>refreshQuestionProgrammeOptions());
+      $('edu-ai-exam').addEventListener('change',()=>{refreshQuestionProgrammeOptions();loadExamTopicMappings().catch(error=>notify(error.message||'Could not load exam topic mappings.'));});
       $('edu-ai-subject').addEventListener('change',()=>refreshAITopicOptions(''));
       $('edu-topic-form').addEventListener('submit',saveTopic);
       $('edu-topic-cancel').addEventListener('click',resetTopicForm);

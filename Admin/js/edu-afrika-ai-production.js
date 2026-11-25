@@ -141,10 +141,15 @@
     host.innerHTML = rows.map(q => {
       const flags = Array.isArray(q.ai_quality_flags) ? q.ai_quality_flags : [];
       const options = optionText(q);
+      const syllabusStatus = String(q.current_syllabus_verification_status || q.ai_syllabus_verification_status || 'draft').replace(/_/g, ' ').toUpperCase();
+      const canPublish = !!q.current_syllabus_mapping_active && !['draft',''].includes(String(q.current_syllabus_verification_status || 'draft'));
+      const sourceCandidate = q.current_syllabus_source_url || q.ai_syllabus_source_url || '';
+      const safeSyllabusUrl = /^https?:\/\//i.test(String(sourceCandidate)) ? String(sourceCandidate) : '';
+      const syllabusSource = safeSyllabusUrl ? `<a href="${esc(safeSyllabusUrl)}" target="_blank" rel="noopener noreferrer">Open syllabus source ↗</a>` : '<span>No official source URL recorded</span>'; 
       const actions = q.review_status === 'review'
         ? `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve (keep inactive)</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`
-        : `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
-      return `<article class="edu-ai-review-card"><header><div><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc((q.review_status || 'review').toUpperCase())}</span><b>${esc(q.subject_code)} · ${(q.exam_codes || []).map(esc).join(', ')}</b></div><small>${esc(q.ai_provider_code || 'AI')} / ${esc(q.ai_model || '')} · ${esc(q.created_at || '')}</small></header><h3>${esc(q.question_text)}</h3><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review still required.</span>'}</div><footer class="edu-row-actions">${actions}</footer></article>`;
+        : `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button>${canPublish?`<button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`:'<button type="button" disabled title="Verify the examination mapping first">Verify syllabus mapping to publish</button>'}<button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
+      return `<article class="edu-ai-review-card"><header><div><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc((q.review_status || 'review').toUpperCase())}</span><b>${esc(q.subject_code)} · ${(q.exam_codes || []).map(esc).join(', ')}</b></div><small>${esc(q.ai_provider_code || 'AI')} / ${esc(q.ai_model || '')} · ${esc(q.created_at || '')}</small></header><h3>${esc(q.question_text)}</h3><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-syllabus-verification"><b>Topic-to-examination mapping: ${esc(syllabusStatus)}</b>${syllabusSource}</div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review still required.</span>'}</div><footer class="edu-row-actions">${actions}</footer></article>`;
     }).join('');
   }
 
@@ -152,11 +157,23 @@
     const host = $('edu-ai-review-queue');
     host.innerHTML = '<p class="edu-admin-empty">Loading AI question review queue…</p>';
     const { data, error } = await FX.client.from('edu_questions')
-      .select('id,question_text,subject_code,exam_codes,question_type,options,correct_answer,explanation,marks,difficulty,topic_code,review_status,ai_quality_flags,ai_provider_code,ai_model,created_at')
+      .select('id,question_text,subject_code,exam_codes,question_type,options,correct_answer,explanation,marks,difficulty,topic_code,review_status,ai_quality_flags,ai_provider_code,ai_model,ai_syllabus_verification_status,ai_syllabus_source_url,ai_syllabus_mapping_id,created_at')
       .eq('source_type','ai_draft').in('review_status',['review','approved'])
       .order('created_at',{ascending:false}).limit(100);
     if (error) throw error;
-    renderReviewQueue(data || []);
+    const rows=data||[];
+    const mappingIds=[...new Set(rows.map(q=>q.ai_syllabus_mapping_id).filter(Boolean))];
+    let mappingRows=[];
+    if(mappingIds.length){
+      const mappingResult=await FX.client.from('edu_subject_topic_exam_map').select('id,is_active,verification_status,source_url').in('id',mappingIds);
+      if(mappingResult.error)throw mappingResult.error;
+      mappingRows=mappingResult.data||[];
+    }
+    const byId=new Map(mappingRows.map(m=>[m.id,m]));
+    renderReviewQueue(rows.map(q=>{
+      const mapping=byId.get(q.ai_syllabus_mapping_id);
+      return {...q,current_syllabus_verification_status:mapping?.verification_status||q.ai_syllabus_verification_status||'draft',current_syllabus_mapping_active:!!mapping?.is_active,current_syllabus_source_url:mapping?.source_url||q.ai_syllabus_source_url||''};
+    }));
   }
 
   function editInQuestionBank(id, text, status) {
@@ -176,9 +193,15 @@
     if (!button) return;
     const action = button.dataset.aiReviewAction;
     const id = button.dataset.id;
-    const { data: question, error: loadError } = await FX.client.from('edu_questions').select('id,question_text,review_status').eq('id',id).single();
+    const { data: question, error: loadError } = await FX.client.from('edu_questions').select('id,question_text,review_status,ai_syllabus_mapping_id').eq('id',id).single();
     if (loadError) { window.alert(loadError.message); return; }
     if (action === 'edit') { editInQuestionBank(id, question.question_text, question.review_status); return; }
+    if(action==='publish'){
+      if(!question.ai_syllabus_mapping_id){window.alert('This AI draft has no linked examination-topic mapping. Re-generate it after mapping the topic.');return;}
+      const mappingResult=await FX.client.from('edu_subject_topic_exam_map').select('is_active,verification_status').eq('id',question.ai_syllabus_mapping_id).maybeSingle();
+      if(mappingResult.error){window.alert(mappingResult.error.message);return;}
+      if(!mappingResult.data?.is_active||mappingResult.data.verification_status==='draft'){window.alert('Publishing is blocked until this topic-to-examination mapping is active and marked Reviewed or Official source verified in the Syllabus Manager.');return;}
+    }
     if (action === 'publish' && !window.confirm('Publish this approved question? It will become active and eligible for future student examinations.')) return;
     if (action === 'reject' && !window.confirm('Reject this AI-generated draft? It will remain in the bank but cannot be delivered to students.')) return;
     button.disabled = true;
