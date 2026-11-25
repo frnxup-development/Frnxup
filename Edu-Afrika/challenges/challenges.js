@@ -4,7 +4,8 @@
   const state = {
     user:null, password:'', displayName:'Student', examTypes:[], activeExam:null,
     subjects:[], programmes:[], challenge:null, challengeCode:'', currentIndex:0,
-    timer:null, poller:null, deadlineChecking:false, saveTimers:new Map(), pendingSaves:new Map(), saveErrors:new Set(), serverOffsetMs:0, busy:false
+    directory:[], directoryHasMore:false, directoryQuery:'', selectedOpponent:null, invitations:[], modalInviteId:null, modalMode:'', popupSeen:new Set(),
+    timer:null, poller:null, polling:false, directorySearchTimer:null, deadlineChecking:false, saveTimers:new Map(), pendingSaves:new Map(), saveErrors:new Set(), serverOffsetMs:0, busy:false
   };
   const escapeHtml = (value) => window.FX?.esc ? FX.esc(String(value ?? '')) : String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const showGlobal = (text, kind='error') => {
@@ -55,10 +56,150 @@
       await rpc('edu_student_login',{p_password:password});
       state.password=password; $('eca-password').value='';
       $('eca-auth-panel').hidden=true; $('eca-app').hidden=false;
-      await Promise.all([loadExams(),loadCurrent(false),loadLeaderboard(),loadStats()]);
+      initialiseScheduleInput();
+      await Promise.all([loadExams(),loadDirectory('')]);
+      await refreshScheduledStart();
+      await Promise.all([loadInvitations(false),loadCurrent(false),loadLeaderboard(),loadStats()]);
       startPolling();
     }catch(error){if(state.password){showGlobal(displayError(error));}else{feedback('eca-auth-note',displayError(error),'error');}}
     finally{setBusy('eca-login',false);}
+  }
+
+  function toLocalDateTimeValue(date){
+    const pad=n=>String(n).padStart(2,'0');
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+  function initialiseScheduleInput(){
+    const input=$('eca-scheduled-at');if(!input)return;
+    const now=new Date();const minMs=Math.ceil((now.getTime()+15*60*1000)/60000)*60000;
+    input.min=toLocalDateTimeValue(new Date(minMs));
+    input.max=toLocalDateTimeValue(new Date(Math.floor((now.getTime()+30*24*60*60*1000)/60000)*60000));
+    input.value=toLocalDateTimeValue(new Date(now.getTime()+60*60*1000));
+    updateCreateState();
+  }
+  async function loadDirectory(search='',append=false){
+    if(!state.password)return;
+    const query=String(search||'').trim();
+    if(!append){state.directory=[];state.directoryHasMore=false;state.directoryQuery=query;$('eca-directory-list').innerHTML='<p class="eca-muted">Loading registered EDU-AFRIKA students…</p>';}
+    try{
+      const rows=await rpc('edu_challenge_student_directory',{p_password:state.password,p_search:query||null,p_limit:100,p_offset:append?state.directory.length:0});
+      const batch=Array.isArray(rows)?rows:[];state.directory=append?state.directory.concat(batch):batch;
+      state.directoryHasMore=batch.length===100;renderDirectory();
+    }catch(error){$('eca-directory-list').innerHTML=`<p class="eca-error-inline">${escapeHtml(displayError(error))}</p>`;}
+  }
+  function renderDirectory(){
+    const host=$('eca-directory-list');if(!host)return;
+    if(!state.directory.length){host.innerHTML='<p class="eca-muted">No matching EDU-AFRIKA students were found. Try another username or name.</p>';return;}
+    host.innerHTML=state.directory.map(person=>{
+      const isSelected=state.selectedOpponent?.user_id===person.user_id;
+      return `<article class="eca-directory-card ${isSelected?'is-selected':''}"><div class="eca-directory-avatar">${escapeHtml((person.username||'S').slice(0,1).toUpperCase())}</div><div class="eca-directory-person"><b>@${escapeHtml(person.username)}</b><span>${escapeHtml(person.display_name||'EDU-AFRIKA Student')}</span></div><span class="eca-friend-badge ${person.is_friend?'is-friend':'is-not-friend'}">${person.is_friend?'FRNXUP FRIEND':'NOT A FRIEND'}</span>${person.is_friend?`<button class="eca-btn ${isSelected?'eca-dark':'eca-outline'}" type="button" data-select-student="${escapeHtml(person.user_id)}">${isSelected?'Selected':'Choose friend'}</button>`:'<span class="eca-friend-note">Connect on Frnxup first</span>'}</article>`;
+    }).join('');
+    host.querySelectorAll('[data-select-student]').forEach(button=>button.addEventListener('click',()=>{
+      const person=state.directory.find(item=>item.user_id===button.dataset.selectStudent);
+      if(!person?.is_friend)return;
+      state.selectedOpponent=person;
+      const chip=$('eca-selected-student');chip.hidden=false;
+      chip.innerHTML=`<span>SELECTED OPPONENT</span><b>@${escapeHtml(person.username)}</b><small>${escapeHtml(person.display_name||'EDU-AFRIKA Student')}</small><button id="eca-clear-selected" type="button" aria-label="Remove selected student">×</button>`;
+      $('eca-clear-selected').addEventListener('click',()=>{state.selectedOpponent=null;chip.hidden=true;renderDirectory();updateCreateState();});
+      renderDirectory();updateCreateState();
+    }));
+    if(state.directoryHasMore){
+      const more=document.createElement('button');more.type='button';more.className='eca-btn eca-outline eca-load-more';more.textContent='Load more students';
+      more.addEventListener('click',()=>loadDirectory(state.directoryQuery,true));host.appendChild(more);
+    }
+  }
+  async function loadInvitations(silent=false){
+    if(!state.password)return;
+    try{
+      const result=await rpc('edu_challenge_my_invitations',{p_password:state.password});
+      state.invitations=Array.isArray(result?.items)?result.items:[];
+      renderInvitations();
+      if(state.challenge?.status==='waiting')renderChallenge();
+      maybeShowInvitationPopup();
+    }catch(error){
+      if(!silent)$('eca-invitations-list').innerHTML=`<p class="eca-error-inline">${escapeHtml(displayError(error))}</p>`;
+    }
+  }
+  function formatSchedule(value){
+    const date=new Date(value);return Number.isFinite(date.getTime())?date.toLocaleString([], {dateStyle:'medium',timeStyle:'short'}):'Time not available';
+  }
+  function renderInvitations(){
+    const host=$('eca-invitations-list');if(!host)return;
+    const items=state.invitations;
+    if(!items.length){host.innerHTML='<p class="eca-muted">No quiz invitations yet. Choose a Frnxup friend above to schedule your first challenge.</p>';return;}
+    host.innerHTML=items.map(item=>{
+      const incoming=item.direction==='incoming';
+      const statusLabel=item.status.replaceAll('_',' ').toUpperCase();
+      const time=item.status==='reschedule_requested'?item.proposed_at:item.scheduled_at;
+      let action='';
+      if(incoming&&item.status==='pending')action=`<button class="eca-btn eca-primary" data-open-invite="${item.id}" data-mode="incoming" type="button">Review invitation</button>`;
+      else if(!incoming&&item.status==='reschedule_requested')action=`<button class="eca-btn eca-primary" data-open-invite="${item.id}" data-mode="outgoing" type="button">Review new time</button>`;
+      else if(item.status==='accepted')action='<span class="eca-invite-confirmed">TIME AGREED</span>';
+      else if(item.status==='started')action='<span class="eca-invite-confirmed is-live">CHALLENGE STARTED</span>';
+      return `<article class="eca-invitation-row"><div class="eca-invitation-icon">${incoming?'✉':'◷'}</div><div class="eca-invitation-copy"><b>${incoming?'From':'To'} @${escapeHtml(item.other_username||'student')}</b><span>${escapeHtml(item.exam_code)} · ${Number(item.question_count)} questions · ${Number(item.duration_minutes)} min</span><small>${item.status==='reschedule_requested'?'Proposed time: ':'Scheduled: '}${escapeHtml(formatSchedule(time))}</small></div><span class="eca-invitation-status status-${escapeHtml(item.status)}">${escapeHtml(statusLabel)}</span>${action}</article>`;
+    }).join('');
+    host.querySelectorAll('[data-open-invite]').forEach(button=>button.addEventListener('click',()=>{
+      const invite=state.invitations.find(item=>item.id===button.dataset.openInvite);
+      if(invite)openInviteModal(invite,button.dataset.mode);
+    }));
+  }
+  function maybeShowInvitationPopup(){
+    if(!$('eca-invite-modal').hidden)return;
+    const incoming=state.invitations.find(item=>item.direction==='incoming'&&item.status==='pending');
+    const proposed=state.invitations.find(item=>item.direction==='outgoing'&&item.status==='reschedule_requested');
+    const invite=incoming||proposed;if(!invite)return;
+    const key=`${invite.id}:${invite.status}:${invite.proposed_at||''}`;
+    if(state.popupSeen?.has(key))return;
+    state.popupSeen=state.popupSeen||new Set();state.popupSeen.add(key);
+    openInviteModal(invite,incoming?'incoming':'outgoing');
+  }
+  function openInviteModal(invite,mode){
+    state.modalInviteId=invite.id;state.modalMode=mode;
+    state.popupSeen=state.popupSeen||new Set();state.popupSeen.add(`${invite.id}:${invite.status}:${invite.proposed_at||''}`);
+    const incoming=mode==='incoming';
+    $('eca-invite-modal-title').textContent=incoming?'A STUDENT FROM EDU-AFRIKA INVITES YOU ON QUIZ CHALLENGE':'YOUR FRIEND PROPOSED A NEW QUIZ TIME';
+    $('eca-invite-modal-body').textContent=incoming?`@${invite.other_username} invited you to compete in EDU-AFRIKA. Accept the invitation or suggest another day and time.`:`@${invite.other_username} suggested a different start time. Confirm the proposed time or keep the original arrangement.`;
+    $('eca-invite-modal-meta').innerHTML=`<b>${escapeHtml(invite.exam_code)}</b><span>${Number(invite.question_count)} questions · ${Number(invite.duration_minutes)} minute countdown</span><span>${mode==='outgoing'?'Proposed: '+escapeHtml(formatSchedule(invite.proposed_at)):'Scheduled: '+escapeHtml(formatSchedule(invite.scheduled_at))}</span>`;
+    $('eca-reschedule-wrap').hidden=true;
+    if(incoming){
+      $('eca-invite-modal-actions').innerHTML='<button id="eca-modal-accept" class="eca-btn eca-primary" type="button">Accept challenge</button><button id="eca-modal-open-reschedule" class="eca-btn eca-outline" type="button">Reschedule challenge to other time</button><button id="eca-modal-decline" class="eca-btn eca-danger" type="button">Decline</button>';
+      $('eca-modal-accept').addEventListener('click',()=>respondInvitation('accept'));
+      $('eca-modal-open-reschedule').addEventListener('click',showRescheduleForm);
+      $('eca-modal-decline').addEventListener('click',()=>respondInvitation('decline'));
+    }else{
+      $('eca-invite-modal-actions').innerHTML='<button id="eca-modal-accept-new" class="eca-btn eca-primary" type="button">Accept proposed time</button><button id="eca-modal-decline-new" class="eca-btn eca-outline" type="button">Keep original time</button>';
+      $('eca-modal-accept-new').addEventListener('click',()=>respondInvitation('accept_reschedule'));
+      $('eca-modal-decline-new').addEventListener('click',()=>respondInvitation('decline_reschedule'));
+    }
+    $('eca-invite-modal').hidden=false;
+    $('eca-modal-accept')?.focus();
+  }
+  function showRescheduleForm(){
+    const invite=state.invitations.find(item=>item.id===state.modalInviteId);if(!invite)return;
+    const now=new Date();const proposed=new Date(Math.max(now.getTime()+24*60*60*1000,new Date(invite.scheduled_at).getTime()+60*60*1000));
+    const input=$('eca-reschedule-time');input.min=toLocalDateTimeValue(new Date(Math.ceil((now.getTime()+15*60*1000)/60000)*60000));input.max=toLocalDateTimeValue(new Date(Math.floor((now.getTime()+30*24*60*60*1000)/60000)*60000));input.value=toLocalDateTimeValue(proposed);
+    $('eca-reschedule-wrap').hidden=false;
+    $('eca-invite-modal-actions').innerHTML='<button id="eca-modal-send-reschedule" class="eca-btn eca-primary" type="button">Send new time proposal</button><button id="eca-modal-back" class="eca-btn eca-outline" type="button">Back</button>';
+    $('eca-modal-send-reschedule').addEventListener('click',()=>respondInvitation('reschedule'));
+    $('eca-modal-back').addEventListener('click',()=>openInviteModal(invite,'incoming'));
+  }
+  async function respondInvitation(action){
+    const id=state.modalInviteId;if(!id)return;
+    const args={p_password:state.password,p_invitation_id:id,p_action:action,p_proposed_at:null};
+    if(action==='reschedule'){
+      const value=$('eca-reschedule-time').value;const proposed=value?new Date(value):null;
+      if(!proposed||!Number.isFinite(proposed.getTime())||proposed.getTime()<Date.now()+15*60*1000||proposed.getTime()>Date.now()+30*24*60*60*1000){showGlobal('Choose another date and time at least 15 minutes from now and within 30 days.');return;}
+      args.p_proposed_at=proposed.toISOString();
+    }
+    const buttons=[...$('eca-invite-modal-actions').querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);
+    try{
+      const result=await rpc('edu_challenge_respond_invitation',args);
+      closeInviteModal();showGlobal(result?.message||'Invitation updated.','success');
+      await loadInvitations(false);await loadCurrent(false);
+    }catch(error){showGlobal(displayError(error));buttons.forEach(button=>button.disabled=false);}
+  }
+  function closeInviteModal(){
+    $('eca-invite-modal').hidden=true;state.modalInviteId=null;state.modalMode='';
   }
 
   async function loadExams(){
@@ -147,33 +288,53 @@
     $('eca-subject-count').textContent=`${picked.length} selected`;
     const programmeRequired=!!state.activeExam&&(!!state.activeExam.requires_course_selection||state.programmes.length>0);
     const programOk=!programmeRequired||!!selectedProgramme();
-    $('eca-create').disabled=state.busy||!state.activeExam||picked.length<1||picked.length>12||!programOk;
+    const when=$('eca-scheduled-at')?.value?new Date($('eca-scheduled-at').value):null;
+    const scheduleOk=!!when&&Number.isFinite(when.getTime())&&when.getTime()>=Date.now()+15*60*1000&&when.getTime()<=Date.now()+30*24*60*60*1000;
+    $('eca-create').disabled=state.busy||!state.activeExam||picked.length<1||picked.length>12||!programOk||!state.selectedOpponent?.is_friend||!scheduleOk;
   }
 
   async function createChallenge(){
     const exam=state.activeExam; const subjects=selectedSubjects(); const programme=selectedProgramme();
+    const selected=state.selectedOpponent;
+    const scheduledInput=$('eca-scheduled-at')?.value||'';
+    const scheduledDate=scheduledInput?new Date(scheduledInput):null;
+    if(!selected?.is_friend){feedback('eca-create-feedback','Choose an accepted Frnxup friend from the student directory first.','error');return;}
+    if(!scheduledDate||!Number.isFinite(scheduledDate.getTime())||scheduledDate.getTime()<Date.now()+15*60*1000||scheduledDate.getTime()>Date.now()+30*24*60*60*1000){feedback('eca-create-feedback','Choose a date and time at least 15 minutes from now and within the next 30 days.','error');return;}
     if(!exam||!subjects.length){feedback('eca-create-feedback','Choose an examination and at least one subject.','error');return;}
     if((exam.requires_course_selection||state.programmes.length>0)&&!programme){feedback('eca-create-feedback','Choose an approved course or subject combination.','error');return;}
-    state.busy=true;updateCreateState();setBusy('eca-create',true,'Creating private code…');feedback('eca-create-feedback','');
+    state.busy=true;updateCreateState();setBusy('eca-create',true,'Preparing invitation…');feedback('eca-create-feedback','');
+    let prepared=null;
     try{
-      const data=await rpc('edu_challenge_create',{
+      prepared=await rpc('edu_challenge_create',{
         p_password:state.password,p_exam_code:exam.code,p_subject_codes:subjects,
         p_question_count:Number($('eca-count').value),p_duration_minutes:Number($('eca-duration').value),
         p_programme_id:programme?.id||null
       });
-      state.challengeCode=data.challenge_code||'';
-      if(data.challenge_id&&state.challengeCode){try{sessionStorage.setItem(`edu_challenge_code_${data.challenge_id}`,state.challengeCode);}catch(_){}}
-      feedback('eca-create-feedback','Challenge created. Share the invitation code with one EDU-AFRIKA student.','success');
+      const sent=await rpc('edu_challenge_send_invite',{
+        p_password:state.password,p_challenge_id:prepared.challenge_id,
+        p_opponent_id:selected.user_id,p_scheduled_at:scheduledDate.toISOString()
+      });
+      state.challengeCode='';
+      feedback('eca-create-feedback',`Invitation sent to @${selected.username}. Your friend will receive an on-screen notification.`, 'success');
+      await loadInvitations(false);
       await loadCurrent(false);
-    }catch(error){feedback('eca-create-feedback',displayError(error),'error');}
-    finally{state.busy=false;setBusy('eca-create',false);updateCreateState();}
+      $('eca-selected-student').hidden=true;state.selectedOpponent=null;renderDirectory();updateCreateState();
+    }catch(error){
+      if(prepared?.challenge_id){try{await rpc('edu_challenge_cancel',{p_password:state.password,p_challenge_id:prepared.challenge_id});}catch(_){} }
+      feedback('eca-create-feedback',displayError(error),'error');
+    }finally{state.busy=false;setBusy('eca-create',false);updateCreateState();}
   }
 
   async function cancelInvitation(){
-    if(!state.challenge||!confirm('Cancel this invitation? The current code will stop working.'))return;
+    if(!state.challenge||!state.challenge.is_creator||!confirm('Cancel this scheduled quiz invitation? Your friend will be notified.'))return;
     setBusy('eca-cancel-invite',true,'Cancelling…');
-    try{await rpc('edu_challenge_cancel',{p_password:state.password,p_challenge_id:state.challenge.id});state.challengeCode='';try{sessionStorage.removeItem(`edu_challenge_code_${state.challenge.id}`);}catch(_){}await loadCurrent(false);}
-    catch(error){showGlobal(displayError(error));}
+    try{
+      const invite=state.invitations.find(item=>item.challenge_id===state.challenge.id&&item.direction==='outgoing');
+      if(invite)await rpc('edu_challenge_cancel_invitation',{p_password:state.password,p_invitation_id:invite.id});
+      else await rpc('edu_challenge_cancel',{p_password:state.password,p_challenge_id:state.challenge.id});
+      state.challengeCode='';try{sessionStorage.removeItem(`edu_challenge_code_${state.challenge.id}`);}catch(_){}
+      await loadInvitations(false);await loadCurrent(false);
+    }catch(error){showGlobal(displayError(error));}
     finally{setBusy('eca-cancel-invite',false);}
   }
 
@@ -218,13 +379,19 @@
     if(!c){$('eca-current').hidden=true;return;}
     $('eca-current').hidden=false;
     if(c.status==='waiting'){
-      const code=state.challengeCode;
-      host.innerHTML=`<div class="eca-room-head"><div><span class="eca-eyebrow">INVITATION CREATED</span><h2>Waiting for your challenger</h2><p>Your friend must enter this code to accept your exam challenge.</p></div><span class="eca-status waiting">WAITING</span></div>
-        <div class="eca-invite-code"><small>YOUR PRIVATE CHALLENGE CODE</small><strong>${code?escapeHtml(code):'AFRK-••••-••••'}</strong><div>${code?'<button id="eca-copy-code" class="eca-btn eca-outline" type="button">Copy code</button><button id="eca-share-code" class="eca-btn eca-primary" type="button">Share invitation</button>':'<span class="eca-muted">The code is shown only once. If you did not save it, cancel this invitation and create a new one.</span>'}</div></div>
-        <div class="eca-room-summary"><span>${escapeHtml(c.exam_code)}</span><span>${Number(c.question_count)} questions</span><span>${Number(c.duration_minutes)} minute countdown</span><span>Expires ${new Date(c.expires_at).toLocaleString()}</span></div>
-        <p class="eca-muted">The countdown does not begin until another student accepts. This code can only be used once and expires in 48 hours.</p><div class="eca-room-actions"><button id="eca-cancel-invite" class="eca-btn eca-danger" type="button">Cancel invitation</button></div>`;
-      $('eca-copy-code')?.addEventListener('click',copyCode);
-      $('eca-share-code')?.addEventListener('click',shareCode);
+      const invite=state.invitations.find(item=>item.challenge_id===c.id);
+      if(!invite){
+        const code=state.challengeCode;
+        host.innerHTML=`<div class="eca-room-head"><div><span class="eca-eyebrow">CODE-BASED INVITATION</span><h2>Waiting for your challenger</h2><p>Your Frnxup friend can still use the AFRK code for this older invitation.</p></div><span class="eca-status waiting">WAITING</span></div><div class="eca-invite-code"><small>YOUR PRIVATE CHALLENGE CODE</small><strong>${code?escapeHtml(code):'AFRK-••••-••••'}</strong><div>${code?'<button id="eca-copy-code" class="eca-btn eca-outline" type="button">Copy code</button><button id="eca-share-code" class="eca-btn eca-primary" type="button">Share invitation</button>':'<span class="eca-muted">The code is shown only once. If unavailable, cancel this invitation and create a new one.</span>'}</div></div><div class="eca-room-summary"><span>${escapeHtml(c.exam_code)}</span><span>${Number(c.question_count)} questions</span><span>${Number(c.duration_minutes)} minute countdown</span></div><div class="eca-room-actions">${c.is_creator?'<button id="eca-cancel-invite" class="eca-btn eca-danger" type="button">Cancel invitation</button>':''}</div>`;
+        $('eca-copy-code')?.addEventListener('click',copyCode);$('eca-share-code')?.addEventListener('click',shareCode);$('eca-cancel-invite')?.addEventListener('click',cancelInvitation);stopTimer();return;
+      }
+      const scheduled=invite?.scheduled_at?new Date(invite.scheduled_at).toLocaleString():'';
+      const statusText=invite?.status==='accepted'?'The challenge is confirmed. It starts automatically at the agreed time.':invite?.status==='reschedule_requested'?(invite.direction==='outgoing'?'Your friend suggested a different time. Review it in Quiz invitations & schedules.':'Your proposed new time is awaiting confirmation.'):(invite?.direction==='incoming'?'You received this invitation. Accept it or suggest another time in the notification below.':'Invitation sent. Waiting for your friend to accept or suggest another time.');
+      const target=invite?.other_username?`@${invite.other_username}`:'your invited friend';
+      host.innerHTML=`<div class="eca-room-head"><div><span class="eca-eyebrow">SCHEDULED QUIZ CHALLENGE</span><h2>Challenge with ${escapeHtml(target)}</h2><p>${escapeHtml(statusText)}</p></div><span class="eca-status waiting">${escapeHtml((invite?.status||'waiting').replaceAll('_',' ').toUpperCase())}</span></div>
+        <div class="eca-invite-code"><small>AGREED QUIZ START TIME</small><strong class="eca-scheduled-display">${scheduled?escapeHtml(scheduled):'Waiting for invitation details'}</strong><div><span class="eca-muted">Both students will see the same server-controlled countdown when the scheduled start time arrives.</span></div></div>
+        <div class="eca-room-summary"><span>${escapeHtml(c.exam_code)}</span><span>${Number(c.question_count)} questions</span><span>${Number(c.duration_minutes)} minute countdown</span>${invite?`<span>${escapeHtml(invite.status.replaceAll('_',' '))}</span>`:''}</div>
+        <div class="eca-room-actions">${c.is_creator?'<button id="eca-cancel-invite" class="eca-btn eca-danger" type="button">Cancel invitation</button>':''}</div>`;
       $('eca-cancel-invite')?.addEventListener('click',cancelInvitation);
       stopTimer();
     }else if(c.status==='active'){
@@ -382,9 +549,18 @@
     if(remaining<=0&&!state.deadlineChecking){state.deadlineChecking=true;void loadCurrent(true).finally(()=>{state.deadlineChecking=false;});}
   }
   function updateCountdown(){tickTimer();}
+  async function refreshScheduledStart(){
+    try{await rpc('edu_challenge_start_due',{p_password:state.password});}
+    catch(error){if(!String(displayError(error)).includes('function'))console.warn('Scheduled challenge check:',displayError(error));}
+  }
   function startPolling(){
     if(state.poller)clearInterval(state.poller);
-    state.poller=setInterval(()=>loadCurrent(true),9000);
+    state.poller=setInterval(async()=>{
+      if(state.polling)return;
+      state.polling=true;
+      try{await refreshScheduledStart();await Promise.all([loadInvitations(true),loadCurrent(true)]);}
+      finally{state.polling=false;}
+    },8000);
   }
 
   function updateStatsFromChallenge(c){if(c?.rating)renderStats(c.rating);}
@@ -407,6 +583,14 @@
     $('eca-create').addEventListener('click',createChallenge);
     $('eca-join').addEventListener('click',joinChallenge);
     $('eca-refresh-board').addEventListener('click',loadLeaderboard);
+    $('eca-refresh-directory').addEventListener('click',()=>loadDirectory($('eca-directory-search').value));
+    $('eca-refresh-invitations').addEventListener('click',()=>loadInvitations(false));
+    $('eca-directory-search').addEventListener('input',()=>{clearTimeout(state.directorySearchTimer);state.directorySearchTimer=setTimeout(()=>loadDirectory($('eca-directory-search').value),300);});
+    $('eca-scheduled-at').addEventListener('input',updateCreateState);
+    $('eca-scheduled-at').addEventListener('change',updateCreateState);
+    $('eca-invite-modal-close').addEventListener('click',closeInviteModal);
+    $('eca-invite-modal').addEventListener('click',event=>{if(event.target.id==='eca-invite-modal')closeInviteModal();});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('eca-invite-modal').hidden)closeInviteModal();});
     init();
   });
   window.addEventListener('beforeunload',()=>{stopTimer();if(state.poller)clearInterval(state.poller);});
