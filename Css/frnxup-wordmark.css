@@ -1,0 +1,62 @@
+/* FRNXUP Option 7 — text wordmark only. The existing logo image is intentionally untouched. */
+:root {
+  --frnxup-wordmark-navy: #111a39;
+  --frnxup-wordmark-purple: #8537ef;
+  --frnxup-wordmark-blue: #248cff;
+}
+.frnxup-wordmark-text {
+  display: inline-flex;
+  align-items: baseline;
+  position: relative;
+  overflow: visible;
+  white-space: nowrap;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  font-size: inherit;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.065em;
+  line-height: 1;
+  text-decoration: none;
+  vertical-align: baseline;
+  isolation: isolate;
+}
+.frnxup-wordmark-text .frnxup-navy {
+  color: var(--frnxup-wordmark-navy);
+}
+.frnxup-wordmark-text .frnxup-x {
+  position: relative;
+  display: inline-block;
+  margin-inline: 0.025em;
+  color: #7450f4; /* legible fallback when text clipping gradients are unsupported */
+  background: linear-gradient(125deg, var(--frnxup-wordmark-purple) 0%, #6352f3 48%, var(--frnxup-wordmark-blue) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.frnxup-wordmark-text .frnxup-x::after {
+  content: "↗";
+  position: absolute;
+  right: -0.12em;
+  top: -0.37em;
+  font-size: 0.44em;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  color: #7450f4;
+  background: linear-gradient(135deg, var(--frnxup-wordmark-purple), var(--frnxup-wordmark-blue));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.frnxup-wordmark-text.frnxup-on-dark .frnxup-navy { color: #fff; }
+.dark .brand .frnxup-wordmark-text .frnxup-navy,
+.dark .fx-sidebar-brand .frnxup-wordmark-text .frnxup-navy { color: #fff; }
+.edu-brand .frnxup-wordmark-text { display: inline-flex; }
+.exam-brand > span { display: grid; gap: 2px; }
+.exam-brand .frnxup-wordmark-text { display: inline-flex; font-size: 16px; }
+.exam-brand .frnxup-wordmark-subtitle { color: #c7f0d4; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; }
+.fx-sidebar-brand .frnxup-wordmark-text { display: inline-flex; }
+@media (max-width: 420px) {
+  .frnxup-wordmark-text { letter-spacing: -0.07em; }
+}
