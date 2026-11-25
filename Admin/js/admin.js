@@ -14,12 +14,12 @@ if(!access?.ok||access.account_status!=='active'||!['admin','owner','moderator']
 if(!access.staff_session_valid){location.replace('/Admin/login.html?next='+encodeURIComponent(location.pathname+location.search));throw new Error('Complete the separate staff sign-in to continue.');}
 FX.adminRole=access.role;
 if(view==='admins'&&access.role!=='owner')throw new Error('Only the platform owner can manage administrator roles.');
-if(['members','settings','payments','market-boosts','audit','appeals','verification'].includes(view)&&!['owner','admin'].includes(access.role))throw new Error('This administrator page is restricted to admins and the owner.');
+if(['members','settings','payments','market-boosts','audit','appeals','verification','edu-afrika'].includes(view)&&!['owner','admin'].includes(access.role))throw new Error('This administrator page is restricted to admins and the owner.');
 }
 function installAdminNav(){
 const nav=document.querySelector('.admin-side nav');if(!nav)return;
 const pages=[
-['index.html','▦ Overview','DASHBOARD'],['control-room.html','⌘ Action control room','DASHBOARD'],
+['index.html','▦ Overview','DASHBOARD'],['control-room.html','⌘ Action control room','DASHBOARD'],['edu-afrika.html','🎓 EDU-AFRIKA Exam Automation Room','LEARNING & EXAMINATIONS'],
 ['members.html','♙ Members','PEOPLE & ACCESS'],['admins.html','♜ Administrators','PEOPLE & ACCESS'],['staff-management.html','＋ Add staff / manage roles','PEOPLE & ACCESS'],
 ['content.html','▤ Posts','MODERATION'],['comments.html','▧ Comments','MODERATION'],['reports.html','⚑ Reports','MODERATION'],['verification.html','✓ Verification','MODERATION'],['appeals.html','↗ Appeals','MODERATION'],
 ['groups.html','◉ Groups & chats','COMMUNITY'],['rooms.html','# Rooms','COMMUNITY'],['pages.html','▣ Frnxup Pages','COMMUNITY'],
@@ -31,7 +31,7 @@ const existing=new Map([...nav.querySelectorAll('a')].map(a=>[a.getAttribute('hr
 for(const [href] of pages){if(!existing.has(href)){const a=document.createElement('a');a.href=href;existing.set(href,a)}}
 const role=FX.adminRole||'guest';
 const ownerOnly=new Set(['admins.html','staff-management.html','settings.html']);
-const adminOnly=new Set(['members.html','verification.html','appeals.html','market-boosts.html','payments.html','audit-logs.html']);
+const adminOnly=new Set(['members.html','verification.html','appeals.html','market-boosts.html','payments.html','audit-logs.html','edu-afrika.html']);
 const moderatorHidden=new Set(['members.html','admins.html','verification.html','appeals.html','audit-logs.html','market-boosts.html','payments.html','settings.html']);
 nav.replaceChildren();let groupName='';let groupNode=null;
 for(const [href,label,group] of pages){
@@ -138,13 +138,14 @@ try{
  const sideFoot=document.querySelector('.side-foot');
  if(sideFoot&&!document.getElementById('admin-signout')){const b=document.createElement('button');b.id='admin-signout';b.type='button';b.textContent='Sign out';b.className='admin-signout';b.onclick=async()=>{try{await FX.trackActivity('sign_out','auth',location.pathname,{area:'admin'})}catch(_){}try{await FX.admin('staff_logout')}catch(_){}try{sessionStorage.removeItem('frnxup_admin_staff_session')}catch(_){}await FX.client.auth.signOut();location.replace('/Admin/login.html')};sideFoot.appendChild(b)}
  // Install page controls before loading data so a failed table query never disables navigation.
- $('#admin-refresh')?.addEventListener('click',()=>{if(view==='overview')overview().catch(e=>showPageError(e,'Dashboard'));else if(view==='control-room')location.reload();else loadSection($('#admin-search')?.value||'').catch(e=>showPageError(e,'Page data'))});
+ $('#admin-refresh')?.addEventListener('click',()=>{if(view==='overview')overview().catch(e=>showPageError(e,'Dashboard'));else if(view==='control-room')location.reload();else if(view==='edu-afrika')window.refreshEduAfrikaAdmin?.().catch(e=>showPageError(e,'EDU-AFRIKA data'));else loadSection($('#admin-search')?.value||'').catch(e=>showPageError(e,'Page data'))});
  $('#admin-search-btn')?.addEventListener('click',()=>loadSection($('#admin-search').value).catch(e=>showPageError(e,'Search')));
  $('#admin-table')?.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b)handleAction(b.dataset.action,b.dataset.id,b.dataset.next,b)});
  document.querySelectorAll('[data-content-tab]').forEach(b=>b.addEventListener('click',()=>{document.body.dataset.contentTab=b.dataset.contentTab;document.querySelectorAll('[data-content-tab]').forEach(x=>x.classList.toggle('active',x===b));loadSection($('#admin-search')?.value||'').catch(e=>showPageError(e,'Content data'))}));
  document.querySelectorAll('[data-market-tab]').forEach(b=>b.addEventListener('click',()=>{document.body.dataset.marketTab=b.dataset.marketTab;document.querySelectorAll('[data-market-tab]').forEach(x=>x.classList.toggle('active',x===b));loadSection($('#admin-search')?.value||'').catch(e=>showPageError(e,'Marketplace data'))}));
  if(view==='overview'){try{await overview()}catch(e){showPageError(e,'Dashboard data')}}
  else if(view==='control-room'){/* Shortcut page is static; no unrelated table calls are made here. */}
+ else if(view==='edu-afrika'){try{await window.initEduAfrikaAdmin?.()}catch(e){showPageError(e,'EDU-AFRIKA setup')}}
  else {try{await loadSection()}catch(e){showPageError(e,'Page data')}}
 }catch(e){
  const warning=$('#admin-warning');if(warning){warning.textContent=e.message;warning.classList.add('admin-warning-error')}
