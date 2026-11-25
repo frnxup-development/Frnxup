@@ -26,7 +26,7 @@
   <meta name="description" content="Prepare for Nigerian and international examinations with EDU-AFRIKA on Frnxup.">
   <title>EDU-AFRIKA · Frnxup</title>
   <link rel="stylesheet" href="../Css/app.css">
-  <link rel="stylesheet" href="../Css/edu-afrika.css?v=20261125-2">
+  <link rel="stylesheet" href="../Css/edu-afrika.css?v=20261125-7">
 </head>
 <body class="edu-afrika-page">
   <div data-frnxup-shell aria-hidden="true"></div>
@@ -78,10 +78,19 @@
           <label class="edu-label" for="edu-exam-type">Examination type</label><select id="edu-exam-type" class="edu-input"><option value="">Loading examinations…</option></select>
           <div class="edu-exam-page-action"><button id="edu-open-exam-page" class="edu-button edu-button-quiet" type="button" disabled>Open this exam's dedicated webpage ↗</button><span>Every examination has its own information and logo page.</span></div>
           <div id="edu-exam-meta" class="edu-exam-meta"></div>
-          <label class="edu-label" for="edu-study-path">Study course / field (optional)</label><select id="edu-study-path" class="edu-input"><option value="">Choose a study pathway for subject suggestions</option><option value="SCIENCE_HEALTH">Science / Medicine / Health</option><option value="ENGINEERING_TECH">Engineering / Technology</option><option value="BUSINESS_ACCOUNTING">Business / Banking / Accounting</option><option value="ARTS_HUMANITIES">Arts / Humanities</option><option value="LAW_SOCIAL">Law / Social Sciences</option><option value="AGRICULTURE">Agriculture / Environmental studies</option><option value="EDUCATION">Education</option><option value="GENERAL">General / undecided</option></select>
-          <p class="edu-path-note">Your pathway preselects related subjects when they are available. You can add or remove subjects below.</p>
+          <div id="edu-programme-wrap" class="edu-programme-wrap" hidden>
+            <label class="edu-label" id="edu-programme-label" for="edu-programme-select">Course / subject combination</label>
+            <select id="edu-programme-select" class="edu-input"><option value="">Choose your course / combination</option></select>
+            <p id="edu-programme-help" class="edu-path-note">Choose the approved course or subject combination for this examination.</p>
+          </div>
+          <div id="edu-manual-path-wrap">
+            <label class="edu-label" for="edu-study-path">Study course / field (optional)</label><select id="edu-study-path" class="edu-input"><option value="">Choose a study pathway for subject suggestions</option><option value="SCIENCE_HEALTH">Science / Medicine / Health</option><option value="ENGINEERING_TECH">Engineering / Technology</option><option value="BUSINESS_ACCOUNTING">Business / Banking / Accounting</option><option value="ARTS_HUMANITIES">Arts / Humanities</option><option value="LAW_SOCIAL">Law / Social Sciences</option><option value="AGRICULTURE">Agriculture / Environmental studies</option><option value="EDUCATION">Education</option><option value="GENERAL">General / undecided</option></select>
+            <p class="edu-path-note">Your pathway preselects related subjects when they are available. You can add or remove subjects below.</p>
+          </div>
           <div class="edu-subject-heading"><label class="edu-label">Select subjects</label><span id="edu-subject-count">0 selected</span></div>
           <div id="edu-subject-list" class="edu-subject-list"><p class="edu-muted">Choose an examination to view subjects with available questions.</p></div>
+          <label class="edu-label" for="edu-exam-mode">Practice mode</label><select id="edu-exam-mode" class="edu-input"><option value="practice">Practice Mode · Learn at your pace</option><option value="timed">Timed Mode · Time management</option><option value="mock">Mock Examination · Balanced paper</option><option value="revision">Revision Mode · Topic-focused revision</option><option value="challenge">Challenge Mode · Higher difficulty (65% advanced)</option></select>
+          <div id="edu-revision-topic-wrap" class="edu-revision-topic-wrap" hidden><label class="edu-label" for="edu-revision-topic">Revision topic</label><select id="edu-revision-topic" class="edu-input"><option value="">Choose a topic</option></select><p class="edu-path-note">Only approved, never-issued questions from this topic will be used.</p></div>
           <div class="edu-type-choice"><span class="edu-label">Question format</span><label><input type="checkbox" id="edu-type-mcq" checked> Multiple choice</label><label><input type="checkbox" id="edu-type-gap" checked> Fill in the gap</label></div>
           <div class="edu-question-timer-choice"><label class="edu-timer-switch"><input id="edu-question-timer-toggle" type="checkbox" checked><span class="edu-switch-ui"></span><span><b>30-second question timer</b><small>Automatically moves to the next question when time runs out.</small></span></label><div class="edu-timer-recommendation"><b>Recommended: ON</b> — timed practice helps build exam mastery, pacing and time-management skills. You can switch it OFF before starting.</div></div>
           <label class="edu-label" for="edu-question-count">Number of questions</label><select id="edu-question-count" class="edu-input"><option value="10">10 questions</option><option value="20" selected>20 questions</option><option value="30">30 questions</option><option value="40">40 questions</option><option value="50">50 questions</option><option value="60">60 questions</option><option value="80">80 questions</option><option value="100">100 questions</option><option value="150">150 questions</option><option value="200">200 questions</option><option value="250">250 questions</option><option value="300">300 questions</option><option value="350">350 questions</option><option value="400">400 questions (maximum)</option></select>
@@ -93,6 +102,8 @@
           <section class="edu-panel edu-stat-panel"><h3>Your practice record</h3><div class="edu-stat-grid"><div><b id="edu-attempt-total">—</b><span>Tests taken</span></div><div><b id="edu-best-score">—</b><span>Best score</span></div></div><p>Complete more practice tests to track your progress.</p></section>
           <section class="edu-panel edu-tip-panel"><span>✦ STUDY TIP</span><h3>Practise across your subjects</h3><p>Build a balanced revision routine. Your questions are shuffled for every new attempt, so each practice session can feel different.</p></section>
           <section class="edu-panel edu-history-panel"><div class="edu-panel-title"><div><h3>Recent attempts</h3><p>Your latest practice sessions.</p></div></div><div id="edu-history-list"><p class="edu-muted">Your completed tests will appear here.</p></div></section>
+          <section class="edu-panel edu-analytics-panel"><div class="edu-panel-title"><div><h3>Subject performance</h3><p>See where you are improving and where to revise.</p></div></div><div id="edu-student-analytics"><p class="edu-muted">Complete a test to unlock subject analytics.</p></div></section>
+            <div class="edu-topic-analytics-panel"><h3>Topic performance</h3><div id="edu-topic-analytics"><p class="edu-muted">Complete a test to unlock topic analytics.</p></div></div>
           <button id="edu-reset-password" class="edu-button edu-button-quiet" type="button">Generate a new EDU password</button>
         </aside>
       </div>
@@ -115,6 +126,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script>
   <script src="../js/core.js"></script>
-  <script src="../js/edu-afrika.js?v=20261125-2"></script>
+  <script src="../js/edu-afrika.js?v=20261125-7"></script>
 </body>
 </html>
