@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script>
+    (() => {
+      const path = location.pathname;
+      const publicEntry = path === '/Auth' || path.startsWith('/Auth/') || path === '/Admin' || path.startsWith('/Admin/');
+      if (publicEntry) return;
+      document.documentElement.classList.add('fx-auth-pending');
+      const style = document.createElement('style');
+      style.textContent = `html.fx-auth-pending,html.fx-auth-pending body{background:#f4faf7!important}html.fx-auth-pending body{visibility:hidden!important}html.fx-auth-pending::before{content:'';position:fixed;inset:0;z-index:2147483646;background:#f4faf7 url('/Asset/frnxup-mark.svg') center calc(50% - 25px)/76px 76px no-repeat}html.fx-auth-pending::after{content:'Loading EDU-AFRIKA Challenge Arena';position:fixed;z-index:2147483647;top:calc(50% + 34px);left:50%;transform:translateX(-50%);color:#31555d;font:600 14px system-ui,sans-serif;animation:fxedu-pulse 1.2s ease-in-out infinite}@keyframes fxedu-pulse{0%,100%{opacity:.55}50%{opacity:1}}`;
+      document.head.appendChild(style);
+      window.__frnxupAuthGateTimer = setTimeout(() => {
+        if (!document.documentElement.classList.contains('fx-auth-pending')) return;
+        const url = new URL('/Auth/index.html', location.origin);
+        url.searchParams.set('next', location.pathname + location.search + location.hash);
+        url.searchParams.set('sessionCheck', 'timeout');
+        location.replace(url.toString());
+      }, 12000);
+    })();
+  </script>
+  <script src="../js/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07523f">
+  <meta name="description" content="Challenge another EDU-AFRIKA student in a timed head-to-head examination.">
+  <title>Challenge Arena · EDU-AFRIKA · Frnxup</title>
+  <link rel="stylesheet" href="../Css/app.css">
+  <link rel="stylesheet" href="challenges/challenges.css?v=20261125-1">
+</head>
+<body class="edu-challenge-page">
+  <div data-frnxup-shell aria-hidden="true"></div>
+  <header class="eca-topbar">
+    <a href="/Edu-Afrika/index.html" class="eca-brand"><img src="/Asset/frnxup-mark.svg" alt=""><span>Frnxup <b>EDU-AFRIKA</b></span></a>
+    <div><span id="eca-user-chip"></span><a href="/Edu-Afrika/index.html">← Student workspace</a></div>
+  </header>
+  <main class="eca-shell">
+    <section class="eca-hero">
+      <div><span class="eca-eyebrow">STUDENT VS STUDENT</span><h1>EDU-AFRIKA <em>Challenge Arena</em></h1><p>Create a timed quiz challenge, share your private code with one student, and compete on the same question paper. The winner earns XP, rating points and achievement badges.</p><div class="eca-hero-tags"><span>Live head-to-head</span><span>Same question set</span><span>Countdown is mandatory</span></div></div>
+      <div class="eca-trophy" aria-hidden="true">🏆<small>LEARN · COMPETE · RISE</small></div>
+    </section>
+
+    <section id="eca-auth-panel" class="eca-panel eca-auth" hidden>
+      <span class="eca-step">STUDENT VERIFICATION</span><h2>Open your Challenge Arena</h2>
+      <p id="eca-auth-note">Sign in with your Frnxup account and enter your EDU-AFRIKA password.</p>
+      <label for="eca-password">EDU-AFRIKA password</label>
+      <div class="eca-password-row"><input id="eca-password" type="password" maxlength="32" autocomplete="current-password" placeholder="Your EDU-AFRIKA password"><button id="eca-toggle-password" type="button">Show</button></div>
+      <button id="eca-login" class="eca-btn eca-primary" type="button">Verify and open Arena</button><a id="eca-register-link" href="/Edu-Afrika/index.html" class="eca-btn eca-outline" hidden>Create your EDU-AFRIKA account first</a>
+      <p class="eca-muted">Your EDU-AFRIKA password is used only for this session and is never saved in browser storage.</p>
+    </section>
+
+    <section id="eca-app" hidden>
+      <div class="eca-stat-row" id="eca-my-stats"><div><small>CHALLENGE RATING</small><b>1,000</b></div><div><small>TOTAL XP</small><b>0</b></div><div><small>WINS</small><b>0</b></div><div><small>WIN STREAK</small><b>0</b></div></div>
+      <div class="eca-grid">
+        <section class="eca-panel">
+          <div class="eca-panel-title"><span class="eca-number">01</span><div><h2>Create a challenge</h2><p>Choose the examination paper your opponent will receive too.</p></div></div>
+          <label for="eca-exam">Examination type</label><select id="eca-exam" class="eca-input"><option value="">Loading examinations…</option></select>
+          <div id="eca-programme-wrap" hidden><label for="eca-programme">Course / subject combination</label><select id="eca-programme" class="eca-input"><option value="">Choose an approved combination</option></select><p class="eca-hint" id="eca-programme-hint"></p></div>
+          <label>Subjects <span id="eca-subject-count" class="eca-count">0 selected</span></label>
+          <div id="eca-subjects" class="eca-subjects"><p class="eca-muted">Choose an examination first.</p></div>
+          <div class="eca-two-col"><div><label for="eca-count">Question number</label><select id="eca-count" class="eca-input"><option value="30">30 questions</option><option value="50">50 questions</option><option value="100">100 questions</option><option value="150">150 questions</option><option value="200">200 questions</option><option value="300">300 questions</option></select></div><div><label for="eca-duration">Countdown time</label><select id="eca-duration" class="eca-input"><option value="15">15 minutes</option><option value="30" selected>30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option><option value="90">90 minutes</option><option value="120">120 minutes</option></select></div></div>
+          <div class="eca-required-timer"><span class="eca-timer-icon">◷</span><div><b>Countdown timer is ON and mandatory</b><small>Both students share the same official start and end time. The timer cannot be disabled.</small></div><strong>ON</strong></div>
+          <button id="eca-create" class="eca-btn eca-primary" type="button" disabled>Create challenge code →</button>
+          <p id="eca-create-feedback" class="eca-feedback" aria-live="polite"></p>
+        </section>
+
+        <section class="eca-panel eca-join-panel">
+          <div class="eca-panel-title"><span class="eca-number">02</span><div><h2>Accept a challenge</h2><p>Enter the 8 digits shared by the Frnxup friend who created it; the AFRK prefix is added automatically.</p></div></div>
+          <div class="eca-join-art">⚔️</div>
+          <label for="eca-code">Challenge code</label><input id="eca-code" class="eca-input eca-code-input" maxlength="14" autocapitalize="characters" autocomplete="off" placeholder="AFRK-XXXX-XXXX">
+          <p class="eca-hint">Only an accepted Frnxup friend with an EDU-AFRIKA account can use the code. It works once and expires after 48 hours.</p>
+          <button id="eca-join" class="eca-btn eca-dark" type="button">Accept challenge →</button>
+          <p id="eca-join-feedback" class="eca-feedback" aria-live="polite"></p>
+          <div class="eca-how"><b>How it works</b><span>1. One student creates a challenge.</span><span>2. Your accepted Frnxup friend enters the code.</span><span>3. The shared countdown starts and both answer the same questions.</span></div>
+        </section>
+      </div>
+
+      <section id="eca-current" class="eca-panel eca-current" hidden>
+        <div id="eca-current-host"></div>
+      </section>
+
+      <section class="eca-panel eca-leaderboard">
+        <div class="eca-panel-title"><span class="eca-number">03</span><div><h2>Challenge leaderboard</h2><p>Top EDU-AFRIKA competitors ranked by XP, rating and wins.</p></div><button id="eca-refresh-board" class="eca-btn eca-outline" type="button">Refresh</button></div>
+        <div id="eca-leaderboard-list"><p class="eca-muted">Loading rankings…</p></div>
+      </section>
+    </section>
+
+    <div id="eca-global-message" class="eca-message" role="alert" hidden></div>
+  </main>
+  <footer class="eca-footer"><span>EDU-AFRIKA Challenge Arena · A Frnxup learning service</span><a href="/Dashboard/index.html">Return to Frnxup</a></footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/core.js"></script>
+  <script src="challenges/challenges.js?v=20261125-1"></script>
+</body>
+</html>
