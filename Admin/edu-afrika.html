@@ -89,12 +89,33 @@
           <label>Subject<select id="edu-topic-subject" required><option value="">Choose subject</option></select></label>
           <label>Topic code<input id="edu-topic-code" maxlength="80" placeholder="ALGEBRA" required></label>
           <label>Topic name<input id="edu-topic-name" maxlength="160" placeholder="Algebra" required></label>
-          <label>Syllabus year<input id="edu-topic-year" type="number" min="2000" max="2100" placeholder="Optional year"></label>
+          <label>Syllabus year<input id="edu-topic-year" type="number" min="2000" max="2100" placeholder="2026 baseline"></label>
+          <label class="edu-topic-description-field">Topic description<textarea id="edu-topic-description" rows="2" maxlength="1200" placeholder="Describe the key concepts and scope for this topic."></textarea></label>
+          <label class="edu-topic-description-field">Learning outcomes <small>Enter one outcome per line.</small><textarea id="edu-topic-outcomes" rows="3" maxlength="2400" placeholder="Explain the key concepts
+Apply them to examples"></textarea></label>
         </div>
         <div class="edu-admin-form-grid edu-check-grid"><label class="edu-admin-active"><input id="edu-topic-active" type="checkbox" checked> Active for topic selection</label></div>
         <div class="edu-admin-form-actions"><button class="admin-action action-green" id="edu-topic-save" type="submit">Save topic</button><button class="admin-action action-yellow" id="edu-topic-cancel" type="button" hidden>Cancel edit</button><span id="edu-topic-feedback" role="status"></span></div>
       </form>
       <div id="edu-topic-table" class="table-wrap"><p class="edu-admin-empty">Loading subject topics…</p></div>
+      <div class="edu-syllabus-manager">
+        <div class="panel-head"><div><h3>Examination topic routing & verification</h3><p>Map active subject topics to the selected examination. Initial mappings are Draft until an administrator checks the exact current syllabus, level and subject combination.</p></div><span class="badge">SYLLABUS ROUTING</span></div>
+        <div class="edu-syllabus-controls">
+          <label>Examination destination<select id="edu-syllabus-exam"><option value="">Choose examination</option></select></label>
+          <label>Subject<select id="edu-syllabus-subject"><option value="">Choose subject</option></select></label>
+          <button id="edu-syllabus-load" type="button" class="admin-action action-green">Load topic mappings</button>
+          <button id="edu-syllabus-map-all" type="button" class="admin-action action-yellow">Map all active topics for this subject as Draft</button>
+        </div>
+        <div id="edu-syllabus-feedback" role="status" class="edu-syllabus-feedback"></div>
+        <div id="edu-syllabus-coverage" class="edu-syllabus-coverage"><p class="edu-admin-empty">Choose an examination to inspect its topic coverage across all 40 subjects.</p></div>
+        <div id="edu-syllabus-map-table" class="table-wrap"><p class="edu-admin-empty">Choose an examination and subject to manage their topic mappings.</p></div>
+        <div class="edu-syllabus-import">
+          <div><b>Bulk topic import (CSV)</b><p>Required headers: subject_code, topic_code, topic_name. Optional: syllabus_year, topic_description. Imported topics begin as Draft and are not auto-published as official syllabus material.</p></div>
+          <input id="edu-syllabus-csv" type="file" accept=".csv,text/csv">
+          <button id="edu-syllabus-import" type="button" class="admin-action action-green">Import topic CSV</button>
+          <button id="edu-syllabus-template" type="button" class="admin-action action-yellow">Download CSV template</button>
+        </div>
+      </div>
     </section>
 
     <section class="admin-panel edu-ai-panel edu-ai-production-panel">
@@ -227,6 +248,6 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script><script src="../js/core.js"></script>
-  <script src="js/edu-afrika-admin.js?v=20261125-9"></script><script src="js/edu-afrika-ai-production.js?v=20261125-1"></script><script src="js/admin.js"></script>
+  <script src="js/edu-afrika-admin.js?v=20261125-9"></script><script src="js/edu-afrika-syllabus-manager.js?v=20261125-1"></script><script src="js/edu-afrika-ai-production.js?v=20261125-1"></script><script src="js/admin.js"></script>
 </body>
 </html>
