@@ -23,7 +23,7 @@
 
   async function loadCatalogs() {
     const [examResult,subjectResult] = await Promise.all([
-      FX.client.from('edu_exam_types').select('code,name,category,is_active,duration_minutes,default_question_count').order('sort_order').order('name'),
+      FX.client.from('edu_exam_types').select('code,name,category,is_active,duration_minutes,default_question_count,logo_url').order('sort_order').order('name'),
       FX.client.from('edu_subjects').select('code,name,category,is_active').order('sort_order').order('name')
     ]);
     if (examResult.error) throw examResult.error;
@@ -31,6 +31,7 @@
     exams = examResult.data || [];
     subjects = subjectResult.data || [];
     $('edu-question-subject').innerHTML = '<option value="">Select subject</option>' + subjects.filter(x=>x.is_active).map(x=>`<option value="${esc(x.code)}">${esc(x.name)}</option>`).join('');
+    $('edu-logo-exam').innerHTML = '<option value="">Choose an examination</option>' + exams.map(x=>`<option value="${esc(x.code)}">${esc(x.name)}${x.logo_url?' · logo uploaded':''}</option>`).join('');
     const categories = ['Nigerian examination','International examination','Professional / certification'];
     $('edu-exam-checks').innerHTML = categories.map(category => {
       const group = exams.filter(x=>x.category===category);
@@ -174,11 +175,37 @@
     finally{button.disabled=false;}
   }
 
+  async function uploadExamLogo(event) {
+    event.preventDefault();
+    const code=$('edu-logo-exam').value;
+    const file=$('edu-logo-file').files?.[0];
+    const feedback=$('edu-logo-feedback');
+    if(!code||!file||!$('edu-logo-confirm').checked){feedback.textContent='Choose an exam, logo file and confirm approved use.';return;}
+    if(file.size>2*1024*1024){feedback.textContent='Logo file must be 2 MB or smaller.';return;}
+    const allowed={'image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/svg+xml':'svg'};
+    const ext=allowed[file.type];
+    if(!ext){feedback.textContent='Use PNG, JPG, WEBP or SVG.';return;}
+    const button=$('edu-logo-upload');setBusy(button,true,'Uploading…');feedback.textContent='';
+    try{
+      const path=`${code}/official-logo.${ext}`;
+      const {error:uploadError}=await FX.client.storage.from('edu-afrika-exam-logos').upload(path,file,{upsert:true,contentType:file.type,cacheControl:'3600'});
+      if(uploadError)throw uploadError;
+      const {data}=FX.client.storage.from('edu-afrika-exam-logos').getPublicUrl(path);
+      const {error:updateError}=await FX.client.from('edu_exam_types').update({logo_url:data.publicUrl,updated_at:new Date().toISOString()}).eq('code',code);
+      if(updateError)throw updateError;
+      feedback.textContent='Official logo uploaded. The dedicated exam page now uses this file.';
+      notify('Exam logo uploaded successfully.');
+      await loadCatalogs();
+    }catch(error){feedback.textContent=error.message||'Logo upload failed. Run the EDU-AFRIKA logo migration and try again.';}
+    finally{setBusy(button,false);}
+  }
+
   window.initEduAfrikaAdmin = async function(){
     try{
       await loadCatalogs();
       await Promise.all([loadStats(),fetchQuestions()]);
       $('edu-question-type').addEventListener('change',toggleQuestionFields);
+      $('edu-logo-form').addEventListener('submit',uploadExamLogo);
       $('edu-question-form').addEventListener('submit',saveQuestion);
       $('edu-question-cancel').addEventListener('click',resetForm);
       $('edu-question-table').addEventListener('click',tableAction);
@@ -189,7 +216,7 @@
       toggleQuestionFields();
     }catch(error){
       const target=$('edu-question-table');
-      if(target)target.innerHTML=`<div class="edu-admin-empty">EDU-AFRIKA setup could not be loaded: ${esc(error.message)}<br><br>Make sure the Supabase migration <b>Supabase/migrations/20261124_edu_afrika.sql</b> has been executed, then refresh this page.</div>`;
+      if(target)target.innerHTML=`<div class="edu-admin-empty">EDU-AFRIKA setup could not be loaded: ${esc(error.message)}<br><br>Make sure the base EDU-AFRIKA migration and <b>Supabase/migrations/20261125_edu_afrika_exam_upgrade.sql</b> have been executed, then refresh this page.</div>`;
       const stats=$('edu-admin-stats');if(stats)stats.innerHTML='<article><small>Setup required</small><b>!</b><span>Run the EDU-AFRIKA database migration in Supabase.</span></article>';
       throw error;
     }
