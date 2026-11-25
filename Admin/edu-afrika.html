@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/edu-afrika-admin.css?v=20261125-7">
 </head>
 <body data-view="edu-afrika">
-  <aside class="admin-side"><a class="brand" href="index.html"><img src="../Asset/frnxup-mark.svg">Frnxup</a><small>PLATFORM CONTROL CENTRE</small><nav><a href="index.html">▦ Overview</a><a href="control-room.html">⌘ Action control room</a><a href="edu-afrika.html" class="active">🎓 EDU-AFRIKA</a></nav><div class="side-foot">FRNXUP ADMIN<br><span>Privileged actions are logged.</span></div></aside>
+  <aside class="admin-side"><a class="brand" href="index.html"><img src="../Asset/frnxup-mark.svg"><span class="frnxup-wordmark-text frnxup-on-dark" role="img" aria-label="FRNXUP"><span class="frnxup-navy">FRN</span><span class="frnxup-x">X</span><span class="frnxup-navy">UP</span></span></a><small>PLATFORM CONTROL CENTRE</small><nav><a href="index.html">▦ Overview</a><a href="control-room.html">⌘ Action control room</a><a href="edu-afrika.html" class="active">🎓 EDU-AFRIKA</a></nav><div class="side-foot">FRNXUP ADMIN<br><span>Privileged actions are logged.</span></div></aside>
   <main class="admin-main">
     <header><div><small>FRNXUP / LEARNING & EXAMINATIONS</small><h1>EDU-AFRIKA EXAM AUTOMATION ROOM</h1><p>Build the approved question bank used to assemble randomized student practice examinations.</p></div><button id="admin-refresh" type="button">↻ Refresh</button></header>
     <div class="edu-admin-notice"><b>How question automation works</b><span>Admins create, import, review and publish questions here. The database builds each candidate's paper from their examination, verified course / stream / trade / module, selected subjects, question formats and mode. A global one-time delivery ledger prevents the same normalized question content from being issued to another attempt; if the unused pool is too small, the system refuses the paper instead of reusing questions. Answer keys stay private until submission.</span></div>
@@ -97,59 +97,21 @@
       <div id="edu-topic-table" class="table-wrap"><p class="edu-admin-empty">Loading subject topics…</p></div>
     </section>
 
-    <section class="admin-panel edu-ai-panel edu-ai-production-panel">
-      <div class="panel-head"><div><h2>EDU-AFRIKA AI Question Production Centre</h2><p>Select an AI provider, create original subject-specific question batches, route each batch to its examination / programme / topic destination, and send every draft through academic review before publication.</p></div><span class="badge">AI PRODUCTION</span></div>
-
-      <div class="edu-ai-step"><b>1. Configure AI service provider</b><span>Save the provider API key securely. The key is encrypted server-side and is never sent back to this page after saving.</span></div>
-      <div class="edu-ai-provider-config">
-        <div class="edu-admin-form-grid">
-          <label>AI service provider<select id="edu-ai-provider-select"><option value="">Loading provider directory…</option></select></label>
-          <label>Model ID<input id="edu-ai-provider-model" maxlength="180" placeholder="Choose the exact model ID from provider console"></label>
-          <label>API base URL<input id="edu-ai-provider-base-url" maxlength="500" type="url" placeholder="Provider API base URL"></label>
-          <label>API key<input id="edu-ai-provider-key" type="password" maxlength="600" autocomplete="new-password" placeholder="Paste provider API key · blank keeps saved key"></label>
-          <label>Input price / 1M tokens (USD)<input id="edu-ai-input-rate" type="number" min="0" step="0.000001" placeholder="Optional · from provider pricing"></label>
-          <label>Output price / 1M tokens (USD)<input id="edu-ai-output-rate" type="number" min="0" step="0.000001" placeholder="Optional · from provider pricing"></label>
-          <label>Maximum generation batches / day<input id="edu-ai-daily-batch-limit" type="number" min="1" max="1000000" step="1" placeholder="Blank = unlimited"></label>
-          <label>Maximum requested questions / day<input id="edu-ai-daily-question-limit" type="number" min="1" max="1000000" step="1" placeholder="Blank = unlimited"></label>
-          <label id="edu-ai-cloudflare-account-wrap" hidden>Cloudflare Account ID<input id="edu-ai-cloudflare-account" maxlength="120" placeholder="Required for Cloudflare Workers AI"></label>
-          <label class="edu-admin-active edu-ai-enable"><input id="edu-ai-provider-enabled" type="checkbox" checked> Enable this provider for generation</label>
-        </div>
-        <p class="edu-ai-rate-note">Enter input/output prices from the provider pricing page for estimated USD cost. Optional daily batch and question caps reset at 00:00 UTC; blank means no application-level cap. Configure provider-side free-only or spending limits too. Estimates are not provider invoices.</p>
-        <div class="edu-ai-provider-meta"><span id="edu-ai-provider-free-note">Choose a provider to see its free-tier / trial conditions.</span><div><a id="edu-ai-provider-key-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Get API key ↗</a><a id="edu-ai-provider-docs-link" href="#" target="_blank" rel="noopener noreferrer" hidden>API documentation ↗</a><span id="edu-ai-provider-config-status" role="status"></span></div></div>
-        <div class="edu-admin-form-actions"><button id="edu-ai-provider-save" type="button" class="admin-action action-green">Save encrypted API configuration</button><button id="edu-ai-provider-test" type="button" class="admin-action action-yellow">Test provider connection</button><span id="edu-ai-provider-feedback" role="status"></span></div>
-      </div>
-      <div class="edu-ai-directory-head"><b>Provider directory · 20 AI provider options</b><span>These are not 20 permanently free APIs. Availability ranges from capped free tiers and free models to temporary credits and paid fallbacks; verify each provider's current terms before bulk generation.</span></div>
-      <div id="edu-ai-provider-directory" class="edu-ai-provider-directory"><p class="edu-admin-empty">Loading AI provider websites…</p></div>
-
-      <div class="edu-ai-step"><b>2. Choose question destinations and generate</b><span>One selected subject creates one destination batch. Select several subjects for sequential bulk generation. Each batch is tagged with its examination, subject, programme, syllabus year and topic.</span></div>
+    <section class="admin-panel edu-ai-panel">
+      <div class="panel-head"><div><h2>AI-assisted original question generator</h2><p>Generate original practice drafts for administrator review. AI questions are never published automatically.</p></div><span class="badge">AI DRAFTS</span></div>
       <form id="edu-ai-form" class="edu-admin-form-grid">
-        <label>Examination destination<select id="edu-ai-exam" required><option value="">Choose examination</option></select></label>
-        <label>Course / programme scope<select id="edu-ai-programme"><option value="">General question · all combinations</option></select></label>
-        <label>Single subject destination<select id="edu-ai-subject"><option value="">Choose a subject or use bulk selection</option></select></label>
-        <label>Topic for single subject<select id="edu-ai-topic"><option value="">Any topic / balanced subject coverage</option></select></label>
-        <label>Questions per selected subject<input id="edu-ai-count" type="number" min="1" max="100" value="10" required></label>
-        <label>Question format<select id="edu-ai-format"><option value="mixed">Mixed formats</option><option value="mcq">Multiple choice</option><option value="fill_gap">Fill in the gap</option></select></label>
+        <label>Examination<select id="edu-ai-exam" required><option value="">Choose examination</option></select></label>
+        <label>Course / combination scope<select id="edu-ai-programme"><option value="">General question · all combinations</option></select></label>
+        <label>Subject<select id="edu-ai-subject" required><option value="">Choose subject</option></select></label>
+        <label>Topic<select id="edu-ai-topic"><option value="">Any topic / balanced subject coverage</option></select></label>
+        <label>Number of drafts<input id="edu-ai-count" type="number" min="1" max="100" value="10" required></label>
+        <label>Format<select id="edu-ai-format"><option value="mixed">Mixed formats</option><option value="mcq">Multiple choice</option><option value="fill_gap">Fill in the gap</option></select></label>
         <label>Difficulty<select id="edu-ai-difficulty"><option value="mixed">Mixed</option><option value="easy">Easy</option><option value="medium">Intermediate</option><option value="hard">Advanced</option></select></label>
         <label>Syllabus year<input id="edu-ai-year" type="number" min="2000" max="2100" placeholder="Optional year"></label>
-        <label class="edu-ai-bulk-destinations">Bulk subject destinations · select up to 10<select id="edu-ai-bulk-subjects" class="edu-multi-select" multiple size="6"></select><small>Leave this empty to use the single subject above. Selecting multiple subjects ignores the single-topic dropdown and distributes questions across each subject's active syllabus topics.</small></label>
-        <label class="edu-admin-active edu-ai-second-pass"><input id="edu-ai-second-pass" type="checkbox" checked> Run second-pass AI answer consistency check <small>This adds a second provider call and token usage. It is a screening aid only; human academic verification is still required.</small></label>
-        <div class="edu-admin-form-actions edu-ai-generate-actions"><button type="submit" id="edu-ai-generate" class="admin-action action-green">Generate and route question drafts</button><span id="edu-ai-feedback" role="status"></span></div>
+        <div class="edu-admin-form-actions"><button type="submit" id="edu-ai-generate" class="admin-action action-green">Generate question drafts</button><span id="edu-ai-feedback" role="status"></span></div>
       </form>
       <div id="edu-ai-preview" class="edu-ai-preview" hidden></div>
-      <p class="edu-logo-help">Generated items are original practice drafts, not official JAMB, WAEC, NECO or other past questions. They are saved unpublished in the review queue. The AI system checks structure, topic routing, global exact duplicates, near-duplicates against recent bank items and a second-pass consistency signal; it cannot certify that an answer or syllabus mapping is correct. Human academic verification is mandatory.</p>
-    </section>
-
-    <section class="admin-panel edu-ai-review-panel">
-      <div class="panel-head"><div><h2>AI question quality-control & approval centre</h2><p>Inspect full question text, options, proposed answer, explanation and quality flags. Editing, approving and publishing are separate actions.</p></div><span class="badge" id="edu-ai-review-count">LOADING REVIEW QUEUE</span></div>
-      <div class="edu-ai-review-tools"><span>Review → Approved (inactive) → Published (active and eligible for student exams)</span><button type="button" id="edu-ai-review-refresh" class="admin-action action-green">Refresh review queue</button></div>
-      <div id="edu-ai-review-queue" class="edu-ai-review-queue"><p class="edu-admin-empty">Loading AI-generated drafts…</p></div>
-    </section>
-
-    <section class="admin-panel edu-ai-history-panel">
-      <div class="panel-head"><div><h2>AI generation history & usage monitor</h2><p>Track destination batches, providers, models, questions accepted/rejected and token usage. Provider charges and balances remain visible in the provider console.</p></div><span class="badge">AUDIT / USAGE</span></div>
-      <div id="edu-ai-usage-summary" class="edu-ai-usage-summary"><article><small>Generation batches</small><b>—</b></article><article><small>Saved drafts</small><b>—</b></article><article><small>Tokens reported</small><b>—</b></article><article><small>Duplicates blocked</small><b>—</b></article><article><small>Estimated cost (USD)</small><b>—</b></article></div>
-      <div class="edu-ai-history-tools"><button type="button" id="edu-ai-history-refresh" class="admin-action action-green">Refresh history & usage</button></div>
-      <div id="edu-ai-history-table" class="table-wrap"><p class="edu-admin-empty">Loading generation history…</p></div>
+      <p class="edu-logo-help">Requires the Supabase Edge Function <code>edu-afrika-generate-questions</code> and secrets <code>OPENAI_API_KEY</code> plus <code>OPENAI_MODEL</code>. Generated questions are original practice material, not official past questions.</p>
     </section>
 
     <section class="admin-panel edu-import-panel">
@@ -227,6 +189,6 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script><script src="../js/core.js"></script>
-  <script src="js/edu-afrika-admin.js?v=20261125-8"></script><script src="js/edu-afrika-ai-production.js?v=20261125-1"></script><script src="js/admin.js"></script>
+  <script src="js/edu-afrika-admin.js?v=20261125-7"></script><script src="js/admin.js"></script>
 </body>
 </html>
