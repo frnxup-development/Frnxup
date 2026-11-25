@@ -366,25 +366,31 @@ Deno.serve(async (req) => {
     const permittedSubjects = [...(programme.allowed_subject_codes || []), ...(programme.required_subject_codes || [])].map((x: string) => String(x).toUpperCase());
     if (permittedSubjects.length && !permittedSubjects.includes(subjectCode)) return json({ error: `${subjectCode} is not an allowed subject in ${programme.programme_name}. Choose a matching subject or use the General destination.` }, 400);
   }
-  let allowedTopicRows: any[] = [];
-  if (defaultTopic) {
-    let topicQuery = service.from('edu_subject_topics').select('topic_code,topic_name')
-      .eq('subject_code', subjectCode).eq('topic_code', defaultTopic).eq('is_active', true);
-    if (syllabusYear) topicQuery = topicQuery.or(`syllabus_year.eq.${syllabusYear},syllabus_year.is.null`);
-    const { data, error } = await topicQuery.limit(1);
-    if (error || !data?.length) return json({ error: 'The selected topic is not active for this subject and syllabus year.' }, 400);
-    allowedTopicRows = data;
-  } else {
-    let topicQuery = service.from('edu_subject_topics').select('topic_code,topic_name')
-      .eq('subject_code', subjectCode).eq('is_active', true);
-    if (syllabusYear) topicQuery = topicQuery.or(`syllabus_year.eq.${syllabusYear},syllabus_year.is.null`);
-    const { data, error } = await topicQuery.order('topic_name').limit(300);
-    if (error) return json({ error: error.message }, 500);
-    allowedTopicRows = data || [];
-  }
-  const allowedTopics = new Set(allowedTopicRows.map(x => String(x.topic_code).toUpperCase()));
-  if (!defaultTopic && !allowedTopics.size) return json({ error: `No active syllabus topics are configured for ${subjectName}. Add syllabus topics first so AI questions can be routed to a verified subject destination.` }, 400);
-
+  // Topic routing is examination-specific. An active subject topic is not sufficient
+  // until it is mapped to the selected examination in edu_subject_topic_exam_map.
+  const { data: mappingRows, error: mappingError } = await service.from('edu_subject_topic_exam_map')
+    .select('id,topic_id,subject_code,exam_code,syllabus_year,verification_status,source_url,review_note')
+    .eq('exam_code', examCode).eq('subject_code', subjectCode).eq('is_active', true);
+  if (mappingError) return json({ error: `Examination topic mapping check failed: ${mappingError.message}` }, 500);
+  let eligibleMappings = (mappingRows || []).filter((row: any) => !syllabusYear || row.syllabus_year === syllabusYear);
+  if (!eligibleMappings.length) return json({ error: `No active syllabus topics are mapped to ${subjectName} for ${examName}. Open Admin → Subject topic & syllabus manager, select this examination and subject, and activate suitable topic mappings. Seed mappings begin as Draft and need academic verification.` }, 400);
+  const mappedTopicIds = eligibleMappings.map((row: any) => row.topic_id);
+  let topicQuery = service.from('edu_subject_topics').select('id,subject_code,topic_code,topic_name,syllabus_year,topic_description,learning_outcomes')
+    .eq('subject_code', subjectCode).eq('is_active', true).in('id', mappedTopicIds);
+  if (syllabusYear) topicQuery = topicQuery.or(`syllabus_year.eq.${syllabusYear},syllabus_year.is.null`);
+  const { data: activeTopicRows, error: topicError } = await topicQuery.order('topic_name').limit(500);
+  if (topicError) return json({ error: `Mapped syllabus topic lookup failed: ${topicError.message}` }, 500);
+  const mappingByTopic = new Map(eligibleMappings.map((row: any) => [row.topic_id, row]));
+  const allAllowedTopicRows = (activeTopicRows || []).filter((row: any) => mappingByTopic.has(row.id));
+  if (defaultTopic && !allAllowedTopicRows.some((row: any) => row.topic_code.toUpperCase() === defaultTopic))
+    return json({ error: 'The selected topic is not active and mapped to this subject/examination destination. Activate its mapping in the Syllabus Manager first.' }, 400);
+  const allowedTopicRows = defaultTopic ? allAllowedTopicRows.filter((row: any) => row.topic_code.toUpperCase() === defaultTopic) : allAllowedTopicRows;
+  const allowedTopics = new Set(allowedTopicRows.map((x: any) => String(x.topic_code).toUpperCase()));
+  if (!allowedTopics.size) return json({ error: `No active syllabus topics are configured for ${subjectName} under ${examName}.` }, 400);
+  const mappingStatuses = [...new Set(eligibleMappings.map((row: any) => row.verification_status))];
+  const selectedMappingStatus = defaultTopic
+    ? (eligibleMappings.find((row: any) => allowedTopicRows.some((topic: any) => topic.id === row.topic_id && topic.topic_code.toUpperCase() === defaultTopic))?.verification_status || 'draft')
+    : (mappingStatuses.includes('draft') ? 'draft' : mappingStatuses.includes('reviewed') ? 'reviewed' : 'official_source_verified');
   // Optional provider-specific daily caps reset at 00:00 UTC. The check is
   // based on attempted batch/question volume, so failed provider calls still
   // count toward the daily cap and cannot be retried endlessly for free.
@@ -411,13 +417,17 @@ Deno.serve(async (req) => {
   if (batchError || !batch) return json({ error: batchError?.message || 'Could not create generation history record.' }, 500);
 
   try {
-    const topicDescription = allowedTopicRows.map(x => `${x.topic_code}: ${x.topic_name}`).join('\n');
+    const topicDescription = allowedTopicRows.map((x: any) => {
+      const description = String(x.topic_description || '').trim();
+      const outcomes = Array.isArray(x.learning_outcomes) ? x.learning_outcomes.map((item: any) => String(item || '').trim()).filter(Boolean).join('; ') : '';
+      return `- ${x.topic_code}: ${x.topic_name}${description ? ` — ${description}` : ''}${outcomes ? `\n  Learning outcomes: ${outcomes}` : ''}`;
+    }).join('\n');
     const system = [
       'You are EDU-AFRIKA\'s exam-preparation question author. Generate original practice questions only; never claim they are official past questions.',
       'Return one JSON object exactly: {"questions":[...]} and no markdown or prose outside JSON.',
       'Every MCQ has exactly four distinct options with keys A, B, C and D. correct_answer is the one key letter, not the option text.',
       'Fill-gap questions have no options; include one correct_answer and optional accepted_answers spelling variants.',
-      'Every question must be clear, unambiguous, original, age-appropriate and within the supplied subject and active topic catalogue.',
+      'Every question must be clear, unambiguous, original, age-appropriate and within the supplied subject and active topic catalogue. Follow each topic description and learning outcomes; do not add topics outside the list.',
       'Do not invent topic codes. For balanced topic distribution, distribute questions as evenly as practical over the listed topics.',
       'Include a concise explanation that demonstrates the answer, especially for mathematics and science.',
       'Do not copy copyrighted text or reproduce real exam papers. Do not claim the content is official.',
@@ -428,8 +438,8 @@ Deno.serve(async (req) => {
       `Subject destination: ${subjectName} (${subjectCode})`,
       programmeName ? `Course/programme: ${programmeName}. Questions must fit this programme but remain within the selected subject.` : 'Course/programme: General subject pool.',
       `Topic mode: ${defaultTopic ? 'single topic' : 'balanced distribution across active topics'}`,
-      defaultTopic ? `Use this exact topic: ${defaultTopic} (${allowedTopicRows[0]?.topic_name || ''}).` : `Allowed active syllabus topics:\n${topicDescription}`,
-      `Difficulty: ${difficulty}. Question format: ${format}. Syllabus year: ${syllabusYear || 'not specified'}.`,
+      defaultTopic ? `Use this exact topic: ${defaultTopic} (${allowedTopicRows[0]?.topic_name || ''}). Topic details and learning outcomes:\n${topicDescription}` : `Allowed active syllabus topics and learning outcomes:\n${topicDescription}`,
+      `Difficulty: ${difficulty}. Question format: ${format}. Syllabus year: ${syllabusYear || 'not specified'}. Topic-to-exam mapping status: ${selectedMappingStatus}. If Draft or Reviewed, treat the list as a working topic outline, do not claim official syllabus coverage, and keep every question suitable for human academic review.`,
       `Requested questions: ${count}. Every result must have a topic_code from the list above.`,
     ].join('\n');
     const response = await providerRequest(provider, config, apiKey, [ { role:'system', content:system }, { role:'user', content:userPrompt } ], Math.min(24000, 1200 + count * 240));
@@ -470,6 +480,9 @@ Deno.serve(async (req) => {
       let question: any;
       try { question = normalizeQuestion(row, defaultTopic, allowedTopics, topicMode); }
       catch (error) { rejected.push({ reason: (error as Error).message, question: String(row?.question_text || '').slice(0, 180) }); continue; }
+      const mappedTopic = allowedTopicRows.find((topic: any) => String(topic.topic_code).toUpperCase() === question.topic_code);
+      const topicMapping: any = mappedTopic ? mappingByTopic.get(mappedTopic.id) : null;
+      if (topicMapping?.verification_status !== 'official_source_verified') question.ai_quality_flags.push('syllabus_mapping_not_officially_verified_human_academic_review_required');
       const hash = await fingerprint(question.question_text);
       if (usedHashes.has(hash)) { rejected.push({ reason:'Exact normalized question already exists in the bank, AI-generation fingerprint claims or permanent student-delivery ledger.', question:question.question_text.slice(0,180) }); continue; }
       const nearInBatch = batchTexts.some(text => similarity(text, question.question_text) >= 0.88);
@@ -491,6 +504,9 @@ Deno.serve(async (req) => {
         source_reference:`AI-generated original practice draft · ${provider.name} · ${config.model}`,
         is_active:false, review_status:'review', created_by:userData.user.id,
         ai_batch_id:batch.id, ai_provider_code:providerCode, ai_model:config.model,
+        ai_syllabus_verification_status:topicMapping?.verification_status || 'draft',
+        ai_syllabus_source_url:topicMapping?.source_url || '',
+        ai_syllabus_mapping_id:topicMapping?.id || null,
         // No numerical academic score is emitted: a same-model second pass is not
     // an independent answer-key validator. Keep the field NULL until a real,
     // calibrated quality rubric exists.
@@ -546,7 +562,7 @@ Deno.serve(async (req) => {
       generated:returned.length, accepted:insertedCount, duplicate_count:duplicateCount,
       invalid_count:invalidCount, input_tokens:usage.input, output_tokens:usage.output,
       duration_ms:duration, status:finalStatus, estimated_cost_usd:estimatedCost,
-      questions:accepted.slice(0,5).map(q=>({ question_text:q.question_text, question_type:q.question_type, options:q.options, correct_answer:q.correct_answer, explanation:q.explanation, topic_code:q.topic_code, difficulty:q.difficulty, ai_quality_flags:q.ai_quality_flags })),
+      questions:accepted.slice(0,5).map(q=>({ question_text:q.question_text, question_type:q.question_type, options:q.options, correct_answer:q.correct_answer, explanation:q.explanation, topic_code:q.topic_code, difficulty:q.difficulty, ai_quality_flags:q.ai_quality_flags, ai_syllabus_verification_status:q.ai_syllabus_verification_status, ai_syllabus_source_url:q.ai_syllabus_source_url })),
       near_duplicate_flags:nearDuplicateCount, verifier_flags:verifierFlagCount, second_pass_check:body?.second_pass_check === true,
       message:`${insertedCount} question(s) saved to the AI review queue. Nothing was published to students.`,
     });
