@@ -88,6 +88,7 @@
   async function loadCoverage() {
     const examCode=$('edu-coverage-exam')?.value;
     const host=$('edu-coverage-table');
+    if(!host){console.warn('[EDU-AFRIKA] Question coverage panel is not present in this page version.');return;}
     if(!examCode){host.innerHTML='<p class="edu-admin-empty">Choose an examination to inspect its question supply.</p>';return;}
     host.innerHTML='<p class="edu-admin-empty">Loading live question coverage…</p>';
     try{
@@ -104,8 +105,13 @@
   }
 
   async function loadPerformanceAnalytics() {
-    const totalsHost=$('edu-performance-totals');
-    try{
+    // Performance analytics is an optional reporting panel. An unavailable RPC or
+    // older cached page must never prevent the core EDU-AFRIKA setup from loading.
+    const totalsHost = $('edu-performance-totals');
+    const examsHost = $('edu-performance-exams');
+    const subjectsHost = $('edu-performance-subjects');
+    const dailyHost = $('edu-performance-daily');
+    try {
       const {data,error}=await FX.client.rpc('edu_admin_performance_analytics');
       if(error)throw error;
       const totals=data?.totals||{};
@@ -115,16 +121,17 @@
         ['Average score',totals.average_score==null?'—':`${Number(totals.average_score).toFixed(1)}%`],
         ['Open question reports',totals.open_question_reports]
       ];
-      totalsHost.innerHTML=entries.map(([label,value])=>`<article><small>${esc(label)}</small><b>${esc(value??0)}</b></article>`).join('');
+      if (totalsHost) totalsHost.innerHTML=entries.map(([label,value])=>`<article><small>${esc(label)}</small><b>${esc(value??0)}</b></article>`).join('');
       const examsRows=Array.isArray(data?.exams)?data.exams:[];
-      $('edu-performance-exams').innerHTML=examsRows.length?`<table class="admin-table"><thead><tr><th>Examination</th><th>Completed</th><th>Average score</th></tr></thead><tbody>${examsRows.map(x=>`<tr><td>${esc(x.exam_name||x.exam_code)}</td><td>${Number(x.attempts||0).toLocaleString()}</td><td><b>${x.average_score==null?'—':`${Number(x.average_score).toFixed(1)}%`}</b></td></tr>`).join('')}</tbody></table>`:'<p class="edu-admin-empty">Completed examinations will appear here.</p>';
+      if (examsHost) examsHost.innerHTML=examsRows.length?`<table class="admin-table"><thead><tr><th>Examination</th><th>Completed</th><th>Average score</th></tr></thead><tbody>${examsRows.map(x=>`<tr><td>${esc(x.exam_name||x.exam_code)}</td><td>${Number(x.attempts||0).toLocaleString()}</td><td><b>${x.average_score==null?'—':`${Number(x.average_score).toFixed(1)}%`}</b></td></tr>`).join('')}</tbody></table>`:'<p class="edu-admin-empty">Completed examinations will appear here.</p>';
       const subjectRows=Array.isArray(data?.subjects)?data.subjects:[];
-      $('edu-performance-subjects').innerHTML=subjectRows.length?`<table class="admin-table"><thead><tr><th>Subject</th><th>Answered</th><th>Correct</th><th>Accuracy</th></tr></thead><tbody>${subjectRows.map(x=>`<tr><td>${esc(x.subject_name||x.subject_code)}</td><td>${Number(x.answered||0).toLocaleString()}</td><td>${Number(x.correct||0).toLocaleString()}</td><td><b>${x.accuracy==null?'—':`${Number(x.accuracy).toFixed(1)}%`}</b></td></tr>`).join('')}</tbody></table>`:'<p class="edu-admin-empty">Subject accuracy will appear after students complete tests.</p>';
+      if (subjectsHost) subjectsHost.innerHTML=subjectRows.length?`<table class="admin-table"><thead><tr><th>Subject</th><th>Answered</th><th>Correct</th><th>Accuracy</th></tr></thead><tbody>${subjectRows.map(x=>`<tr><td>${esc(x.subject_name||x.subject_code)}</td><td>${Number(x.answered||0).toLocaleString()}</td><td>${Number(x.correct||0).toLocaleString()}</td><td><b>${x.accuracy==null?'—':`${Number(x.accuracy).toFixed(1)}%`}</b></td></tr>`).join('')}</tbody></table>`:'<p class="edu-admin-empty">Subject accuracy will appear after students complete tests.</p>';
       const dailyRows=Array.isArray(data?.daily)?data.daily:[];
-      $('edu-performance-daily').innerHTML=dailyRows.length?`<table class="admin-table"><thead><tr><th>Date</th><th>Completed</th><th>Average score</th></tr></thead><tbody>${dailyRows.map(x=>`<tr><td>${esc(x.day)}</td><td>${Number(x.attempts||0).toLocaleString()}</td><td>${x.average_score==null?'—':`${Number(x.average_score).toFixed(1)}%`}</td></tr>`).join('')}</tbody></table>`:'<p class="edu-admin-empty">No completed examinations in the last 30 days.</p>';
-    }catch(error){
-      totalsHost.innerHTML=`<p class="edu-admin-empty">Performance analytics unavailable: ${esc(error.message||'Run migration part 03 and refresh.')}</p>`;
-      ['edu-performance-exams','edu-performance-subjects','edu-performance-daily'].forEach(id=>$(id).innerHTML='');
+      if (dailyHost) dailyHost.innerHTML=dailyRows.length?`<table class="admin-table"><thead><tr><th>Date</th><th>Completed</th><th>Average score</th></tr></thead><tbody>${dailyRows.map(x=>`<tr><td>${esc(x.day)}</td><td>${Number(x.attempts||0).toLocaleString()}</td><td>${x.average_score==null?'—':`${Number(x.average_score).toFixed(1)}%`}</td></tr>`).join('')}</tbody></table>`:'<p class="edu-admin-empty">No completed examinations in the last 30 days.</p>';
+    } catch(error) {
+      if (totalsHost) totalsHost.innerHTML=`<p class="edu-admin-empty">Performance analytics unavailable: ${esc(error.message||'Apply the EDU-AFRIKA scoring & analytics migration (part 07).')}</p>`;
+      [examsHost,subjectsHost,dailyHost].forEach(node=>{ if(node) node.innerHTML=''; });
+      console.warn('[EDU-AFRIKA] Performance analytics are unavailable; core setup will continue.', error);
     }
   }
 
