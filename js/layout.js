@@ -13,6 +13,13 @@
     market: '<path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2M9 12h.01M15 12h.01"/>'
   };
   const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name]}</svg>`;
+  if (!document.querySelector('link[data-frnxup-wordmark]')) {
+    const wordmarkCss = document.createElement('link');
+    wordmarkCss.rel = 'stylesheet';
+    wordmarkCss.href = '/Css/frnxup-wordmark.css?v=20261125-option7';
+    wordmarkCss.dataset.frnxupWordmark = 'true';
+    document.head.appendChild(wordmarkCss);
+  }
   const links = [
     ['Home', '/index.html', 'home'],
     ['Friends', '/Friends/index.html', 'friends'],
@@ -36,7 +43,7 @@
 
   shell.innerHTML = `
     <header class="brand-header">
-      <a class="brand" href="/index.html"><img src="/Asset/frnxup-mark.svg" alt=""><span>Frnxup</span></a>
+      <a class="brand" href="/index.html" aria-label="FRNXUP home"><img src="/Asset/frnxup-mark.svg" alt=""><span class="frnxup-wordmark-text" role="img" aria-label="FRNXUP"><span class="frnxup-navy">FRN</span><span class="frnxup-x">X</span><span class="frnxup-navy">UP</span></span></a>
       <button class="menu-button" id="fx-menu" aria-label="Open menu" title="Menu">☰</button>
       <nav class="menu-popover" id="fx-menu-pop" aria-label="More navigation">
         <a href="/Rooms/index.html">Communities &amp; rooms</a>
