@@ -5,14 +5,30 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>EDU-AFRIKA Exam Automation Room · Frnxup Admin</title>
   <link rel="stylesheet" href="css/admin.css">
-  <link rel="stylesheet" href="css/edu-afrika-admin.css?v=20261125-2">
+  <link rel="stylesheet" href="css/edu-afrika-admin.css?v=20261125-7">
 </head>
 <body data-view="edu-afrika">
   <aside class="admin-side"><a class="brand" href="index.html"><img src="../Asset/frnxup-mark.svg">Frnxup</a><small>PLATFORM CONTROL CENTRE</small><nav><a href="index.html">▦ Overview</a><a href="control-room.html">⌘ Action control room</a><a href="edu-afrika.html" class="active">🎓 EDU-AFRIKA</a></nav><div class="side-foot">FRNXUP ADMIN<br><span>Privileged actions are logged.</span></div></aside>
   <main class="admin-main">
     <header><div><small>FRNXUP / LEARNING & EXAMINATIONS</small><h1>EDU-AFRIKA EXAM AUTOMATION ROOM</h1><p>Build the approved question bank used to assemble randomized student practice examinations.</p></div><button id="admin-refresh" type="button">↻ Refresh</button></header>
-    <div class="edu-admin-notice"><b>How question automation works</b><span>Admins add and approve questions here. EDU-AFRIKA automatically selects and shuffles matching questions based on each student's exam type, selected subjects and chosen question formats. Answer keys stay private until a student submits.</span></div>
+    <div class="edu-admin-notice"><b>How question automation works</b><span>Admins create, import, review and publish questions here. The database builds each candidate's paper from their examination, verified course / stream / trade / module, selected subjects, question formats and mode. A global one-time delivery ledger prevents the same normalized question content from being issued to another attempt; if the unused pool is too small, the system refuses the paper instead of reusing questions. Answer keys stay private until submission.</span></div>
     <section class="stats-grid edu-admin-stats" id="edu-admin-stats"><article><small>Student accounts</small><b>—</b><span>EDU-AFRIKA registrations</span></article><article><small>Question bank</small><b>—</b><span>All authored questions</span></article><article><small>Active questions</small><b>—</b><span>Available for test generation</span></article><article><small>Practice attempts</small><b>—</b><span>Student examination attempts</span></article></section>
+
+    <section class="admin-panel edu-coverage-panel">
+      <div class="panel-head"><div><h2>Question-bank coverage & unused supply</h2><p>See how much unique, never-issued content remains for every subject in the selected exam and verified course combination.</p></div><span class="badge">LIVE INVENTORY</span></div>
+      <div class="edu-coverage-tools"><label>Examination<select id="edu-coverage-exam"><option value="">Choose examination</option></select></label><button id="edu-coverage-refresh" type="button" class="admin-action action-green">Refresh coverage</button></div>
+      <div id="edu-coverage-table" class="table-wrap"><p class="edu-admin-empty">Select an examination to inspect question supply.</p></div>
+    </section>
+
+    <section class="admin-panel edu-performance-panel">
+      <div class="panel-head"><div><h2>Examination performance analytics</h2><p>Track exam participation, average scores, subject accuracy and daily activity. Individual question reports remain available for moderation.</p></div><span class="badge">PERFORMANCE</span></div>
+      <div id="edu-performance-totals" class="edu-performance-totals"><span>Loading performance summary…</span></div>
+      <div class="edu-performance-grid">
+        <div><h3>Examination performance</h3><div id="edu-performance-exams" class="table-wrap"><p class="edu-admin-empty">Loading…</p></div></div>
+        <div><h3>Subject accuracy</h3><div id="edu-performance-subjects" class="table-wrap"><p class="edu-admin-empty">Loading…</p></div></div>
+        <div class="edu-performance-daily"><h3>Daily examination activity · last 30 days</h3><div id="edu-performance-daily" class="table-wrap"><p class="edu-admin-empty">Loading…</p></div></div>
+      </div>
+    </section>
 
     <section class="admin-panel edu-logo-panel">
       <div class="panel-head"><div><h2>Official examination logo library</h2><p>Upload original, approved logo artwork for each examination's independent landing page. Do not use recreated or unlicensed logo files.</p></div><span class="badge">EXAM BRANDING</span></div>
@@ -24,6 +40,90 @@
       </form>
       <p class="edu-logo-help">Accepted: PNG, JPG, WEBP or SVG · Maximum 2 MB. After upload, the selected exam page displays that exact uploaded file. Logo artwork is not included by default because official marks must be sourced and used with appropriate permission.</p>
     </section>
+    <section class="admin-panel edu-programme-panel">
+      <div class="panel-head"><div><h2>Course & subject-combination manager</h2><p>Configure courses, streams, trades, modules and institution-specific combinations. Students only see combinations that are both verified and published.</p></div><span class="badge">COURSE ROUTING</span></div>
+      <form id="edu-programme-form" class="edu-extended-form">
+        <input type="hidden" id="edu-programme-id">
+        <div class="edu-admin-form-grid">
+          <label>Examination<select id="edu-programme-exam" required><option value="">Choose examination</option></select></label>
+          <label>Programme code<input id="edu-programme-code" maxlength="40" placeholder="MEDICINE_SURGERY" required></label>
+          <label>Programme name<input id="edu-programme-name" maxlength="140" placeholder="Medicine and Surgery" required></label>
+          <label>Programme type<select id="edu-programme-type"><option value="course">Course</option><option value="stream">Subject stream</option><option value="trade">Trade / vocational</option><option value="module">Module</option><option value="level">Level</option><option value="specialization">Specialization</option><option value="track">Track</option></select></label>
+          <label>Institution / exam body option<input id="edu-programme-institution" maxlength="160" placeholder="Optional institution name"></label>
+          <label>Syllabus / examination year<input id="edu-programme-year" type="number" min="2000" max="2100" placeholder="e.g. 2027"></label>
+          <label>Minimum selected subjects<input id="edu-programme-min" type="number" min="1" max="12" value="1" required></label>
+          <label>Maximum selected subjects<input id="edu-programme-max" type="number" min="1" max="12" value="4" required></label>
+        </div>
+        <label class="edu-admin-label">Required subjects <small>Students must include every subject selected here.</small></label>
+        <select id="edu-programme-required" class="edu-multi-select" multiple size="6"></select>
+        <label class="edu-admin-label">Allowed subjects <small>Students may select from these subjects. Required subjects must also appear in this list.</small></label>
+        <select id="edu-programme-allowed" class="edu-multi-select" multiple size="8"></select>
+        <label class="edu-admin-label" for="edu-programme-rules">Advanced subject-group rules · JSON <small>Optional. Use this for rules such as 4 core + 3–4 specialization + 1 outside-field elective (NECO), or trade component counts (NABTEB). Group subject codes must not overlap and must all be in the allowed-subject list.</small></label>
+        <textarea id="edu-programme-rules" rows="7" spellcheck="false" placeholder='{"total_min":8,"total_max":9,"groups":[{"key":"core","label":"Core subjects","subject_codes":["ENGLISH","MATHEMATICS"],"min_select":2,"max_select":2},{"key":"additional","label":"Additional subjects","subject_codes":["BIOLOGY","CHEMISTRY","PHYSICS","GEOGRAPHY","AGRIC_SCIENCE","FURTHER_MATHS","TECH_DRAWING"],"min_select":6,"max_select":7}]}'></textarea>
+        <div class="edu-admin-form-grid">
+          <label>Official rules / student instructions<textarea id="edu-programme-instructions" rows="2" maxlength="1200" placeholder="Explain the combination requirements and subject limits."></textarea></label>
+          <label>Official source URL<input id="edu-programme-source" type="url" maxlength="500" placeholder="https://..."></label>
+          <label>Verification note<textarea id="edu-programme-verification" rows="2" maxlength="1000" placeholder="What was checked, for which exam year and institution?"></textarea></label>
+        </div>
+        <div class="edu-admin-form-grid edu-check-grid"><label class="edu-admin-active"><input id="edu-programme-verified" type="checkbox"> Verified against official source</label><label class="edu-admin-active"><input id="edu-programme-active" type="checkbox"> Publish to students</label></div>
+        <div class="edu-admin-form-actions"><button class="admin-action action-green" id="edu-programme-save" type="submit">Save course combination</button><button class="admin-action action-yellow" id="edu-programme-cancel" type="button" hidden>Cancel edit</button><span id="edu-programme-feedback" role="status"></span></div>
+      </form>
+      <div class="edu-programme-import-box">
+        <h3>Bulk import course / trade combinations</h3>
+        <p>Upload one row per programme. Required and allowed subjects are separated by semicolons. Optional `selection_rules` is a JSON object for group counts. Every import starts as an unpublished draft for academic verification.</p>
+        <form id="edu-programme-import-form" class="edu-admin-form-grid">
+          <label>Programme CSV file<input id="edu-programme-import-file" type="file" accept=".csv,text/csv" required></label>
+          <div class="edu-admin-form-actions"><button type="submit" class="admin-action action-green" id="edu-programme-import-button">Validate and import combinations</button><button type="button" class="admin-action action-yellow" id="edu-programme-template">Download combination CSV template</button><span id="edu-programme-import-feedback" role="status"></span></div>
+        </form>
+        <div id="edu-programme-import-preview" class="edu-ai-preview" hidden></div>
+      </div>
+      <div id="edu-programme-table" class="table-wrap"><p class="edu-admin-empty">Loading course combinations…</p></div>
+      <p class="edu-logo-help">Important: JAMB course combinations can vary by institution. Confirm them in the official IBASS Eligibility Checker before verifying. For NECO and NABTEB, configure the advanced subject-group rules for the exact current-year specialization or trade code before publishing. Never publish an unverified combination.</p>
+    </section>
+
+    <section class="admin-panel edu-topic-panel">
+      <div class="panel-head"><div><h2>Subject topic & syllabus manager</h2><p>Create a controlled topic catalogue for each subject. Questions assigned to these topics power Revision Mode and syllabus coverage.</p></div><span class="badge">TOPIC CATALOGUE</span></div>
+      <form id="edu-topic-form" class="edu-extended-form">
+        <input type="hidden" id="edu-topic-id">
+        <div class="edu-admin-form-grid">
+          <label>Subject<select id="edu-topic-subject" required><option value="">Choose subject</option></select></label>
+          <label>Topic code<input id="edu-topic-code" maxlength="80" placeholder="ALGEBRA" required></label>
+          <label>Topic name<input id="edu-topic-name" maxlength="160" placeholder="Algebra" required></label>
+          <label>Syllabus year<input id="edu-topic-year" type="number" min="2000" max="2100" placeholder="Optional year"></label>
+        </div>
+        <div class="edu-admin-form-grid edu-check-grid"><label class="edu-admin-active"><input id="edu-topic-active" type="checkbox" checked> Active for topic selection</label></div>
+        <div class="edu-admin-form-actions"><button class="admin-action action-green" id="edu-topic-save" type="submit">Save topic</button><button class="admin-action action-yellow" id="edu-topic-cancel" type="button" hidden>Cancel edit</button><span id="edu-topic-feedback" role="status"></span></div>
+      </form>
+      <div id="edu-topic-table" class="table-wrap"><p class="edu-admin-empty">Loading subject topics…</p></div>
+    </section>
+
+    <section class="admin-panel edu-ai-panel">
+      <div class="panel-head"><div><h2>AI-assisted original question generator</h2><p>Generate original practice drafts for administrator review. AI questions are never published automatically.</p></div><span class="badge">AI DRAFTS</span></div>
+      <form id="edu-ai-form" class="edu-admin-form-grid">
+        <label>Examination<select id="edu-ai-exam" required><option value="">Choose examination</option></select></label>
+        <label>Course / combination scope<select id="edu-ai-programme"><option value="">General question · all combinations</option></select></label>
+        <label>Subject<select id="edu-ai-subject" required><option value="">Choose subject</option></select></label>
+        <label>Topic<select id="edu-ai-topic"><option value="">Any topic / balanced subject coverage</option></select></label>
+        <label>Number of drafts<input id="edu-ai-count" type="number" min="1" max="100" value="10" required></label>
+        <label>Format<select id="edu-ai-format"><option value="mixed">Mixed formats</option><option value="mcq">Multiple choice</option><option value="fill_gap">Fill in the gap</option></select></label>
+        <label>Difficulty<select id="edu-ai-difficulty"><option value="mixed">Mixed</option><option value="easy">Easy</option><option value="medium">Intermediate</option><option value="hard">Advanced</option></select></label>
+        <label>Syllabus year<input id="edu-ai-year" type="number" min="2000" max="2100" placeholder="Optional year"></label>
+        <div class="edu-admin-form-actions"><button type="submit" id="edu-ai-generate" class="admin-action action-green">Generate question drafts</button><span id="edu-ai-feedback" role="status"></span></div>
+      </form>
+      <div id="edu-ai-preview" class="edu-ai-preview" hidden></div>
+      <p class="edu-logo-help">Requires the Supabase Edge Function <code>edu-afrika-generate-questions</code> and secrets <code>OPENAI_API_KEY</code> plus <code>OPENAI_MODEL</code>. Generated questions are original practice material, not official past questions.</p>
+    </section>
+
+    <section class="admin-panel edu-import-panel">
+      <div class="panel-head"><div><h2>Bulk question import</h2><p>Upload a CSV question bank. Rows enter the review queue and are not visible to students until approved.</p></div><span class="badge">CSV IMPORT</span></div>
+      <form id="edu-import-form" class="edu-admin-form-grid">
+        <label>CSV question file<input id="edu-import-file" type="file" accept=".csv,text/csv" required></label>
+        <label>Import note<input id="edu-import-note" maxlength="160" placeholder="e.g. JAMB 2025 Mathematics practice"></label>
+        <div class="edu-admin-form-actions"><button class="admin-action action-green" type="submit" id="edu-import-button">Validate and import CSV</button><button class="admin-action action-yellow" type="button" id="edu-download-template">Download CSV template</button><span id="edu-import-feedback" role="status"></span></div>
+      </form>
+      <div id="edu-import-preview" class="edu-ai-preview" hidden></div>
+    </section>
+
     <section class="admin-panel edu-admin-editor">
       <div class="panel-head"><div><h2 id="edu-question-form-heading">＋ Add question to the question bank</h2><p>Questions are matched against an examination and subject selection.</p></div><span class="badge">ADMIN / OWNER</span></div>
       <form id="edu-question-form">
@@ -49,19 +149,46 @@
         </div>
         <label class="edu-admin-label" for="edu-question-explanation">Explanation / learning note <small>Shown to students after they submit the test.</small></label>
         <textarea id="edu-question-explanation" rows="2" maxlength="3000" placeholder="Explain why the answer is correct (optional)."></textarea>
-        <label class="edu-admin-active"><input id="edu-question-active" type="checkbox" checked> Publish this question to the automatic exam builder</label>
+        <div class="edu-admin-form-grid edu-question-source-grid">
+          <label>Topic / syllabus unit<select id="edu-question-topic"><option value="">No topic selected</option></select></label>
+          <label>Course / combination scope<select id="edu-question-programmes" class="edu-multi-select" multiple size="4"></select><small>Leave empty for general questions shared by every compatible combination. Select one or more specific programmes to restrict this question.</small></label>
+          <label>Question source<select id="edu-question-source-type"><option value="admin_authored">Admin authored</option><option value="past_question">Permitted past question</option><option value="adapted_practice">Adapted practice</option></select></label>
+          <label>Question year<input id="edu-question-year" type="number" min="1900" max="2100" placeholder="Optional year"></label>
+          <label>Source reference<input id="edu-question-source-reference" maxlength="500" placeholder="Book / syllabus / licensed source"></label>
+        </div>
+        <label class="edu-admin-active"><input id="edu-question-active" type="checkbox" checked> Approve and publish this admin-authored question immediately</label>
         <div class="edu-admin-form-actions"><button type="submit" class="admin-action action-green" id="edu-question-save">Save question</button><button type="button" class="admin-action action-yellow" id="edu-question-cancel" hidden>Cancel edit</button><span id="edu-question-feedback" role="status"></span></div>
       </form>
     </section>
     <section class="admin-panel">
       <div class="panel-head"><div><h2>Question bank</h2><p>Manage the questions available to EDU-AFRIKA students.</p></div><span class="badge" id="edu-bank-count">0 QUESTIONS</span></div>
-      <div class="edu-bank-filters"><input id="edu-bank-search" type="search" placeholder="Search question, subject or exam…"><select id="edu-bank-type"><option value="">All formats</option><option value="mcq">Multiple choice</option><option value="fill_gap">Fill in the gap</option></select><select id="edu-bank-status"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select><button id="edu-bank-search-button" type="button">Filter</button></div>
+      <div class="edu-bank-filters"><input id="edu-bank-search" type="search" placeholder="Search question, subject or exam…"><select id="edu-bank-type"><option value="">All formats</option><option value="mcq">Multiple choice</option><option value="fill_gap">Fill in the gap</option></select><select id="edu-bank-status"><option value="">All active states</option><option value="true">Active</option><option value="false">Inactive</option></select><select id="edu-bank-review"><option value="">All review statuses</option><option value="draft">Draft</option><option value="review">Under review</option><option value="approved">Approved</option><option value="published">Published</option><option value="rejected">Rejected</option></select><select id="edu-bank-source"><option value="">All sources</option><option value="past_question">Past question</option><option value="adapted_practice">Adapted practice</option><option value="admin_authored">Admin authored</option><option value="ai_draft">AI draft</option><option value="bulk_import">Bulk import</option></select><button id="edu-bank-search-button" type="button">Filter</button></div>
       <div id="edu-question-table" class="table-wrap"><p class="edu-admin-empty">Loading the question bank…</p></div>
     </section>
+    <section class="admin-panel edu-blueprint-panel">
+      <div class="panel-head"><div><h2>Examination blueprint</h2><p>Set the difficulty mix per exam, course combination and subject. The engine uses these targets when building papers.</p></div><span class="badge">PAPER STRUCTURE</span></div>
+      <form id="edu-blueprint-form" class="edu-admin-form-grid">
+        <label>Examination<select id="edu-blueprint-exam" required><option value="">Choose exam</option></select></label>
+        <label>Course / combination<select id="edu-blueprint-programme"><option value="">General exam blueprint</option></select></label>
+        <label>Subject<select id="edu-blueprint-subject" required><option value="">Choose subject</option></select></label>
+        <label>Easy questions (%)<input id="edu-blueprint-easy" type="number" min="0" max="100" value="30" required></label>
+        <label>Intermediate questions (%)<input id="edu-blueprint-medium" type="number" min="0" max="100" value="50" required></label>
+        <label>Advanced questions (%)<input id="edu-blueprint-hard" type="number" min="0" max="100" value="20" required></label>
+        <label>Subject share (%)<input id="edu-blueprint-share" type="number" min="0" max="100" value="0" required><small>Leave every selected subject at 0 to use equal subject weighting.</small></label>
+        <div class="edu-admin-form-actions"><button class="admin-action action-green" type="submit" id="edu-blueprint-save">Save blueprint</button><span id="edu-blueprint-feedback" role="status"></span></div>
+      </form>
+      <div id="edu-blueprint-table" class="table-wrap"><p class="edu-admin-empty">Loading blueprints…</p></div>
+    </section>
+
+    <section class="admin-panel edu-report-panel">
+      <div class="panel-head"><div><h2>Student question reports</h2><p>Investigate incorrect, ambiguous, duplicated or out-of-syllabus questions.</p></div><span class="badge" id="edu-report-count">0 REPORTS</span></div>
+      <div id="edu-report-table" class="table-wrap"><p class="edu-admin-empty">Loading question reports…</p></div>
+    </section>
+
     <div id="edu-admin-toast" class="toast" role="status" aria-live="polite"></div>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script><script src="../js/core.js"></script>
-  <script src="js/edu-afrika-admin.js?v=20261125-2"></script><script src="js/admin.js"></script>
+  <script src="js/edu-afrika-admin.js?v=20261125-7"></script><script src="js/admin.js"></script>
 </body>
 </html>
