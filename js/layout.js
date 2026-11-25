@@ -2,6 +2,16 @@
   const shell = document.querySelector('[data-frnxup-shell]');
   if (!shell) return;
 
+  // Resolve every shared-header destination from this app's own folder.
+  // This keeps navigation inside Frnxup even when the project is deployed
+  // below a domain subpath (for example, /Frnxup-main/).
+  const scriptUrl = document.currentScript && document.currentScript.src;
+  const appRoot = scriptUrl
+    ? new URL('../', scriptUrl)
+    : new URL('/', location.origin);
+  const appHref = (path) => new URL(String(path || '').replace(/^\/+/, ''), appRoot).href;
+  const routePath = (path) => new URL(String(path || '').replace(/^\/+/, ''), appRoot).pathname;
+
   const icons = {
     home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     friends: '<circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5.5a3 3 0 0 1 0 5.8M18 14a5 5 0 0 1 3 4.6V20"/>',
@@ -13,13 +23,6 @@
     market: '<path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2M9 12h.01M15 12h.01"/>'
   };
   const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name]}</svg>`;
-  if (!document.querySelector('link[data-frnxup-wordmark]')) {
-    const wordmarkCss = document.createElement('link');
-    wordmarkCss.rel = 'stylesheet';
-    wordmarkCss.href = '/Css/frnxup-wordmark.css?v=20261125-option7';
-    wordmarkCss.dataset.frnxupWordmark = 'true';
-    document.head.appendChild(wordmarkCss);
-  }
   const links = [
     ['Home', '/index.html', 'home'],
     ['Friends', '/Friends/index.html', 'friends'],
@@ -30,40 +33,40 @@
     ['Frnxup Market', '/Market/index.html', 'market']
   ];
   const current = location.pathname;
-  const activeFor = (key, url) => {
-    if (key === 'home') return current === '/' || current === '/index.html';
-    if (key === 'friends') return current.startsWith('/Friends/');
-    if (key === 'messages') return current.startsWith('/Messages/');
-    if (key === 'rooms') return current.startsWith('/Rooms/');
-    if (key === 'horn') return current.startsWith('/Notifications/');
-    if (key === 'reel') return current.startsWith('/Reels/');
-    if (key === 'market') return current.startsWith('/Market/');
-    return current === url;
+  const activeFor = (key) => {
+    if (key === 'home') return current === appRoot.pathname || current === routePath('/index.html');
+    if (key === 'friends') return current.startsWith(routePath('/Friends/'));
+    if (key === 'messages') return current.startsWith(routePath('/Messages/'));
+    if (key === 'rooms') return current.startsWith(routePath('/Rooms/'));
+    if (key === 'horn') return current.startsWith(routePath('/Notifications/'));
+    if (key === 'reel') return current.startsWith(routePath('/Reels/'));
+    if (key === 'market') return current.startsWith(routePath('/Market/'));
+    return false;
   };
 
   shell.innerHTML = `
     <header class="brand-header">
-      <a class="brand" href="/index.html" aria-label="FRNXUP home"><img src="/Asset/frnxup-mark.svg" alt=""><span class="frnxup-wordmark-text" role="img" aria-label="FRNXUP"><span class="frnxup-navy">FRN</span><span class="frnxup-x">X</span><span class="frnxup-navy">UP</span></span></a>
+      <a class="brand" href="${appHref('/index.html')}"><img src="${appHref('/Asset/frnxup-mark.svg')}" alt=""><span>Frnxup</span></a>
       <button class="menu-button" id="fx-menu" aria-label="Open menu" title="Menu">☰</button>
       <nav class="menu-popover" id="fx-menu-pop" aria-label="More navigation">
-        <a href="/Rooms/index.html">Communities &amp; rooms</a>
-        <a href="/Friends/index.html">Find people</a>
-        <a href="/Posts/saved.html">Saved posts</a>
-        <a href="/Dashboard/memories.html">Your memories</a>
-        <a href="/Dashboard/index.html">Your dashboard</a>
-        <a href="/Pages/index.html">Your Pages</a>
-        <a href="/Market/index.html">Frnxup-Market</a>
-        <a href="/Dashboard/privacy.html">Privacy &amp; security</a>
-        <a href="/help.html">Help and support</a>
+        <a href="${appHref('/Rooms/index.html')}">Communities &amp; rooms</a>
+        <a href="${appHref('/Friends/index.html')}">Find people</a>
+        <a href="${appHref('/Posts/saved.html')}">Saved posts</a>
+        <a href="${appHref('/Dashboard/memories.html')}">Your memories</a>
+        <a href="${appHref('/Dashboard/index.html')}">Your dashboard</a>
+        <a href="${appHref('/Pages/index.html')}">Your Pages</a>
+        <a href="${appHref('/Market/index.html')}">Frnxup-Market</a>
+        <a href="${appHref('/Dashboard/privacy.html')}">Privacy &amp; security</a>
+        <a href="${appHref('/help.html')}">Help and support</a>
         <button type="button" data-theme-toggle aria-pressed="false">Switch appearance</button>
-        <a href="/Auth/index.html">Log in / Sign up</a>
+        <a href="${appHref('/Auth/index.html')}">Log in / Sign up</a>
       </nav>
     </header>
     <header class="action-header">
       <nav class="action-nav" aria-label="Main actions">
-        ${links.map(([label, url, key]) => `<a class="action-link ${activeFor(key, url) ? 'selected' : ''}" href="${url}" title="${label}" aria-label="${label}">${icon(key)}${key==='friends'?'<span class="fx-nav-badge" id="fx-nav-friends-badge" hidden></span>':key==='horn'?'<span class="fx-nav-badge" id="fx-nav-notifications-badge" hidden></span>':''}</a>`).join('')}
+        ${links.map(([label, url, key]) => `<a class="action-link ${activeFor(key) ? 'selected' : ''}" href="${appHref(url)}" title="${label}" aria-label="${label}">${icon(key)}${key==='friends'?'<span class="fx-nav-badge" id="fx-nav-friends-badge" hidden></span>':key==='horn'?'<span class="fx-nav-badge" id="fx-nav-notifications-badge" hidden></span>':''}</a>`).join('')}
       </nav>
-      <a class="dashboard-icon" href="/Dashboard/index.html" title="User dashboard" aria-label="User dashboard">${icon('profile')}</a>
+      <a class="dashboard-icon" href="${appHref('/Dashboard/index.html')}" title="User dashboard" aria-label="User dashboard">${icon('profile')}</a>
     </header>`;
 
   if (!document.getElementById('fx-header-badge-style')) {
@@ -110,8 +113,6 @@
     try {
       await FX.loadUser();
       if (FX.user && FX.client) {
-        // Daily reminders are deduplicated in the database and safely skipped
-        // until the accompanying migration has been installed.
         try { await FX.client.rpc('frnxup_check_social_reminders'); } catch (_) {}
         refreshHeaderBadges();
         window.setInterval(refreshHeaderBadges, 45000);
@@ -129,7 +130,7 @@
       if (!activePage) { FX.setActivePage(null); return; }
       const banner = document.createElement('div');
       banner.className = 'fx-active-page-banner';
-      banner.innerHTML = `<span>Posting as <b>${FX.esc(activePage.name)}</b></span><a href="/Pages/dashboard.html?id=${activePage.id}">Open Page</a><button type="button">Switch to personal account</button>`;
+      banner.innerHTML = `<span>Posting as <b>${FX.esc(activePage.name)}</b></span><a href="${appHref('/Pages/dashboard.html')}?id=${encodeURIComponent(activePage.id)}">Open Page</a><button type="button">Switch to personal account</button>`;
       banner.querySelector('button').addEventListener('click', () => { FX.setActivePage(null); location.reload(); });
       shell.insertAdjacentElement('afterend', banner);
     } catch (_) { /* A page-mode helper must never block navigation. */ }
