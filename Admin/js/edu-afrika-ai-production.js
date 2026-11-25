@@ -134,10 +134,35 @@
     if (!Array.isArray(question.options) || !question.options.length) return 'Fill in the gap';
     return question.options.map(o => `${o.key || ''}. ${o.text || ''}`).join(' · ');
   }
+  function applyReviewFilters() {
+    const host = $('edu-ai-review-queue');
+    if (!host) return;
+    const needle = ($('edu-ai-review-search')?.value || '').trim().toLowerCase();
+    const status = $('edu-ai-review-filter')?.value || 'all';
+    const cards = [...host.querySelectorAll('.edu-ai-review-card')];
+    let visible = 0;
+    cards.forEach(card => {
+      const statusMatch = status === 'all' || card.dataset.reviewStatus === status;
+      const searchMatch = !needle || (card.dataset.search || '').includes(needle);
+      const show = statusMatch && searchMatch;
+      card.hidden = !show;
+      if (show) visible++;
+    });
+    const note = $('edu-ai-review-visible');
+    if (note) note.textContent = `${visible} of ${cards.length} draft(s) shown`;
+  }
+
   function renderReviewQueue(rows) {
     const host = $('edu-ai-review-queue');
-    $('edu-ai-review-count').textContent = `${rows.length} REVIEW / APPROVED`;
-    if (!rows.length) { host.innerHTML = '<p class="edu-admin-empty">No AI drafts are waiting for review or publication.</p>'; return; }
+    if (!host) return;
+    const reviewCount = rows.filter(q => q.review_status === 'review').length;
+    const approvedCount = rows.filter(q => q.review_status === 'approved').length;
+    $('edu-ai-review-count').textContent = `${rows.length} DRAFTS · ${reviewCount} TO REVIEW · ${approvedCount} APPROVED`;
+    if (!rows.length) {
+      host.innerHTML = '<p class="edu-admin-empty">No AI drafts are waiting for review or publication.</p>';
+      const note = $('edu-ai-review-visible'); if (note) note.textContent = '0 drafts';
+      return;
+    }
     host.innerHTML = rows.map(q => {
       const flags = Array.isArray(q.ai_quality_flags) ? q.ai_quality_flags : [];
       const options = optionText(q);
@@ -145,12 +170,15 @@
       const canPublish = !!q.current_syllabus_mapping_active && !['draft',''].includes(String(q.current_syllabus_verification_status || 'draft'));
       const sourceCandidate = q.current_syllabus_source_url || q.ai_syllabus_source_url || '';
       const safeSyllabusUrl = /^https?:\/\//i.test(String(sourceCandidate)) ? String(sourceCandidate) : '';
-      const syllabusSource = safeSyllabusUrl ? `<a href="${esc(safeSyllabusUrl)}" target="_blank" rel="noopener noreferrer">Open syllabus source ↗</a>` : '<span>No official source URL recorded</span>'; 
+      const syllabusSource = safeSyllabusUrl ? `<a href="${esc(safeSyllabusUrl)}" target="_blank" rel="noopener noreferrer">Open syllabus source ↗</a>` : '<span>No official source URL recorded</span>';
+      const exams = (q.exam_codes || []).join(', ');
+      const searchable = [q.question_text, q.subject_code, exams, q.topic_code, q.correct_answer, q.ai_provider_code].join(' ').toLowerCase();
       const actions = q.review_status === 'review'
         ? `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve (keep inactive)</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`
         : `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button>${canPublish?`<button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`:'<button type="button" disabled title="Verify the examination mapping first">Verify syllabus mapping to publish</button>'}<button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
-      return `<article class="edu-ai-review-card"><header><div><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc((q.review_status || 'review').toUpperCase())}</span><b>${esc(q.subject_code)} · ${(q.exam_codes || []).map(esc).join(', ')}</b></div><small>${esc(q.ai_provider_code || 'AI')} / ${esc(q.ai_model || '')} · ${esc(q.created_at || '')}</small></header><h3>${esc(q.question_text)}</h3><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-syllabus-verification"><b>Topic-to-examination mapping: ${esc(syllabusStatus)}</b>${syllabusSource}</div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review still required.</span>'}</div><footer class="edu-row-actions">${actions}</footer></article>`;
+      return `<details class="edu-ai-review-card" data-review-status="${esc(q.review_status || 'review')}" data-search="${esc(searchable)}"><summary class="edu-ai-review-summary"><span class="edu-ai-review-summary-main"><span class="edu-ai-review-summary-meta"><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc((q.review_status || 'review').toUpperCase())}</span><b>${esc(q.subject_code)} · ${esc(exams)}</b><small>${esc(q.topic_code || 'No topic')} · ${esc(q.difficulty || '—')}</small></span><strong>${esc(q.question_text)}</strong></span><small class="edu-ai-review-summary-date">${esc(q.ai_provider_code || 'AI')} · ${esc(q.created_at || '')}</small></summary><div class="edu-ai-review-content"><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-syllabus-verification"><b>Topic-to-examination mapping: ${esc(syllabusStatus)}</b>${syllabusSource}</div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review still required.</span>'}</div><footer class="edu-row-actions">${actions}</footer></div></details>`;
     }).join('');
+    applyReviewFilters();
   }
 
   async function loadReviewQueue() {
@@ -261,6 +289,8 @@
       $('edu-ai-provider-select').scrollIntoView({behavior:'smooth',block:'center'});
     });
     $('edu-ai-review-queue')?.addEventListener('click',reviewAction);
+    $('edu-ai-review-search')?.addEventListener('input',applyReviewFilters);
+    $('edu-ai-review-filter')?.addEventListener('change',applyReviewFilters);
     $('edu-ai-review-refresh')?.addEventListener('click',()=>loadReviewQueue().catch(e=>setFeedback('edu-ai-provider-feedback',e.message)));
     $('edu-ai-history-refresh')?.addEventListener('click',()=>loadHistory().catch(e=>{ $('edu-ai-history-table').innerHTML=`<p class="edu-admin-empty">${esc(e.message)}</p>`; }));
     $('admin-refresh')?.addEventListener('click',()=>refreshAll());
