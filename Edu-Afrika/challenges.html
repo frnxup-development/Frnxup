@@ -26,7 +26,7 @@
   <meta name="description" content="Challenge another EDU-AFRIKA student in a timed head-to-head examination.">
   <title>Challenge Arena · EDU-AFRIKA · Frnxup</title>
   <link rel="stylesheet" href="../Css/app.css">
-  <link rel="stylesheet" href="challenges/challenges.css?v=20261125-1">
+  <link rel="stylesheet" href="challenges/challenges.css?v=20261125-2">
 </head>
 <body class="edu-challenge-page">
   <div data-frnxup-shell aria-hidden="true"></div>
@@ -36,7 +36,7 @@
   </header>
   <main class="eca-shell">
     <section class="eca-hero">
-      <div><span class="eca-eyebrow">STUDENT VS STUDENT</span><h1>EDU-AFRIKA <em>Challenge Arena</em></h1><p>Create a timed quiz challenge, share your private code with one student, and compete on the same question paper. The winner earns XP, rating points and achievement badges.</p><div class="eca-hero-tags"><span>Live head-to-head</span><span>Same question set</span><span>Countdown is mandatory</span></div></div>
+      <div><span class="eca-eyebrow">STUDENT VS STUDENT</span><h1>EDU-AFRIKA <em>Challenge Arena</em></h1><p>Choose an EDU-AFRIKA friend, schedule a quiz for an agreed day and time, and compete on the same question paper. The winner earns XP, rating points and achievement badges.</p><div class="eca-hero-tags"><span>Live head-to-head</span><span>Same question set</span><span>Countdown is mandatory</span></div></div>
       <div class="eca-trophy" aria-hidden="true">🏆<small>LEARN · COMPETE · RISE</small></div>
     </section>
 
@@ -51,21 +51,31 @@
 
     <section id="eca-app" hidden>
       <div class="eca-stat-row" id="eca-my-stats"><div><small>CHALLENGE RATING</small><b>1,000</b></div><div><small>TOTAL XP</small><b>0</b></div><div><small>WINS</small><b>0</b></div><div><small>WIN STREAK</small><b>0</b></div></div>
+      <section class="eca-panel eca-directory-panel" aria-labelledby="eca-directory-title">
+        <div class="eca-panel-title"><span class="eca-number">01</span><div><h2 id="eca-directory-title">Choose a registered EDU-AFRIKA student</h2><p>Find competitors by their Frnxup username. Only accepted Frnxup friends can receive a quiz invitation.</p></div><button id="eca-refresh-directory" class="eca-btn eca-outline" type="button">Refresh list</button></div>
+        <label for="eca-directory-search">Search student username or display name</label>
+        <input id="eca-directory-search" class="eca-input" type="search" maxlength="60" autocomplete="off" placeholder="Search by @username or name">
+        <div id="eca-directory-list" class="eca-directory-list" aria-live="polite"><p class="eca-muted">Verify your EDU-AFRIKA password to load the student directory.</p></div>
+        <div id="eca-selected-student" class="eca-selected-student" hidden></div>
+      </section>
+
       <div class="eca-grid">
         <section class="eca-panel">
-          <div class="eca-panel-title"><span class="eca-number">01</span><div><h2>Create a challenge</h2><p>Choose the examination paper your opponent will receive too.</p></div></div>
+          <div class="eca-panel-title"><span class="eca-number">02</span><div><h2>Prepare your quiz challenge</h2><p>Choose the exam, subjects and mandatory countdown for both students.</p></div></div>
           <label for="eca-exam">Examination type</label><select id="eca-exam" class="eca-input"><option value="">Loading examinations…</option></select>
           <div id="eca-programme-wrap" hidden><label for="eca-programme">Course / subject combination</label><select id="eca-programme" class="eca-input"><option value="">Choose an approved combination</option></select><p class="eca-hint" id="eca-programme-hint"></p></div>
           <label>Subjects <span id="eca-subject-count" class="eca-count">0 selected</span></label>
           <div id="eca-subjects" class="eca-subjects"><p class="eca-muted">Choose an examination first.</p></div>
           <div class="eca-two-col"><div><label for="eca-count">Question number</label><select id="eca-count" class="eca-input"><option value="30">30 questions</option><option value="50">50 questions</option><option value="100">100 questions</option><option value="150">150 questions</option><option value="200">200 questions</option><option value="300">300 questions</option></select></div><div><label for="eca-duration">Countdown time</label><select id="eca-duration" class="eca-input"><option value="15">15 minutes</option><option value="30" selected>30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option><option value="90">90 minutes</option><option value="120">120 minutes</option></select></div></div>
+          <label for="eca-scheduled-at">Choose challenge day and start time</label><input id="eca-scheduled-at" class="eca-input" type="datetime-local">
+          <p class="eca-hint">Choose a time at least 15 minutes from now and within the next 30 days. The quiz starts automatically at the agreed time using the server clock.</p>
           <div class="eca-required-timer"><span class="eca-timer-icon">◷</span><div><b>Countdown timer is ON and mandatory</b><small>Both students share the same official start and end time. The timer cannot be disabled.</small></div><strong>ON</strong></div>
-          <button id="eca-create" class="eca-btn eca-primary" type="button" disabled>Create challenge code →</button>
+          <button id="eca-create" class="eca-btn eca-primary" type="button" disabled>Send quiz challenge invitation →</button>
           <p id="eca-create-feedback" class="eca-feedback" aria-live="polite"></p>
         </section>
 
         <section class="eca-panel eca-join-panel">
-          <div class="eca-panel-title"><span class="eca-number">02</span><div><h2>Accept a challenge</h2><p>Enter the 8 digits shared by the Frnxup friend who created it; the AFRK prefix is added automatically.</p></div></div>
+          <div class="eca-panel-title"><span class="eca-number">03</span><div><h2>Join with a challenge code</h2><p>Use this optional backup method when a Frnxup friend sends you an AFRK code.</p></div></div>
           <div class="eca-join-art">⚔️</div>
           <label for="eca-code">Challenge code</label><input id="eca-code" class="eca-input eca-code-input" maxlength="14" autocapitalize="characters" autocomplete="off" placeholder="AFRK-XXXX-XXXX">
           <p class="eca-hint">Only an accepted Frnxup friend with an EDU-AFRIKA account can use the code. It works once and expires after 48 hours.</p>
@@ -75,22 +85,38 @@
         </section>
       </div>
 
+      <section id="eca-invitations-panel" class="eca-panel eca-invitations-panel">
+        <div class="eca-panel-title"><span class="eca-number">04</span><div><h2>Quiz invitations & schedules</h2><p>Incoming invitations, your sent invitations and proposed new times appear here.</p></div><button id="eca-refresh-invitations" class="eca-btn eca-outline" type="button">Refresh</button></div>
+        <div id="eca-invitations-list"><p class="eca-muted">No invitations loaded yet.</p></div>
+      </section>
+
       <section id="eca-current" class="eca-panel eca-current" hidden>
         <div id="eca-current-host"></div>
       </section>
 
       <section class="eca-panel eca-leaderboard">
-        <div class="eca-panel-title"><span class="eca-number">03</span><div><h2>Challenge leaderboard</h2><p>Top EDU-AFRIKA competitors ranked by XP, rating and wins.</p></div><button id="eca-refresh-board" class="eca-btn eca-outline" type="button">Refresh</button></div>
+        <div class="eca-panel-title"><span class="eca-number">05</span><div><h2>Challenge leaderboard</h2><p>Top EDU-AFRIKA competitors ranked by XP, rating and wins.</p></div><button id="eca-refresh-board" class="eca-btn eca-outline" type="button">Refresh</button></div>
         <div id="eca-leaderboard-list"><p class="eca-muted">Loading rankings…</p></div>
       </section>
     </section>
 
+    <div id="eca-invite-modal" class="eca-modal" hidden role="dialog" aria-modal="true" aria-labelledby="eca-invite-modal-title">
+      <div class="eca-modal-card">
+        <span class="eca-modal-kicker">EDU-AFRIKA NOTIFICATION</span>
+        <h2 id="eca-invite-modal-title">A STUDENT FROM EDU-AFRIKA INVITES YOU ON QUIZ CHALLENGE</h2>
+        <p id="eca-invite-modal-body"></p>
+        <div id="eca-invite-modal-meta" class="eca-modal-meta"></div>
+        <div id="eca-reschedule-wrap" hidden><label for="eca-reschedule-time">Suggest another day and time</label><input id="eca-reschedule-time" class="eca-input" type="datetime-local"><small>Our system will ask the challenge sender to confirm your suggested time.</small></div>
+        <div id="eca-invite-modal-actions" class="eca-modal-actions"></div>
+        <button id="eca-invite-modal-close" class="eca-modal-close" type="button">Close notification</button>
+      </div>
+    </div>
     <div id="eca-global-message" class="eca-message" role="alert" hidden></div>
   </main>
   <footer class="eca-footer"><span>EDU-AFRIKA Challenge Arena · A Frnxup learning service</span><a href="/Dashboard/index.html">Return to Frnxup</a></footer>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script>
   <script src="../js/core.js"></script>
-  <script src="challenges/challenges.js?v=20261125-1"></script>
+  <script src="challenges/challenges.js?v=20261125-2"></script>
 </body>
 </html>
