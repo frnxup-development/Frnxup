@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="../js/theme.js"></script>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EDU-AFRIKA Exam Automation Room · Frnxup Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="css/edu-afrika-admin.css">
+</head>
+<body data-view="edu-afrika">
+  <aside class="admin-side"><a class="brand" href="index.html"><img src="../Asset/frnxup-mark.svg">Frnxup</a><small>PLATFORM CONTROL CENTRE</small><nav><a href="index.html">▦ Overview</a><a href="control-room.html">⌘ Action control room</a><a href="edu-afrika.html" class="active">🎓 EDU-AFRIKA</a></nav><div class="side-foot">FRNXUP ADMIN<br><span>Privileged actions are logged.</span></div></aside>
+  <main class="admin-main">
+    <header><div><small>FRNXUP / LEARNING & EXAMINATIONS</small><h1>EDU-AFRIKA EXAM AUTOMATION ROOM</h1><p>Build the approved question bank used to assemble randomized student practice examinations.</p></div><button id="admin-refresh" type="button">↻ Refresh</button></header>
+    <div class="edu-admin-notice"><b>How question automation works</b><span>Admins add and approve questions here. EDU-AFRIKA automatically selects and shuffles matching questions based on each student's exam type, selected subjects and chosen question formats. Answer keys stay private until a student submits.</span></div>
+    <section class="stats-grid edu-admin-stats" id="edu-admin-stats"><article><small>Student accounts</small><b>—</b><span>EDU-AFRIKA registrations</span></article><article><small>Question bank</small><b>—</b><span>All authored questions</span></article><article><small>Active questions</small><b>—</b><span>Available for test generation</span></article><article><small>Practice attempts</small><b>—</b><span>Student examination attempts</span></article></section>
+    <section class="admin-panel edu-admin-editor">
+      <div class="panel-head"><div><h2 id="edu-question-form-heading">＋ Add question to the question bank</h2><p>Questions are matched against an examination and subject selection.</p></div><span class="badge">ADMIN / OWNER</span></div>
+      <form id="edu-question-form">
+        <input type="hidden" id="edu-question-id">
+        <div class="edu-admin-form-grid">
+          <label>Question format<select id="edu-question-type" required><option value="mcq">Multiple choice</option><option value="fill_gap">Fill in the gap</option></select></label>
+          <label>Subject<select id="edu-question-subject" required><option value="">Loading subjects…</option></select></label>
+          <label>Marks for this question<input id="edu-question-marks" type="number" min="0.25" max="100" step="0.25" value="1" required></label>
+          <label>Difficulty<select id="edu-question-difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
+        </div>
+        <label class="edu-admin-label">Assign to examination(s) <small>Choose every examination where this question is suitable.</small></label>
+        <div id="edu-exam-checks" class="edu-exam-checks">Loading examination catalogue…</div>
+        <label class="edu-admin-label" for="edu-question-text">Question</label>
+        <textarea id="edu-question-text" rows="3" maxlength="5000" placeholder="Type the question. For fill-in-the-gap, use a blank such as ______ in the sentence." required></textarea>
+        <div id="edu-mcq-fields" class="edu-mcq-fields">
+          <div class="edu-admin-label">Answer options</div>
+          <div class="edu-admin-options"><label>Option A<input id="edu-option-a" type="text" maxlength="1000" placeholder="Option A"></label><label>Option B<input id="edu-option-b" type="text" maxlength="1000" placeholder="Option B"></label><label>Option C<input id="edu-option-c" type="text" maxlength="1000" placeholder="Option C"></label><label>Option D<input id="edu-option-d" type="text" maxlength="1000" placeholder="Option D"></label></div>
+          <label class="edu-admin-label" for="edu-correct-mcq">Correct option</label><select id="edu-correct-mcq"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select>
+        </div>
+        <div id="edu-fill-fields" hidden>
+          <label class="edu-admin-label" for="edu-correct-fill">Correct answer</label><input id="edu-correct-fill" type="text" maxlength="1000" placeholder="Enter the correct word or phrase">
+          <label class="edu-admin-label" for="edu-accepted-fill">Other accepted answers <small>Optional. Separate alternatives with a vertical bar |.</small></label><input id="edu-accepted-fill" type="text" maxlength="2000" placeholder="Alternative 1 | Alternative 2">
+        </div>
+        <label class="edu-admin-label" for="edu-question-explanation">Explanation / learning note <small>Shown to students after they submit the test.</small></label>
+        <textarea id="edu-question-explanation" rows="2" maxlength="3000" placeholder="Explain why the answer is correct (optional)."></textarea>
+        <label class="edu-admin-active"><input id="edu-question-active" type="checkbox" checked> Publish this question to the automatic exam builder</label>
+        <div class="edu-admin-form-actions"><button type="submit" class="admin-action action-green" id="edu-question-save">Save question</button><button type="button" class="admin-action action-yellow" id="edu-question-cancel" hidden>Cancel edit</button><span id="edu-question-feedback" role="status"></span></div>
+      </form>
+    </section>
+    <section class="admin-panel">
+      <div class="panel-head"><div><h2>Question bank</h2><p>Manage the questions available to EDU-AFRIKA students.</p></div><span class="badge" id="edu-bank-count">0 QUESTIONS</span></div>
+      <div class="edu-bank-filters"><input id="edu-bank-search" type="search" placeholder="Search question, subject or exam…"><select id="edu-bank-type"><option value="">All formats</option><option value="mcq">Multiple choice</option><option value="fill_gap">Fill in the gap</option></select><select id="edu-bank-status"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select><button id="edu-bank-search-button" type="button">Filter</button></div>
+      <div id="edu-question-table" class="table-wrap"><p class="edu-admin-empty">Loading the question bank…</p></div>
+    </section>
+    <div id="edu-admin-toast" class="toast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/config.js"></script><script src="../js/core.js"></script>
+  <script src="js/edu-afrika-admin.js"></script><script src="js/admin.js"></script>
+</body>
+</html>
