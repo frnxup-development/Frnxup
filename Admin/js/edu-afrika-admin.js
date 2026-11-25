@@ -543,6 +543,66 @@
     }catch(error){feedback('edu-ai-feedback',error.message||'AI generation failed. Check the Edge Function deployment, encryption secret, provider configuration and provider quota.');}
     finally{setBusy(button,false);}
   }
+  // CSV bulk import -----------------------------------------------------------
+  function parseCSV(text) {
+    const rows=[];let row=[],cell='',quoted=false;
+    for(let i=0;i<text.length;i++){
+      const c=text[i],next=text[i+1];
+      if(c==='"'&&quoted&&next==='"'){cell+='"';i++;}
+      else if(c==='"'){quoted=!quoted;}
+      else if(c===','&&!quoted){row.push(cell);cell='';}
+      else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&next==='\n')i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell='';}
+      else cell+=c;
+    }
+    row.push(cell);if(row.some(x=>x.trim()))rows.push(row);
+    if(rows.length<2)return [];
+    const headers=rows.shift().map(x=>x.trim().toLowerCase());
+    return rows.map(values=>Object.fromEntries(headers.map((h,i)=>[h,(values[i]||'').trim()])));
+  }
+  function listValue(value) { return String(value||'').split(/[;|]/).map(x=>x.trim().toUpperCase()).filter(Boolean); }
+
+  async function importProgrammesCSV(event) {
+    event.preventDefault();
+    const file=$('edu-programme-import-file').files?.[0]; if(!file){feedback('edu-programme-import-feedback','Choose a programme CSV file.');return;}
+    if(file.size>5*1024*1024){feedback('edu-programme-import-feedback','Programme CSV must be 5 MB or smaller.');return;}
+    const button=$('edu-programme-import-button');setBusy(button,true,'Validating…');feedback('edu-programme-import-feedback','');
+    try {
+      const rows=parseCSV(await file.text()); if(!rows.length)throw new Error('The file is empty or missing a header row.');
+      const examSet=new Set(exams.map(x=>x.code)); const subjectSet=new Set(subjects.map(x=>x.code));
+      const accepted=[],errors=[],seen=new Set();
+      const existingKeys=new Set(programmes.map(p=>[p.exam_code,p.programme_code,p.institution_name||''].join('|')));
+      rows.forEach((r,index)=>{
+        const line=index+2,exam=String(r.exam_code||'').trim().toUpperCase(),code=String(r.programme_code||'').trim().toUpperCase().replace(/[^A-Z0-9_]+/g,'_'),name=String(r.programme_name||'').trim();
+        const type=String(r.programme_type||'course').trim().toLowerCase();
+        const required=listValue(r.required_subject_codes),allowed=listValue(r.allowed_subject_codes);
+        const min=Number(r.min_subject_count||1),max=Number(r.max_subject_count||4),institution=String(r.institution_name||'').trim();
+        const key=[exam,code,institution].join('|');
+        if(!examSet.has(exam)||!code||!name){errors.push(`Line ${line}: unknown exam or missing programme code/name.`);return;}
+        if(!['course','stream','trade','module','level','specialization','track'].includes(type)){errors.push(`Line ${line}: invalid programme_type.`);return;}
+        if(!allowed.length||new Set(allowed).size!==allowed.length||required.some(x=>!allowed.includes(x))||allowed.some(x=>!subjectSet.has(x))){errors.push(`Line ${line}: allowed subjects must be valid subject codes and include every required subject.`);return;}
+        if(!Number.isInteger(min)||!Number.isInteger(max)||min<1||max<min||max>12||min>allowed.length){errors.push(`Line ${line}: invalid subject count limits.`);return;}
+        if(seen.has(key)){errors.push(`Line ${line}: duplicate programme in this file.`);return;}seen.add(key);
+        if(existingKeys.has(key)){errors.push(`Line ${line}: this programme already exists. Edit the existing row instead of importing over its verification status.`);return;}
+        let selectionRules; try { selectionRules=normalizeSelectionRules(r.selection_rules||'',allowed,min,max); } catch(error) { errors.push(`Line ${line}: ${error.message}`); return; }
+        accepted.push({exam_code:exam,programme_code:code,programme_name:name,programme_type:type,institution_name:institution,syllabus_year:Number(r.syllabus_year)||null,required_subject_codes:required,allowed_subject_codes:allowed,min_subject_count:min,max_subject_count:max,instructions:String(r.instructions||'').slice(0,1200),selection_rules:selectionRules,source_url:String(r.source_url||'').slice(0,500),verification_note:String(r.verification_note||'Imported as an unverified draft. Confirm current official rules before publishing.').slice(0,1000),is_verified:false,is_active:false,created_by:FX.user.id,updated_at:new Date().toISOString()});
+      });
+      if(!accepted.length)throw new Error(`No valid combinations to import. ${errors.slice(0,4).join(' · ')}`);
+      for(let i=0;i<accepted.length;i+=100){const {error}=await FX.client.from('edu_exam_programmes').insert(accepted.slice(i,i+100));if(error)throw error;}
+      const summary=`Imported ${accepted.length} course combinations as unpublished drafts; ${rows.length-accepted.length} row(s) skipped.`;
+      $('edu-programme-import-preview').innerHTML=`<b>${esc(summary)}</b>${errors.length?`<ul>${errors.slice(0,20).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p>No validation errors.</p>'}`;$('edu-programme-import-preview').hidden=false;
+      feedback('edu-programme-import-feedback',summary,true);await Promise.all([loadProgrammes(),loadStats()]);notify(summary);
+    }catch(error){feedback('edu-programme-import-feedback',error.message||'Programme import failed.');}
+    finally{setBusy(button,false);}
+  }
+  function downloadProgrammeTemplate(){
+    const headers=['exam_code','programme_code','programme_name','programme_type','institution_name','syllabus_year','required_subject_codes','allowed_subject_codes','min_subject_count','max_subject_count','instructions','selection_rules','source_url','verification_note'];
+    const sample=['JAMB','COMPUTER_SCIENCE_UNI_X','Computer Science','course','Example University',2027,'ENGLISH;MATHEMATICS;PHYSICS;CHEMISTRY','ENGLISH;MATHEMATICS;PHYSICS;CHEMISTRY',4,4,'Verify against current official course/institution rules before publishing.','{}','https://eligibility.jamb.gov.ng/','Draft only; pending official verification.'];
+    const csv=[headers,sample].map(row=>row.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='edu-afrika-programme-import-template.csv';a.click();URL.revokeObjectURL(url);
+  }
+
+
+
   async function importCSV(event) {
     event.preventDefault();
     const file=$('edu-import-file').files?.[0];if(!file){feedback('edu-import-feedback','Choose a CSV file.');return;}
