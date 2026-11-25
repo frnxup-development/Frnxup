@@ -351,8 +351,14 @@ Deno.serve(async (req) => {
     service.from('edu_exam_types').select('code,name,is_active').eq('code', examCode).maybeSingle(),
     service.from('edu_subjects').select('code,name,is_active').eq('code', subjectCode).maybeSingle(),
   ]);
-  if (examError || !examRow || !examRow.is_active) return json({ error: 'The selected examination destination is missing or inactive.' }, 400);
-  if (subjectError || !subjectRow || !subjectRow.is_active) return json({ error: 'The selected subject destination is missing or inactive.' }, 400);
+  if (examError || !examRow || !examRow.is_active) {
+    const reason = examError?.message || (!examRow ? 'No matching row was returned from the configured Supabase project.' : 'The matching row is marked inactive.');
+    return json({ error: `Examination destination check failed for code \`${examCode}\`: ${reason}`, diagnostic: { exam_code: examCode, row_found: Boolean(examRow), is_active: examRow?.is_active ?? null } }, 400);
+  }
+  if (subjectError || !subjectRow || !subjectRow.is_active) {
+    const reason = subjectError?.message || (!subjectRow ? 'No matching subject row was returned from the configured Supabase project.' : 'The matching row is marked inactive.');
+    return json({ error: `Subject destination check failed for code \`${subjectCode}\`: ${reason}`, diagnostic: { subject_code: subjectCode, row_found: Boolean(subjectRow), is_active: subjectRow?.is_active ?? null } }, 400);
+  }
   if (programmeId) {
     const { data: programme, error } = await service.from('edu_exam_programmes').select('id,exam_code,programme_name,is_verified,is_active,allowed_subject_codes,required_subject_codes').eq('id', programmeId).eq('exam_code', examCode).maybeSingle();
     if (error || !programme || !programme.is_verified || !programme.is_active) return json({ error: 'The selected course / programme destination must be verified and published before AI questions can be assigned to it.' }, 400);
