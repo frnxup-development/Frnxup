@@ -26,7 +26,7 @@
   <meta name="description" content="Prepare for Nigerian and international examinations with EDU-AFRIKA on Frnxup.">
   <title>EDU-AFRIKA · Frnxup</title>
   <link rel="stylesheet" href="../Css/app.css">
-  <link rel="stylesheet" href="../Css/edu-afrika.css">
+  <link rel="stylesheet" href="../Css/edu-afrika.css?v=20261125-2">
 </head>
 <body class="edu-afrika-page">
   <div data-frnxup-shell aria-hidden="true"></div>
@@ -76,13 +76,15 @@
         <section class="edu-panel edu-selection-panel">
           <div class="edu-panel-title"><span class="edu-step">03</span><div><h3>Build your practice test</h3><p>Choose one exam and the subjects you want to practise.</p></div></div>
           <label class="edu-label" for="edu-exam-type">Examination type</label><select id="edu-exam-type" class="edu-input"><option value="">Loading examinations…</option></select>
+          <div class="edu-exam-page-action"><button id="edu-open-exam-page" class="edu-button edu-button-quiet" type="button" disabled>Open this exam's dedicated webpage ↗</button><span>Every examination has its own information and logo page.</span></div>
           <div id="edu-exam-meta" class="edu-exam-meta"></div>
           <label class="edu-label" for="edu-study-path">Study course / field (optional)</label><select id="edu-study-path" class="edu-input"><option value="">Choose a study pathway for subject suggestions</option><option value="SCIENCE_HEALTH">Science / Medicine / Health</option><option value="ENGINEERING_TECH">Engineering / Technology</option><option value="BUSINESS_ACCOUNTING">Business / Banking / Accounting</option><option value="ARTS_HUMANITIES">Arts / Humanities</option><option value="LAW_SOCIAL">Law / Social Sciences</option><option value="AGRICULTURE">Agriculture / Environmental studies</option><option value="EDUCATION">Education</option><option value="GENERAL">General / undecided</option></select>
           <p class="edu-path-note">Your pathway preselects related subjects when they are available. You can add or remove subjects below.</p>
           <div class="edu-subject-heading"><label class="edu-label">Select subjects</label><span id="edu-subject-count">0 selected</span></div>
           <div id="edu-subject-list" class="edu-subject-list"><p class="edu-muted">Choose an examination to view subjects with available questions.</p></div>
           <div class="edu-type-choice"><span class="edu-label">Question format</span><label><input type="checkbox" id="edu-type-mcq" checked> Multiple choice</label><label><input type="checkbox" id="edu-type-gap" checked> Fill in the gap</label></div>
-          <label class="edu-label" for="edu-question-count">Number of questions</label><select id="edu-question-count" class="edu-input"><option value="10">10 questions</option><option value="20" selected>20 questions</option><option value="30">30 questions</option><option value="40">40 questions</option><option value="50">50 questions</option><option value="60">60 questions</option><option value="80">80 questions</option><option value="100">100 questions</option></select>
+          <div class="edu-question-timer-choice"><label class="edu-timer-switch"><input id="edu-question-timer-toggle" type="checkbox" checked><span class="edu-switch-ui"></span><span><b>30-second question timer</b><small>Automatically moves to the next question when time runs out.</small></span></label><div class="edu-timer-recommendation"><b>Recommended: ON</b> — timed practice helps build exam mastery, pacing and time-management skills. You can switch it OFF before starting.</div></div>
+          <label class="edu-label" for="edu-question-count">Number of questions</label><select id="edu-question-count" class="edu-input"><option value="10">10 questions</option><option value="20" selected>20 questions</option><option value="30">30 questions</option><option value="40">40 questions</option><option value="50">50 questions</option><option value="60">60 questions</option><option value="80">80 questions</option><option value="100">100 questions</option><option value="150">150 questions</option><option value="200">200 questions</option><option value="250">250 questions</option><option value="300">300 questions</option><option value="350">350 questions</option><option value="400">400 questions (maximum)</option></select>
           <div class="edu-score-note">Each question carries the mark value set by the EDU-AFRIKA exam administrators. Your total score is calculated automatically.</div>
           <button id="edu-start-button" class="edu-button edu-button-primary" type="button" disabled>Generate my practice test →</button>
           <p id="edu-selection-message" class="edu-form-message" aria-live="polite"></p>
@@ -97,13 +99,13 @@
     </section>
 
     <section id="edu-exam-view" class="edu-panel edu-exam-view" hidden>
-      <div class="edu-exam-top"><div><span class="edu-eyebrow">PRACTICE EXAM</span><h2 id="edu-exam-heading">Your examination</h2><p id="edu-exam-subheading"></p></div><div class="edu-timer"><span>TIME LEFT</span><b id="edu-timer-value">00:00</b></div></div>
+      <div class="edu-exam-top"><div><span class="edu-eyebrow">PRACTICE EXAM</span><h2 id="edu-exam-heading">Your examination</h2><p id="edu-exam-subheading"></p></div><div class="edu-timer"><span id="edu-timer-label">QUESTION TIMER · 30 SEC</span><b id="edu-timer-value">00:30</b></div></div>
       <div class="edu-progress-track"><span id="edu-progress-bar"></span></div>
       <div class="edu-exam-layout"><aside class="edu-question-nav"><b>Questions</b><div id="edu-question-numbers"></div><small>Green = answered</small></aside><div class="edu-question-stage"><div class="edu-question-meta"><span id="edu-question-position">Question 1 of 20</span><span id="edu-question-mark">1 mark</span></div><div id="edu-question-card"></div><div class="edu-question-controls"><button id="edu-question-prev" class="edu-button edu-button-quiet" type="button">← Previous</button><button id="edu-question-next" class="edu-button edu-button-primary" type="button">Next →</button></div><div class="edu-submit-row"><span id="edu-answered-count">0 answered</span><button id="edu-submit-exam" class="edu-button edu-button-submit" type="button">Submit examination</button></div><p id="edu-save-state" class="edu-form-message" aria-live="polite"></p></div></div>
     </section>
 
     <section id="edu-result-view" class="edu-panel edu-result-view" hidden>
-      <div class="edu-result-head"><span class="edu-eyebrow">PRACTICE SESSION COMPLETE</span><h2 id="edu-result-title">Your result</h2><div class="edu-score-circle" id="edu-score-circle"><div><b id="edu-result-percent">0%</b><span>Score</span></div></div><div class="edu-result-stats"><div><b id="edu-result-earned">0</b><span>Marks earned</span></div><div><b id="edu-result-total">0</b><span>Total marks</span></div><div><b id="edu-result-status">Submitted</b><span>Exam status</span></div></div><button id="edu-back-workspace" class="edu-button edu-button-primary" type="button">Back to student workspace</button></div>
+      <div class="edu-result-head"><span class="edu-eyebrow">PRACTICE SESSION COMPLETE</span><h2 id="edu-result-title">Your result</h2><div class="edu-score-circle" id="edu-score-circle"><div><b id="edu-result-percent">0%</b><span>Score</span></div></div><div class="edu-result-stats"><div><b id="edu-result-earned">0</b><span>Marks earned</span></div><div><b id="edu-result-total">0</b><span>Total marks</span></div><div><b id="edu-result-status">Submitted</b><span>Exam status</span></div></div><div class="edu-result-actions"><button id="edu-back-workspace" class="edu-button edu-button-primary" type="button">Back to student workspace</button><button id="edu-share-friends" class="edu-button edu-button-light" type="button">Share score with Frnxup friends</button><button id="edu-share-externally" class="edu-button edu-button-quiet" type="button">Share score…</button></div><p id="edu-share-feedback" class="edu-share-feedback" role="status" aria-live="polite"></p></div>
       <div class="edu-review"><div class="edu-panel-title"><div><h3>Answer review</h3><p>Review correct answers and explanations to learn from this attempt.</p></div></div><div id="edu-review-list"></div></div>
     </section>
 
@@ -113,6 +115,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script>
   <script src="../js/core.js"></script>
-  <script src="../js/edu-afrika.js?v=20261124-1"></script>
+  <script src="../js/edu-afrika.js?v=20261125-2"></script>
 </body>
 </html>
