@@ -91,6 +91,31 @@
 #edu-ai-publish-feedback{display:block;min-height:16px}
 @media(max-width:650px){.edu-ai-review-summary{flex-wrap:wrap}.edu-ai-review-summary-actions{order:3;width:100%}.edu-ai-review-summary-actions .edu-ai-quick-action{width:100%}.edu-ai-review-summary-date{margin-left:auto}}
 
-/* Ensure the approval action remains prominent in the Question Bank. */
-.edu-row-actions .edu-ai-approve-bank-btn{background:#145b37!important;border:1px solid #36a66c!important;color:#effff4!important;font-weight:900!important;min-height:32px;padding:8px 11px!important;white-space:nowrap}
-.edu-row-actions .edu-ai-approve-bank-btn:hover{filter:brightness(1.16)}
+/* EDU-AFRIKA bulk publication and dependable filtering */
+.edu-bank-filters{grid-template-columns:minmax(190px,1.4fr) repeat(7,minmax(115px,1fr)) auto auto;align-items:center}
+.edu-bank-filters .edu-bank-reset{border-color:#536477;background:#19283a;color:#e5edf7}
+.edu-bank-bulk-tools{display:grid;gap:9px;margin:0 0 13px;padding:12px;border:1px solid #276344;border-radius:11px;background:linear-gradient(110deg,#0d281a,#101c2d)}
+.edu-bank-bulk-left,.edu-bank-bulk-right{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.edu-bank-bulk-left>b{color:#dfffea;font-size:11px}
+.edu-bank-bulk-left>button{padding:7px 10px;border:1px solid #38516a;border-radius:7px;background:#17283b;color:#e2edf8;font-size:10px;font-weight:800}
+.edu-bank-bulk-right button{padding:9px 13px}
+.edu-bank-bulk-tools>p{margin:0;color:#a9d5b9;font-size:10px;line-height:1.5}
+.edu-bank-bulk-tools>p:not(:empty){padding-top:3px}
+.edu-bank-row-select,.admin-table thead input[type=checkbox],#edu-bank-select-page{width:17px;height:17px;accent-color:#35b66f;cursor:pointer}
+.edu-ai-publish-copy{display:grid;gap:6px;flex:1;min-width:230px}
+.edu-ai-publish-copy>b{color:#e6fff0;font-size:12px}
+.edu-ai-publish-copy>span{color:#a9cbb5;font-size:10px;line-height:1.5}
+.edu-skip-review-option{display:flex;align-items:flex-start;gap:8px;max-width:620px;padding:8px 10px;border:1px solid #77572a;border-radius:8px;background:#2a2112;color:#f6e3b7;font-size:10px;line-height:1.4}
+.edu-skip-review-option input{flex:0 0 auto;margin-top:2px;accent-color:#e3a23e}
+.edu-skip-review-option span{display:grid;gap:3px}
+.edu-skip-review-option b{font-size:10px}
+.edu-skip-review-option small{color:#cdbb92;font-size:9px;font-weight:500}
+.edu-ai-review-item{display:grid;gap:5px;min-width:0}
+.edu-ai-review-item[hidden]{display:none!important}
+.edu-ai-review-select{display:flex;align-items:center;gap:7px;width:max-content;padding:2px 7px;color:#a9d8ba;font-size:9px;font-weight:800}
+.edu-ai-review-select input{accent-color:#35b66f}
+.edu-ai-review-filters{grid-template-columns:minmax(180px,1fr) minmax(150px,220px) auto}
+.edu-ai-publish-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.edu-ai-publish-actions button:disabled,.edu-bank-bulk-tools button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:1100px){.edu-bank-filters{grid-template-columns:repeat(4,minmax(0,1fr))}.edu-bank-filters input{grid-column:span 2}}
+@media(max-width:700px){.edu-bank-filters{grid-template-columns:1fr 1fr}.edu-bank-filters input{grid-column:1/-1}.edu-bank-bulk-left,.edu-bank-bulk-right{align-items:stretch}.edu-bank-bulk-right button{flex:1}.edu-ai-publish-actions{width:100%}.edu-ai-publish-actions button{flex:1}.edu-ai-review-filters{grid-template-columns:1fr 1fr}.edu-ai-review-filters input{grid-column:1/-1}}
