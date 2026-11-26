@@ -6,6 +6,7 @@
   let configs = [];
   let busy = false;
   let publishBusy = false;
+  const selectedAiQuestionIds = new Set();
 
   function setFeedback(id, message, good = false) {
     const el = $(id);
@@ -149,17 +150,18 @@
     if (!host) return;
     const needle = ($('edu-ai-review-search')?.value || '').trim().toLowerCase();
     const status = $('edu-ai-review-filter')?.value || 'all';
-    const cards = [...host.querySelectorAll('.edu-ai-review-card')];
+    const items = [...host.querySelectorAll('.edu-ai-review-item')];
     let visible = 0;
-    cards.forEach(card => {
-      const statusMatch = status === 'all' || card.dataset.reviewStatus === status;
-      const searchMatch = !needle || (card.dataset.search || '').includes(needle);
+    items.forEach(item => {
+      const statusMatch = status === 'all' || item.dataset.reviewStatus === status;
+      const searchMatch = !needle || (item.dataset.search || '').includes(needle);
       const show = statusMatch && searchMatch;
-      card.hidden = !show;
+      item.hidden = !show;
       if (show) visible++;
     });
     const note = $('edu-ai-review-visible');
-    if (note) note.textContent = `${visible} of ${cards.length} draft(s) shown`;
+    if (note) note.textContent = `${visible.toLocaleString()} of ${items.length.toLocaleString()} draft(s) shown`;
+    updateBulkPublishButton();
   }
 
   function isVerifiedSyllabusMapping(mapping) {
@@ -167,116 +169,128 @@
     return !!mapping?.is_active && ['reviewed', 'official_source_verified'].includes(status);
   }
 
-  function updateBulkPublishButton(hasApprovedItems = true, approvedCount = null) {
-    const buttons = [$('edu-ai-publish-approved'), $('edu-ai-publish-approved-top')].filter(Boolean);
+  function updateBulkPublishButton() {
+    const button = $('edu-ai-publish-approved');
+    if (!button) return;
+    const selectedCount = selectedAiQuestionIds.size;
+    const allCount = document.querySelectorAll('#edu-ai-review-queue .edu-ai-review-item').length;
+    const count = selectedCount || allCount;
+    button.disabled = publishBusy || count === 0;
+    button.textContent = publishBusy ? 'Publishing…' : `PUBLISH TO STUDENTS${count ? ` (${count.toLocaleString()})` : ''}`;
+    button.title = selectedCount
+      ? 'Publishes the selected AI drafts.'
+      : 'With no draft selected, publishes all eligible unpublished AI drafts, including records beyond the current filter.';
     const status = $('edu-ai-workflow-status');
-    const label = publishBusy ? 'Publishing…' : `Publish approved to students${Number.isFinite(approvedCount) ? ` (${approvedCount})` : ''}`;
-    buttons.forEach(button => {
-      button.disabled = publishBusy || !hasApprovedItems;
-      button.textContent = label;
-      button.title = 'Publishes only approved, inactive AI questions with an active syllabus mapping marked Reviewed or Official source verified.';
-    });
-    if (status && Number.isFinite(approvedCount)) {
-      status.textContent = approvedCount ? `${approvedCount} approved question(s) waiting for publication` : 'No approved questions waiting for publication';
-    }
+    if (status && !status.textContent) status.textContent = `${allCount.toLocaleString()} unpublished AI draft(s) available`;
   }
 
-  async function findPublishableApprovedDrafts() {
+  async function fetchAllUnpublishedAIDrafts() {
+    const all = [];
     const pageSize = 250;
-    const candidates = [];
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await FX.client.from('edu_questions')
-        .select('id,ai_syllabus_mapping_id,subject_code,exam_codes')
-        .eq('source_type', 'ai_draft').eq('review_status', 'approved').eq('is_active', false)
+        .select('id,subject_code,exam_codes,review_status,is_active,ai_syllabus_mapping_id')
+        .eq('source_type', 'ai_draft').eq('is_active', false)
+        .in('review_status', ['draft', 'review', 'approved'])
         .order('created_at', { ascending: false }).range(offset, offset + pageSize - 1);
       if (error) throw error;
       const page = data || [];
-      candidates.push(...page);
+      all.push(...page);
       if (page.length < pageSize) break;
     }
-    const publishable = [];
-    const mappingPageSize = 150;
-    for (let offset = 0; offset < candidates.length; offset += mappingPageSize) {
-      const page = candidates.slice(offset, offset + mappingPageSize);
-      const mappingIds = [...new Set(page.map(q => q.ai_syllabus_mapping_id).filter(Boolean))];
-      let mappings = [];
-      if (mappingIds.length) {
-        const { data, error } = await FX.client.from('edu_subject_topic_exam_map')
-          .select('id,is_active,verification_status').in('id', mappingIds);
-        if (error) throw error;
-        mappings = data || [];
-      }
-      const byId = new Map(mappings.map(m => [m.id, m]));
-      page.forEach(q => { if (isVerifiedSyllabusMapping(byId.get(q.ai_syllabus_mapping_id))) publishable.push(q); });
+    return all;
+  }
+
+  async function fetchVerifiedMappingIds(rows) {
+    const verified = new Set();
+    const ids = [...new Set(rows.map(q => q.ai_syllabus_mapping_id).filter(Boolean))];
+    for (let offset = 0; offset < ids.length; offset += 150) {
+      const page = ids.slice(offset, offset + 150);
+      const { data, error } = await FX.client.from('edu_subject_topic_exam_map')
+        .select('id,is_active,verification_status').in('id', page);
+      if (error) throw error;
+      (data || []).forEach(mapping => { if (isVerifiedSyllabusMapping(mapping)) verified.add(mapping.id); });
     }
-    return { totalApproved: candidates.length, eligible: publishable };
+    return verified;
   }
 
   async function publishApprovedDraftsToStudents() {
-    const button = $('edu-ai-publish-approved') || $('edu-ai-publish-approved-top');
+    const button = $('edu-ai-publish-approved');
     const feedbackId = 'edu-ai-publish-feedback';
     if (publishBusy || !button) return;
     publishBusy = true;
     updateBulkPublishButton();
-    setFeedback(feedbackId, 'Checking approved drafts and syllabus verification…');
+    setFeedback(feedbackId, 'Collecting unpublished AI questions across the complete question bank…');
     let published = 0;
     try {
-      const { totalApproved, eligible } = await findPublishableApprovedDrafts();
-      const skipped = Math.max(0, totalApproved - eligible.length);
-      if (!totalApproved) {
-        setFeedback(feedbackId, 'There are no approved, unpublished AI drafts to send. Review and approve drafts first.');
+      const allDrafts = await fetchAllUnpublishedAIDrafts();
+      const selected = [...selectedAiQuestionIds];
+      const chosen = selected.length ? allDrafts.filter(q => selectedAiQuestionIds.has(q.id)) : allDrafts;
+      const skipReview = !!$('edu-ai-skip-review')?.checked;
+      if (!chosen.length) {
+        setFeedback(feedbackId, selected.length ? 'The selected questions are no longer unpublished. Refresh the queue and select them again.' : 'There are no unpublished AI drafts available to send.', false);
         return;
       }
-      if (!eligible.length) {
-        setFeedback(feedbackId, `${totalApproved} approved draft(s) found, but none has an active Reviewed or Official source verified syllabus mapping. Verify the mapping in Syllabus Manager first.`);
-        return;
+      let eligible = chosen;
+      let skipped = 0;
+      if (!skipReview) {
+        const approved = chosen.filter(q => q.review_status === 'approved');
+        const verifiedIds = await fetchVerifiedMappingIds(approved);
+        eligible = approved.filter(q => q.ai_syllabus_mapping_id && verifiedIds.has(q.ai_syllabus_mapping_id));
+        skipped = chosen.length - eligible.length;
+        if (!eligible.length) {
+          setFeedback(feedbackId, `${chosen.length.toLocaleString()} draft(s) found, but none is both Approved and linked to an active, verified syllabus mapping. Approve questions and verify mappings, or explicitly enable direct publishing.`, false);
+          return;
+        }
       }
       const examSummary = [...new Set(eligible.flatMap(q => q.exam_codes || []))].sort().join(', ');
+      const warning = skipReview
+        ? '\n\nDIRECT RELEASE IS ENABLED. These questions may not have been manually reviewed, and syllabus mappings are not being checked. Only proceed when an administrator authorizes this risk.'
+        : '\n\nOnly approved questions with active, verified syllabus mappings will be published.';
       const confirmed = window.confirm(
-        `Publish ${eligible.length} approved question(s) to the EDU-AFRIKA student question bank?\n\n` +
-        `${skipped} approved draft(s) will be skipped because their syllabus mapping is missing, inactive or not verified.\n\n` +
+        `Publish ${eligible.length.toLocaleString()} AI question(s) to the EDU-AFRIKA student page?\n\n` +
+        `${skipped.toLocaleString()} selected question(s) will be skipped.${warning}\n\n` +
         `Examination destinations: ${examSummary || 'As tagged on each question'}.\n\n` +
-        `Students will see the newly available subjects/questions when they refresh EDU-AFRIKA. This does not start a live exam or send a push notification.`
+        `Students can use the questions after refreshing EDU-AFRIKA. This does not start an examination.`
       );
       if (!confirmed) {
-        setFeedback(feedbackId, 'Publication cancelled. No questions were changed.');
+        setFeedback(feedbackId, 'Publication cancelled. No questions were changed.', false);
         return;
       }
-      const actorId = window.FX?.user?.id || null;
       const batchSize = 100;
+      const allowedStatuses = skipReview ? ['draft', 'review', 'approved'] : ['approved'];
       for (let offset = 0; offset < eligible.length; offset += batchSize) {
         const batch = eligible.slice(offset, offset + batchSize).map(q => q.id);
-        const now = new Date().toISOString();
         const { error } = await FX.client.from('edu_questions').update({
-          review_status: 'published', is_active: true, ai_reviewed_by: actorId,
-          ai_reviewed_at: now, updated_at: now
-        }).in('id', batch).eq('source_type', 'ai_draft').eq('review_status', 'approved').eq('is_active', false);
+          review_status: 'published', is_active: true, updated_at: new Date().toISOString()
+        }).in('id', batch).eq('source_type', 'ai_draft').eq('is_active', false).in('review_status', allowedStatuses);
         if (error) throw error;
         published += batch.length;
-        setFeedback(feedbackId, `Publishing approved questions… ${published} of ${eligible.length} processed.`, true);
+        setFeedback(feedbackId, `Publishing questions… ${published.toLocaleString()} of ${eligible.length.toLocaleString()}.`, true);
       }
+      eligible.forEach(q => selectedAiQuestionIds.delete(q.id));
       await Promise.all([loadReviewQueue(), loadHistory()]);
       if (typeof window.refreshEduAfrikaAdmin === 'function') window.refreshEduAfrikaAdmin().catch(() => {});
-      setFeedback(feedbackId, `Success: ${published} approved question(s) are now active in the student question bank. ${skipped} unverified draft(s) were left unpublished. Students should refresh EDU-AFRIKA to see updated subject availability.`, true);
+      setFeedback(feedbackId, `Success: ${published.toLocaleString()} question(s) are now active in the student question bank. ${skipped.toLocaleString()} question(s) were skipped.`, true);
     } catch (error) {
-      setFeedback(feedbackId, `${published} question(s) were published before an error occurred: ${error.message || 'Unable to complete publication'}. Refresh the review queue and run the button again for the remaining approved drafts.`);
+      setFeedback(feedbackId, `${published.toLocaleString()} question(s) were published before an error occurred: ${error.message || 'Unable to complete publication'}. Refresh the queue and retry the remaining drafts.`, false);
     } finally {
       publishBusy = false;
-      // Refreshing the queue recalculates the eligible count; retain a safe disabled state if it fails.
-      try { await loadReviewQueue(); } catch (_) { updateBulkPublishButton(true); }
+      try { await loadReviewQueue(); } catch (_) { updateBulkPublishButton(); }
     }
   }
 
   function renderReviewQueue(rows) {
     const host = $('edu-ai-review-queue');
     if (!host) return;
-    const reviewCount = rows.filter(q => ['draft','review'].includes(String(q.review_status || '').toLowerCase())).length;
+    const reviewCount = rows.filter(q => q.review_status === 'review').length;
     const approvedCount = rows.filter(q => q.review_status === 'approved').length;
-    $('edu-ai-review-count').textContent = `${rows.length} DRAFTS · ${reviewCount} TO APPROVE · ${approvedCount} APPROVED`;
+    const countBadge = $('edu-ai-review-count');
+    if (countBadge) countBadge.textContent = `${rows.length.toLocaleString()} DRAFTS · ${reviewCount.toLocaleString()} TO REVIEW · ${approvedCount.toLocaleString()} APPROVED`;
     if (!rows.length) {
-      host.innerHTML = '<p class="edu-admin-empty">No AI drafts are waiting for review or publication.</p>';
+      host.innerHTML = '<p class="edu-admin-empty">No unpublished AI drafts are waiting for review or publication.</p>';
       const note = $('edu-ai-review-visible'); if (note) note.textContent = '0 drafts';
-      updateBulkPublishButton(false, 0);
+      updateBulkPublishButton();
       return;
     }
     host.innerHTML = rows.map(q => {
@@ -289,38 +303,48 @@
       const syllabusSource = safeSyllabusUrl ? `<a href="${esc(safeSyllabusUrl)}" target="_blank" rel="noopener noreferrer">Open syllabus source ↗</a>` : '<span>No official source URL recorded</span>';
       const exams = (q.exam_codes || []).join(', ');
       const searchable = [q.question_text, q.subject_code, exams, q.topic_code, q.correct_answer, q.ai_provider_code].join(' ').toLowerCase();
-      const needsApproval = ['draft','review'].includes(String(q.review_status || '').toLowerCase());
-      const quickAction = needsApproval
+      const quickAction = ['draft','review'].includes(q.review_status)
         ? `<button type="button" class="edu-ai-quick-action" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve question</button>`
         : canPublish
           ? `<button type="button" class="edu-ai-quick-action is-publish" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`
           : `<button type="button" class="edu-ai-quick-action" disabled title="Verify the examination mapping first">Awaiting syllabus verification</button>`;
-      const actions = needsApproval
+      const actions = ['draft','review'].includes(q.review_status)
         ? `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve question</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`
         : `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button>${canPublish?`<button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`:'<button type="button" disabled title="Verify the examination mapping first">Awaiting syllabus verification</button>'}<button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
-      return `<details class="edu-ai-review-card" data-review-status="${esc(q.review_status || 'review')}" data-search="${esc(searchable)}"><summary class="edu-ai-review-summary"><span class="edu-ai-review-summary-main"><span class="edu-ai-review-summary-meta"><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc((q.review_status || 'review').toUpperCase())}</span><b>${esc(q.subject_code)} · ${esc(exams)}</b><small>${esc(q.topic_code || 'No topic')} · ${esc(q.difficulty || '—')}</small></span><strong>${esc(q.question_text)}</strong></span><span class="edu-ai-review-summary-actions">${quickAction}</span><small class="edu-ai-review-summary-date">${esc(q.ai_provider_code || 'AI')} · ${esc(q.created_at || '')}</small></summary><div class="edu-ai-review-content"><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-syllabus-verification"><b>Topic-to-examination mapping: ${esc(syllabusStatus)}</b>${syllabusSource}</div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review still required.</span>'}</div><footer class="edu-row-actions">${actions}</footer></div></details>`;
+      const statusLabel = String(q.review_status || 'draft').toUpperCase();
+      return `<div class="edu-ai-review-item" data-review-status="${esc(q.review_status || 'draft')}" data-search="${esc(searchable)}"><label class="edu-ai-review-select"><input type="checkbox" class="edu-ai-review-select-box" data-ai-select-id="${esc(q.id)}" ${selectedAiQuestionIds.has(q.id)?'checked':''}><span>Select</span></label><details class="edu-ai-review-card"><summary class="edu-ai-review-summary"><span class="edu-ai-review-summary-main"><span class="edu-ai-review-summary-meta"><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc(statusLabel)}</span><b>${esc(q.subject_code)} · ${esc(exams)}</b><small>${esc(q.topic_code || 'No topic')} · ${esc(q.difficulty || '—')}</small></span><strong>${esc(q.question_text)}</strong></span><span class="edu-ai-review-summary-actions">${quickAction}</span><small class="edu-ai-review-summary-date">${esc(q.ai_provider_code || 'AI')} · ${esc(q.created_at || '')}</small></summary><div class="edu-ai-review-content"><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-syllabus-verification"><b>Topic-to-examination mapping: ${esc(syllabusStatus)}</b>${syllabusSource}</div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review is optional only when the direct-publish option is enabled.</span>'}</div><footer class="edu-row-actions">${actions}</footer></div></details></div>`;
     }).join('');
     applyReviewFilters();
-    updateBulkPublishButton(approvedCount > 0, approvedCount);
+    updateBulkPublishButton();
   }
 
   async function loadReviewQueue() {
     const host = $('edu-ai-review-queue');
+    if (!host) return;
     host.innerHTML = '<p class="edu-admin-empty">Loading AI question review queue…</p>';
-    const { data, error } = await FX.client.from('edu_questions')
-      .select('id,question_text,subject_code,exam_codes,question_type,options,correct_answer,explanation,marks,difficulty,topic_code,review_status,is_active,ai_quality_flags,ai_provider_code,ai_model,ai_syllabus_verification_status,ai_syllabus_source_url,ai_syllabus_mapping_id,created_at')
-      .eq('source_type','ai_draft').in('review_status',['draft','review','approved'])
-      .order('created_at',{ascending:false}).limit(100);
-    if (error) throw error;
-    const rows=data||[];
+    const rows = [];
+    const pageSize = 200;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await FX.client.from('edu_questions')
+        .select('id,question_text,subject_code,exam_codes,question_type,options,correct_answer,explanation,marks,difficulty,topic_code,review_status,is_active,ai_quality_flags,ai_provider_code,ai_model,ai_syllabus_verification_status,ai_syllabus_source_url,ai_syllabus_mapping_id,created_at')
+        .eq('source_type','ai_draft').eq('is_active',false).in('review_status',['draft','review','approved'])
+        .order('created_at',{ascending:false}).range(offset,offset+pageSize-1);
+      if (error) throw error;
+      const page = data || [];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
     const mappingIds=[...new Set(rows.map(q=>q.ai_syllabus_mapping_id).filter(Boolean))];
-    let mappingRows=[];
-    if(mappingIds.length){
-      const mappingResult=await FX.client.from('edu_subject_topic_exam_map').select('id,is_active,verification_status,source_url').in('id',mappingIds);
+    const mappingRows=[];
+    for(let offset=0;offset<mappingIds.length;offset+=150){
+      const ids=mappingIds.slice(offset,offset+150);
+      const mappingResult=await FX.client.from('edu_subject_topic_exam_map').select('id,is_active,verification_status,source_url').in('id',ids);
       if(mappingResult.error)throw mappingResult.error;
-      mappingRows=mappingResult.data||[];
+      mappingRows.push(...(mappingResult.data||[]));
     }
     const byId=new Map(mappingRows.map(m=>[m.id,m]));
+    const liveIds=new Set(rows.map(q=>q.id));
+    [...selectedAiQuestionIds].forEach(id=>{if(!liveIds.has(id))selectedAiQuestionIds.delete(id);});
     renderReviewQueue(rows.map(q=>{
       const mapping=byId.get(q.ai_syllabus_mapping_id);
       return {...q,current_syllabus_verification_status:mapping?.verification_status||q.ai_syllabus_verification_status||'draft',current_syllabus_mapping_active:!!mapping?.is_active,current_syllabus_source_url:mapping?.source_url||q.ai_syllabus_source_url||''};
@@ -330,6 +354,7 @@
   function editInQuestionBank(id, text, status) {
     const source = $('edu-bank-source'); const review = $('edu-bank-review'); const search = $('edu-bank-search');
     source.value = 'ai_draft'; review.value = status || 'review'; search.value = text.slice(0, 100);
+    ['edu-bank-subject','edu-bank-exam','edu-bank-type','edu-bank-status'].forEach(id=>{const node=$(id);if(node)node.value='';});
     $('edu-bank-search-button').click();
     const editor = $('edu-question-form');
     setTimeout(() => {
@@ -355,7 +380,6 @@
       if(mappingResult.error){window.alert(mappingResult.error.message);return;}
       if(!isVerifiedSyllabusMapping(mappingResult.data)){window.alert('Publishing is blocked until this topic-to-examination mapping is active and marked Reviewed or Official source verified in the Syllabus Manager.');return;}
     }
-    if (action === 'approve' && !['draft','review'].includes(String(question.review_status || '').toLowerCase())) { window.alert('Only a draft awaiting review can be approved.'); return; }
     if (action === 'approve' && !window.confirm('Approve this question after checking its wording, options, answer and explanation? It will remain inactive until published.')) return;
     if (action === 'publish' && !window.confirm('Publish this approved question to students? It will become active and eligible for future student examinations.')) return;
     if (action === 'reject' && !window.confirm('Reject this AI-generated draft? It will remain in the bank but cannot be delivered to students.')) return;
@@ -416,9 +440,19 @@
       $('edu-ai-provider-select').scrollIntoView({behavior:'smooth',block:'center'});
     });
     $('edu-ai-review-queue')?.addEventListener('click',reviewAction);
+    $('edu-ai-review-queue')?.addEventListener('change', event => {
+      const box=event.target.closest('[data-ai-select-id]'); if(!box)return;
+      if(box.checked)selectedAiQuestionIds.add(box.dataset.aiSelectId);else selectedAiQuestionIds.delete(box.dataset.aiSelectId);
+      updateBulkPublishButton();
+    });
     $('edu-ai-publish-approved')?.addEventListener('click',publishApprovedDraftsToStudents);
-    document.addEventListener('click', event => { if (event.target.closest('#edu-ai-publish-approved-top')) publishApprovedDraftsToStudents(); });
-    window.addEventListener('eduAiPublishApprovedRequested', publishApprovedDraftsToStudents);
+    $('edu-ai-select-all-visible')?.addEventListener('click',()=>{
+      document.querySelectorAll('#edu-ai-review-queue .edu-ai-review-item:not([hidden]) [data-ai-select-id]').forEach(box=>{box.checked=true;selectedAiQuestionIds.add(box.dataset.aiSelectId);});
+      updateBulkPublishButton();
+    });
+    $('edu-ai-clear-selection')?.addEventListener('click',()=>{
+      selectedAiQuestionIds.clear();document.querySelectorAll('#edu-ai-review-queue [data-ai-select-id]').forEach(box=>{box.checked=false;});updateBulkPublishButton();
+    });
     $('edu-ai-review-search')?.addEventListener('input',applyReviewFilters);
     $('edu-ai-review-filter')?.addEventListener('change',applyReviewFilters);
     $('edu-ai-review-refresh')?.addEventListener('click',()=>loadReviewQueue().catch(e=>setFeedback('edu-ai-provider-feedback',e.message)));
