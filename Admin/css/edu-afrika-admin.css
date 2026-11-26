@@ -119,3 +119,13 @@
 .edu-ai-publish-actions button:disabled,.edu-bank-bulk-tools button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:1100px){.edu-bank-filters{grid-template-columns:repeat(4,minmax(0,1fr))}.edu-bank-filters input{grid-column:span 2}}
 @media(max-width:700px){.edu-bank-filters{grid-template-columns:1fr 1fr}.edu-bank-filters input{grid-column:1/-1}.edu-bank-bulk-left,.edu-bank-bulk-right{align-items:stretch}.edu-bank-bulk-right button{flex:1}.edu-ai-publish-actions{width:100%}.edu-ai-publish-actions button{flex:1}.edu-ai-review-filters{grid-template-columns:1fr 1fr}.edu-ai-review-filters input{grid-column:1/-1}}
+
+/* EDU-AFRIKA question lifecycle controls */
+.edu-row-actions [data-edu-action="draft"]{background:#243247;border-color:#52647a;color:#e3edf8}
+.edu-row-actions [data-edu-action="review"]{background:#443417;border-color:#8e6b2c;color:#ffe4a4}
+.edu-row-actions .edu-publish-row{background:#123f65;border-color:#2f85c2;color:#e3f4ff}
+#edu-bank-select-all-drafts{border-color:#98712d;background:#493716;color:#ffe9b8}
+#edu-bank-publish-selected-drafts{border-color:#2e9d65;background:#155b39;color:#eafff0}
+#edu-bank-publish-all-drafts{border-color:#388dcc;background:linear-gradient(135deg,#145331,#164b75);color:#fff;font-weight:900}
+.edu-bank-bulk-right button:disabled,#edu-bank-select-all-drafts:disabled{opacity:.48;cursor:not-allowed}
+@media(max-width:700px){.edu-bank-bulk-right{display:grid;grid-template-columns:1fr}.edu-bank-bulk-right button{width:100%;min-height:40px}}
