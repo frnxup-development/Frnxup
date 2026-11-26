@@ -5,7 +5,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>EDU-AFRIKA Exam Automation Room · Frnxup Admin</title>
   <link rel="stylesheet" href="css/admin.css">
-  <link rel="stylesheet" href="css/edu-afrika-admin.css?v=20261126-bulk-publish-filters-1">
+  <link rel="stylesheet" href="css/edu-afrika-admin.css?v=20261126-draft-review-publish-workflow-1">
 </head>
 <body data-view="edu-afrika">
   <aside class="admin-side"><a class="brand" href="index.html"><img src="../Asset/frnxup-mark.svg">Frnxup</a><small>PLATFORM CONTROL CENTRE</small><nav><a href="index.html">▦ Overview</a><a href="control-room.html">⌘ Action control room</a><a href="edu-afrika.html" class="active">🎓 EDU-AFRIKA</a></nav><div class="side-foot">FRNXUP ADMIN<br><span>Privileged actions are logged.</span></div></aside>
@@ -216,14 +216,14 @@ Apply them to examples"></textarea></label>
           <label>Question year<input id="edu-question-year" type="number" min="1900" max="2100" placeholder="Optional year"></label>
           <label>Source reference<input id="edu-question-source-reference" maxlength="500" placeholder="Book / syllabus / licensed source"></label>
         </div>
-        <label class="edu-admin-active"><input id="edu-question-active" type="checkbox" checked> Approve and publish this admin-authored question immediately</label>
+        <label class="edu-admin-active"><input id="edu-question-active" type="checkbox"> Publish this question immediately (leave unchecked to save as Draft)</label>
         <div class="edu-admin-form-actions"><button type="submit" class="admin-action action-green" id="edu-question-save">Save question</button><button type="button" class="admin-action action-yellow" id="edu-question-cancel" hidden>Cancel edit</button><span id="edu-question-feedback" role="status"></span></div>
       </form>
     </section>
     <section class="admin-panel">
       <div class="panel-head"><div><h2>Question bank</h2><p>Manage the questions available to EDU-AFRIKA students.</p></div><span class="badge" id="edu-bank-count">0 QUESTIONS</span></div>
       <div class="edu-bank-filters"><input id="edu-bank-search" type="search" placeholder="Search question text, topic or source…" aria-label="Search question bank"><select id="edu-bank-subject"><option value="">All subjects</option></select><select id="edu-bank-exam"><option value="">All examinations</option></select><select id="edu-bank-type"><option value="">All formats</option><option value="mcq">Multiple choice</option><option value="fill_gap">Fill in the gap</option></select><select id="edu-bank-status"><option value="">All active states</option><option value="true">Active</option><option value="false">Inactive</option></select><select id="edu-bank-review"><option value="">All review statuses</option><option value="draft">Draft</option><option value="review">Under review</option><option value="approved">Approved</option><option value="published">Published</option><option value="rejected">Rejected</option></select><select id="edu-bank-source"><option value="">All sources</option><option value="past_question">Past question</option><option value="adapted_practice">Adapted practice</option><option value="admin_authored">Admin authored</option><option value="ai_draft">AI draft</option><option value="bulk_import">Bulk import</option></select><button id="edu-bank-search-button" type="button">Apply filters</button><button id="edu-bank-reset-filters" type="button" class="edu-bank-reset">Reset</button></div>
-      <div class="edu-bank-bulk-tools"><div class="edu-bank-bulk-left"><b id="edu-bank-selected-count">0 questions selected</b><button type="button" id="edu-bank-clear-selection">Clear selection</button><label class="edu-skip-review-option"><input type="checkbox" id="edu-bank-skip-review"><span><b>Publish without manual review</b><small>Direct release may expose unchecked questions to students.</small></span></label></div><div class="edu-bank-bulk-right"><button type="button" id="edu-bank-publish-selected" class="admin-action action-green" disabled>PUBLISH TO STUDENTS</button><button type="button" id="edu-bank-publish-filtered" class="admin-action action-yellow">Publish all matching filters</button></div><p id="edu-bank-publish-feedback" role="status" aria-live="polite"></p></div>
+      <div class="edu-bank-bulk-tools"><div class="edu-bank-bulk-left"><b id="edu-bank-selected-count">0 questions selected</b><button type="button" id="edu-bank-clear-selection">Clear selection</button><button type="button" id="edu-bank-select-all-drafts" class="admin-action action-yellow">SELECT ALL DRAFTS</button><label class="edu-skip-review-option"><input type="checkbox" id="edu-bank-skip-review"><span><b>Allow publishing without manual review</b><small>Use only when you have checked the content or expressly authorize direct release.</small></span></label></div><div class="edu-bank-bulk-right"><button type="button" id="edu-bank-publish-selected" class="admin-action action-green" disabled>PUBLISH SELECTED (APPROVED)</button><button type="button" id="edu-bank-publish-selected-drafts" class="admin-action action-green" disabled>PUBLISH SELECTED DRAFTS</button><button type="button" id="edu-bank-publish-all-drafts" class="admin-action action-yellow">PUBLISH ALL DRAFTS TO STUDENTS</button><button type="button" id="edu-bank-publish-filtered" class="admin-action">Publish approved matching filters</button></div><p id="edu-bank-publish-feedback" role="status" aria-live="polite"></p></div>
       <div id="edu-question-table" class="table-wrap"><p class="edu-admin-empty">Loading the question bank…</p></div>
     </section>
     <section class="admin-panel edu-blueprint-panel">
@@ -250,6 +250,6 @@ Apply them to examples"></textarea></label>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script><script src="../js/core.js"></script>
-  <script src="js/edu-afrika-admin.js?v=20261126-bulk-publish-filters-1"></script><script src="js/edu-afrika-syllabus-manager.js?v=20261125-compact-1"></script><script src="js/edu-afrika-ai-production.js?v=20261126-bulk-publish-filters-1"></script><script src="js/admin.js"></script><script src="js/edu-afrika-compact-view.js?v=20261125-approval-visibility-2"></script>
+  <script src="js/edu-afrika-admin.js?v=20261126-draft-review-publish-workflow-1"></script><script src="js/edu-afrika-syllabus-manager.js?v=20261125-compact-1"></script><script src="js/edu-afrika-ai-production.js?v=20261126-draft-review-publish-workflow-1"></script><script src="js/admin.js"></script><script src="js/edu-afrika-compact-view.js?v=20261125-approval-visibility-2"></script>
 </body>
 </html>
