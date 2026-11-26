@@ -460,28 +460,50 @@ Deno.serve(async (req) => {
       `Difficulty: ${difficulty}. Question format: ${format}. Syllabus year: ${syllabusYear || 'not specified'}. Topic-to-exam mapping status: ${selectedMappingStatus}. If Draft or Reviewed, treat the list as a working topic outline, do not claim official syllabus coverage, and keep every question suitable for human academic review.`,
       `Requested questions: ${count}. Every result must have a topic_code from the list above.`,
     ].join('\n');
-    const response = await providerRequest(provider, config, apiKey, [ { role:'system', content:system }, { role:'user', content:userPrompt } ], Math.min(24000, 1200 + count * 240));
-    if (!response.text) throw new Error('The provider returned an empty response. Try another model or a smaller batch.');
-    const parsed = parseJsonText(response.text);
-    const returned = Array.isArray(parsed?.questions) ? parsed.questions : [];
-    if (!returned.length) throw new Error('The provider response did not contain a questions array.');
+    let generationMessages = [ { role:'system', content:system }, { role:'user', content:userPrompt } ];
+    let response = await providerRequest(provider, config, apiKey, generationMessages, Math.min(24000, 1200 + count * 240));
+    let parsed: any = null;
+    let returned: any[] = [];
+    let generationCount = count;
+    let firstEmptyReason = '';
+    if (response.text.trim()) {
+      try { parsed = parseJsonText(response.text); returned = Array.isArray(parsed?.questions) ? parsed.questions : []; }
+      catch (parseError) { firstEmptyReason = (parseError as Error).message; }
+    } else {
+      firstEmptyReason = 'The provider returned no text content.';
+    }
+    // If the provider returns an empty body or unusable JSON, make one recovery
+    // attempt with a smaller batch and a tighter output limit. Do not silently
+    // accept empty output or write empty questions to the database.
+    if (!returned.length) {
+      generationCount = Math.max(1, Math.ceil(count / 2));
+      const reducedSystem = system.replace(`Return exactly ${count} objects.`, `Return exactly ${generationCount} objects.`);
+      const reducedPrompt = userPrompt.replace(`Requested questions: ${count}.`, `Requested questions: ${generationCount} (reduced recovery batch).`);
+      generationMessages = [ { role:'system', content:reducedSystem }, { role:'user', content:reducedPrompt } ];
+      response = await providerRequest(provider, config, apiKey, generationMessages, Math.min(10000, 1000 + generationCount * 220));
+      if (response.text.trim()) {
+        try { parsed = parseJsonText(response.text); returned = Array.isArray(parsed?.questions) ? parsed.questions : []; }
+        catch (parseError) { firstEmptyReason += ` Recovery JSON parse: ${(parseError as Error).message}`; }
+      }
+    }
+    if (!returned.length) throw new Error(`The AI provider returned no usable questions after a smaller-batch recovery attempt. Initial response: ${firstEmptyReason || 'empty or missing questions array'}. Try another configured model or reduce the requested batch size.`);
     let usage = response.usage || { input:0, output:0 };
     const answerChecks = new Map<number, { verdict:string; note:string }>();
     if (body?.second_pass_check === true) {
       try {
         const verifyMessages = [
           { role:'system', content:'Act as a cautious second-pass consistency checker. Re-check each question and compare the proposed answer and explanation, but do not claim independent verification; return JSON only: {"checks":[{"index":0,"verdict":"consistent|incorrect|uncertain","note":"brief reason"}]}. Do not guess. Use uncertain when the question is ambiguous or cannot be verified from the supplied information.' },
-          { role:'user', content:JSON.stringify({subject:subjectName,questions:returned.slice(0,count).map((q:any,index:number)=>({index,question_text:q.question_text,question_type:q.question_type,options:q.options,proposed_correct_answer:q.correct_answer,explanation:q.explanation}))}) },
+          { role:'user', content:JSON.stringify({subject:subjectName,questions:returned.slice(0,generationCount).map((q:any,index:number)=>({index,question_text:q.question_text,question_type:q.question_type,options:q.options,proposed_correct_answer:q.correct_answer,explanation:q.explanation}))}) },
         ];
         const secondPass = await providerRequest(provider, config, apiKey, verifyMessages, Math.min(12000, 600 + count * 120));
         const checkJson = parseJsonText(secondPass.text);
         for (const check of Array.isArray(checkJson?.checks) ? checkJson.checks : []) {
           const index = Number(check.index); const verdict = String(check.verdict || '').toLowerCase();
-          if (Number.isInteger(index) && index >= 0 && index < count && ['consistent','incorrect','uncertain'].includes(verdict)) answerChecks.set(index,{verdict,note:String(check.note||'').slice(0,300)});
+          if (Number.isInteger(index) && index >= 0 && index < returned.length && ['consistent','incorrect','uncertain'].includes(verdict)) answerChecks.set(index,{verdict,note:String(check.note||'').slice(0,300)});
         }
         usage = { input:(usage.input||0)+(secondPass.usage?.input||0), output:(usage.output||0)+(secondPass.usage?.output||0) };
       } catch (_verificationError) {
-        for (let i=0;i<Math.min(returned.length,count);i++) answerChecks.set(i,{verdict:'uncertain',note:'The second-pass verifier could not complete. Check independently.'});
+        for (let i=0;i<Math.min(returned.length,generationCount);i++) answerChecks.set(i,{verdict:'uncertain',note:'The second-pass verifier could not complete. Check independently.'});
       }
     }
 
@@ -493,7 +515,7 @@ Deno.serve(async (req) => {
     let accepted: any[] = []; const rejected: { reason: string; question: string }[] = [];
     const batchTexts: string[] = [];
     let nearDuplicateCount = 0; let verifierFlagCount = 0;
-    for (let index=0; index<Math.min(returned.length,count); index++) {
+    for (let index=0; index<Math.min(returned.length,generationCount); index++) {
       const row = returned[index];
       let question: any;
       try { question = normalizeQuestion(row, defaultTopic, allowedTopics, topicMode); }
