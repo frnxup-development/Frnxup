@@ -303,14 +303,14 @@
       const syllabusSource = safeSyllabusUrl ? `<a href="${esc(safeSyllabusUrl)}" target="_blank" rel="noopener noreferrer">Open syllabus source ↗</a>` : '<span>No official source URL recorded</span>';
       const exams = (q.exam_codes || []).join(', ');
       const searchable = [q.question_text, q.subject_code, exams, q.topic_code, q.correct_answer, q.ai_provider_code].join(' ').toLowerCase();
-      const quickAction = ['draft','review'].includes(q.review_status)
-        ? `<button type="button" class="edu-ai-quick-action" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve question</button>`
-        : canPublish
-          ? `<button type="button" class="edu-ai-quick-action is-publish" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`
-          : `<button type="button" class="edu-ai-quick-action" disabled title="Verify the examination mapping first">Awaiting syllabus verification</button>`;
-      const actions = ['draft','review'].includes(q.review_status)
-        ? `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve question</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`
-        : `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button>${canPublish?`<button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`:'<button type="button" disabled title="Verify the examination mapping first">Awaiting syllabus verification</button>'}<button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
+      const quickAction = q.review_status==='draft'
+        ? `<button type="button" class="edu-ai-quick-action" data-ai-review-action="review" data-id="${esc(q.id)}">Send to review</button>`
+        : q.review_status==='review'
+          ? `<button type="button" class="edu-ai-quick-action" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve question</button>`
+          : canPublish
+            ? `<button type="button" class="edu-ai-quick-action is-publish" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`
+            : `<button type="button" class="edu-ai-quick-action" disabled title="Verify the examination mapping first">Awaiting syllabus verification</button>`;
+      const actions = `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit</button><button type="button" data-ai-review-action="draft" data-id="${esc(q.id)}">Save as draft</button><button type="button" data-ai-review-action="review" data-id="${esc(q.id)}">Send to review</button>${q.review_status!=='approved'?`<button type="button" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve</button>`:''}${canPublish?`<button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`:'<button type="button" disabled title="Verify the examination mapping first">Awaiting syllabus verification</button>'}<button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
       const statusLabel = String(q.review_status || 'draft').toUpperCase();
       return `<div class="edu-ai-review-item" data-review-status="${esc(q.review_status || 'draft')}" data-search="${esc(searchable)}"><label class="edu-ai-review-select"><input type="checkbox" class="edu-ai-review-select-box" data-ai-select-id="${esc(q.id)}" ${selectedAiQuestionIds.has(q.id)?'checked':''}><span>Select</span></label><details class="edu-ai-review-card"><summary class="edu-ai-review-summary"><span class="edu-ai-review-summary-main"><span class="edu-ai-review-summary-meta"><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc(statusLabel)}</span><b>${esc(q.subject_code)} · ${esc(exams)}</b><small>${esc(q.topic_code || 'No topic')} · ${esc(q.difficulty || '—')}</small></span><strong>${esc(q.question_text)}</strong></span><span class="edu-ai-review-summary-actions">${quickAction}</span><small class="edu-ai-review-summary-date">${esc(q.ai_provider_code || 'AI')} · ${esc(q.created_at || '')}</small></summary><div class="edu-ai-review-content"><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-syllabus-verification"><b>Topic-to-examination mapping: ${esc(syllabusStatus)}</b>${syllabusSource}</div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review is optional only when the direct-publish option is enabled.</span>'}</div><footer class="edu-row-actions">${actions}</footer></div></details></div>`;
     }).join('');
@@ -380,22 +380,29 @@
       if(mappingResult.error){window.alert(mappingResult.error.message);return;}
       if(!isVerifiedSyllabusMapping(mappingResult.data)){window.alert('Publishing is blocked until this topic-to-examination mapping is active and marked Reviewed or Official source verified in the Syllabus Manager.');return;}
     }
+    if (action === 'draft' && !window.confirm('Move this question back to Draft? It will remain inactive and unavailable to students.')) return;
+    if (action === 'review' && !window.confirm('Send this question to the review queue? It will remain inactive until approved and published.')) return;
     if (action === 'approve' && !window.confirm('Approve this question after checking its wording, options, answer and explanation? It will remain inactive until published.')) return;
     if (action === 'publish' && !window.confirm('Publish this approved question to students? It will become active and eligible for future student examinations.')) return;
     if (action === 'reject' && !window.confirm('Reject this AI-generated draft? It will remain in the bank but cannot be delivered to students.')) return;
     button.disabled = true;
     try {
       const actorId = window.FX?.user?.id || null;
-      const patch = action === 'approve'
-        ? { review_status:'approved', is_active:false, ai_reviewed_by:actorId, ai_reviewed_at:new Date().toISOString(), updated_at:new Date().toISOString() }
-        : action === 'publish'
-          ? { review_status:'published', is_active:true, ai_reviewed_by:actorId, ai_reviewed_at:new Date().toISOString(), updated_at:new Date().toISOString() }
-          : { review_status:'rejected', is_active:false, ai_reviewed_by:actorId, ai_reviewed_at:new Date().toISOString(), updated_at:new Date().toISOString() };
+      const reviewedAt=new Date().toISOString();
+      const patch = action === 'draft'
+        ? { review_status:'draft', is_active:false, ai_reviewed_by:null, ai_reviewed_at:null, updated_at:reviewedAt }
+        : action === 'review'
+          ? { review_status:'review', is_active:false, ai_reviewed_by:null, ai_reviewed_at:null, updated_at:reviewedAt }
+          : action === 'approve'
+            ? { review_status:'approved', is_active:false, ai_reviewed_by:actorId, ai_reviewed_at:reviewedAt, updated_at:reviewedAt }
+            : action === 'publish'
+              ? { review_status:'published', is_active:true, ai_reviewed_by:actorId, ai_reviewed_at:reviewedAt, updated_at:reviewedAt }
+              : { review_status:'rejected', is_active:false, ai_reviewed_by:actorId, ai_reviewed_at:reviewedAt, updated_at:reviewedAt };
       const { error } = await FX.client.from('edu_questions').update(patch).eq('id',id);
       if (error) throw error;
       await Promise.all([loadReviewQueue(), loadHistory()]);
       if (typeof window.refreshEduAfrikaAdmin === 'function') window.refreshEduAfrikaAdmin().catch(() => {});
-      setFeedback('edu-ai-provider-feedback', action === 'publish' ? 'Question published to the student-eligible bank.' : action === 'approve' ? 'Question approved; it remains inactive until separately published.' : 'Question rejected and kept inactive.', true);
+      setFeedback('edu-ai-provider-feedback', action === 'publish' ? 'Question published to the student-eligible bank.' : action === 'approve' ? 'Question approved; it remains inactive until separately published.' : action === 'review' ? 'Question sent to the review queue.' : action === 'draft' ? 'Question saved as an inactive draft.' : 'Question rejected and kept inactive.', true);
     } catch (error) { window.alert(error.message || 'Unable to update this question.'); }
     finally { button.disabled = false; }
   }

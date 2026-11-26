@@ -185,6 +185,12 @@
     if(countNode) countNode.textContent=`${selectedQuestionIds.size.toLocaleString()} question(s) selected`;
     const publishButton=$('edu-bank-publish-selected');
     if(publishButton) publishButton.disabled=bankPublishBusy||selectedQuestionIds.size===0;
+    const publishDraftsButton=$('edu-bank-publish-selected-drafts');
+    if(publishDraftsButton) publishDraftsButton.disabled=bankPublishBusy||selectedQuestionIds.size===0;
+    const selectDraftsButton=$('edu-bank-select-all-drafts');
+    if(selectDraftsButton) selectDraftsButton.disabled=bankPublishBusy;
+    const publishAllDraftsButton=$('edu-bank-publish-all-drafts');
+    if(publishAllDraftsButton) publishAllDraftsButton.disabled=bankPublishBusy;
     const pageCheck=$('edu-bank-select-page');
     if(pageCheck){
       const ids=questions.map(q=>q.id);
@@ -207,12 +213,8 @@
       const examNames=(q.exam_codes||[]).map(examLabel).join(', ');
       const status=`<span class="edu-admin-status ${q.review_status==='published'&&q.is_active?'':'is-off'}">${esc((q.review_status||'draft').toUpperCase())}${q.is_active?' · ACTIVE':''}</span>`;
       const isAiDraft=q.source_type==='ai_draft';
-      const stageAction=isAiDraft
-        ? ['draft','review'].includes(q.review_status) ? `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Approve question</button>`
-          : q.review_status==='approved' ? `<button type="button" data-edu-action="publish" data-id="${esc(q.id)}">Publish to students</button>`
-          : q.review_status==='published' ? `<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>` : ''
-        : q.review_status==='published' ? `<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>` : `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Approve / publish</button>`;
-      return `<tr><td><input type="checkbox" class="edu-bank-row-select" data-question-id="${esc(q.id)}" aria-label="Select question" ${selectedQuestionIds.has(q.id)?'checked':''}></td><td class="edu-question-cell"><b>${esc(short)}</b><small>${esc(q.difficulty)} · ${esc(q.question_type==='mcq'?'Multiple choice':'Fill in the gap')} · ${esc(q.source_type||'admin_authored')} ${q.source_year?'· '+esc(q.source_year):''}</small></td><td>${esc(subjectLabel(q.subject_code))}<small>${esc(q.topic_code||'')}</small></td><td>${(q.programme_ids||[]).length?esc((q.programme_ids||[]).map(id=>programmes.find(p=>p.id===id)?.programme_name||'Programme').join(', ')):'General'}</td><td>${esc(examNames)}</td><td>${Number(q.marks).toLocaleString()}</td><td>${status}</td><td><div class="edu-row-actions"><button type="button" data-edu-action="edit" data-id="${esc(q.id)}">Edit</button>${stageAction}${isAiDraft?'':`<button type="button" data-edu-action="toggle" data-id="${esc(q.id)}">${q.is_active?'Deactivate':'Activate'}</button>`}<button type="button" class="is-danger" data-edu-action="delete" data-id="${esc(q.id)}">Delete</button></div></td></tr>`;
+      const stageAction=`<button type="button" data-edu-action="draft" data-id="${esc(q.id)}">Draft</button><button type="button" data-edu-action="review" data-id="${esc(q.id)}">Review</button>${q.review_status==='published'&&q.is_active?`<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>`:`<button type="button" class="edu-publish-row" data-edu-action="publish" data-id="${esc(q.id)}">Publish</button>`}`;
+      return `<tr><td><input type="checkbox" class="edu-bank-row-select" data-question-id="${esc(q.id)}" aria-label="Select question" ${selectedQuestionIds.has(q.id)?'checked':''}></td><td class="edu-question-cell"><b>${esc(short)}</b><small>${esc(q.difficulty)} · ${esc(q.question_type==='mcq'?'Multiple choice':'Fill in the gap')} · ${esc(q.source_type||'admin_authored')} ${q.source_year?'· '+esc(q.source_year):''}${isAiDraft?' · AI draft':''}</small></td><td>${esc(subjectLabel(q.subject_code))}<small>${esc(q.topic_code||'')}</small></td><td>${(q.programme_ids||[]).length?esc((q.programme_ids||[]).map(id=>programmes.find(p=>p.id===id)?.programme_name||'Programme').join(', ')):'General'}</td><td>${esc(examNames)}</td><td>${Number(q.marks).toLocaleString()}</td><td>${status}</td><td><div class="edu-row-actions"><button type="button" data-edu-action="edit" data-id="${esc(q.id)}">Edit</button>${stageAction}<button type="button" class="is-danger" data-edu-action="delete" data-id="${esc(q.id)}">Delete</button></div></td></tr>`;
     }).join('');
     const first=questionTotal?questionPage*questionPageSize+1:0, last=Math.min(questionTotal,(questionPage+1)*questionPageSize);
     $('edu-question-table').innerHTML=`<table class="admin-table"><thead><tr><th><input type="checkbox" id="edu-bank-select-page" aria-label="Select all questions on this page"></th><th>Question</th><th>Subject / topic</th><th>Course scope</th><th>Examination(s)</th><th>Marks</th><th>Review status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table><div class="edu-pagination"><span>Showing ${first}–${last} of ${questionTotal} · Page ${questionPage+1} of ${pageCount}</span><button type="button" id="edu-question-prev-page" ${questionPage===0?'disabled':''}>Previous</button><button type="button" id="edu-question-next-page" ${questionPage>=pageCount-1?'disabled':''}>Next</button></div>`;
@@ -244,9 +246,9 @@
       const batchSize=100;
       for(let offset=0;offset<eligible.length;offset+=batchSize){
         const ids=eligible.slice(offset,offset+batchSize).map(q=>q.id);
-        const {error}=await FX.client.from('edu_questions').update({review_status:'published',is_active:true,updated_at:new Date().toISOString()}).in('id',ids).eq('is_active',false).in('review_status',skipReview?['draft','review','approved']:['approved']);
+        const {data,error}=await FX.client.from('edu_questions').update({review_status:'published',is_active:true,updated_at:new Date().toISOString()}).in('id',ids).eq('is_active',false).in('review_status',skipReview?['draft','review','approved']:['approved']).select('id');
         if(error)throw error;
-        published+=ids.length;
+        published+=(data||[]).length;
         feedback(feedbackId,`Publishing questions… ${published.toLocaleString()} of ${eligible.length.toLocaleString()}.`,true);
       }
       eligible.forEach(q=>selectedQuestionIds.delete(q.id));
@@ -274,6 +276,65 @@
       }
       await publishQuestionRecords(records,!!$('edu-bank-skip-review')?.checked);
     }catch(error){feedback('edu-bank-publish-feedback',error.message||'Could not load the selected questions.');}
+  }
+
+  async function fetchAllDraftQuestionRows() {
+    const all=[];
+    const pageSize=500;
+    for(let offset=0;;offset+=pageSize){
+      const {data,error}=await FX.client.from('edu_questions')
+        .select('id,is_active,review_status,source_type')
+        .eq('is_active',false).eq('review_status','draft')
+        .order('created_at',{ascending:false}).range(offset,offset+pageSize-1);
+      if(error)throw error;
+      const page=data||[];all.push(...page);
+      if(page.length<pageSize)break;
+    }
+    return all;
+  }
+
+  async function selectAllDraftQuestions() {
+    if(bankPublishBusy)return;
+    const button=$('edu-bank-select-all-drafts');
+    if(button){button.disabled=true;button.textContent='Finding all drafts…';}
+    try{
+      const drafts=await fetchAllDraftQuestionRows();
+      selectedQuestionIds.clear();
+      drafts.forEach(q=>selectedQuestionIds.add(q.id));
+      updateQuestionSelectionUI();
+      renderQuestions();
+      feedback('edu-bank-publish-feedback',drafts.length
+        ? `${drafts.length.toLocaleString()} unpublished draft question(s) selected across the full bank. Choose PUBLISH SELECTED DRAFTS to send them to students.`
+        : 'There are no inactive questions with Draft status to select.',!!drafts.length);
+    }catch(error){feedback('edu-bank-publish-feedback',error.message||'Could not collect all draft questions.');}
+    finally{if(button){button.disabled=bankPublishBusy;button.textContent='SELECT ALL DRAFTS';}}
+  }
+
+  async function publishSelectedDraftQuestions() {
+    if(bankPublishBusy||!selectedQuestionIds.size)return;
+    try{
+      const ids=[...selectedQuestionIds];const records=[];
+      for(let offset=0;offset<ids.length;offset+=300){
+        const page=ids.slice(offset,offset+300);
+        const {data,error}=await FX.client.from('edu_questions').select('id,is_active,review_status,source_type').in('id',page);
+        if(error)throw error;records.push(...(data||[]));
+      }
+      const drafts=records.filter(q=>!q.is_active&&q.review_status==='draft');
+      if(!drafts.length){feedback('edu-bank-publish-feedback','The current selection contains no inactive Draft questions. Use SELECT ALL DRAFTS or select Draft rows.');return;}
+      await publishQuestionRecords(drafts,true);
+    }catch(error){feedback('edu-bank-publish-feedback',error.message||'Could not load the selected draft questions.');}
+  }
+
+  async function publishAllDraftQuestions() {
+    if(bankPublishBusy)return;
+    const button=$('edu-bank-publish-all-drafts');
+    if(button){button.disabled=true;button.textContent='Collecting all drafts…';}
+    try{
+      const drafts=await fetchAllDraftQuestionRows();
+      if(!drafts.length){feedback('edu-bank-publish-feedback','There are no inactive Draft questions to publish.');return;}
+      await publishQuestionRecords(drafts,true);
+    }catch(error){feedback('edu-bank-publish-feedback',error.message||'Could not collect all draft questions.');}
+    finally{if(button&&!bankPublishBusy){button.disabled=false;button.textContent='PUBLISH ALL DRAFTS TO STUDENTS';}}
   }
 
   async function publishAllMatchingBankQuestions() {
@@ -390,12 +451,12 @@
     $('edu-question-id').value='';
     $('edu-question-marks').value='1';
     $('edu-question-difficulty').value='medium';
-    $('edu-question-active').checked=true;
+    $('edu-question-active').checked=false;
     $('edu-question-type').value='mcq';
     refreshQuestionTopicOptions('');
     $('edu-question-source-type').value='admin_authored';
     $('edu-question-form-heading').textContent='＋ Add question to the question bank';
-    $('edu-question-save').textContent='Save question';
+    $('edu-question-save').textContent='Save as draft';
     $('edu-question-cancel').hidden=true;
     $('edu-exam-checks').querySelectorAll('input[type=checkbox]').forEach(input=>input.checked=false);
     refreshQuestionProgrammeOptions();
@@ -480,6 +541,8 @@
     try{
       let payload;
       if(action==='toggle') payload={is_active:!q.is_active,updated_at:new Date().toISOString()};
+      else if(action==='draft') payload={review_status:'draft',is_active:false,updated_at:new Date().toISOString(),...(q.source_type==='ai_draft'?{ai_reviewed_by:null,ai_reviewed_at:null}:{})};
+      else if(action==='review') payload={review_status:'review',is_active:false,updated_at:new Date().toISOString(),...(q.source_type==='ai_draft'?{ai_reviewed_by:null,ai_reviewed_at:null}:{})};
       else if(action==='publish'){
         if(q.source_type==='ai_draft'){
           if(!q.ai_syllabus_mapping_id)throw new Error('This AI draft has no linked examination-topic mapping. Use the bulk direct-publish option only when an administrator authorizes bypassing this check.');
@@ -499,7 +562,7 @@
       if(result.error)throw result.error;
       await Promise.all([fetchQuestions(),loadStats()]);
       if(q.source_type==='ai_draft') window.dispatchEvent(new CustomEvent('eduAiReviewUpdated'));
-      notify(action==='delete'?'Question deleted.':action==='publish'?'Question published to students.':action==='approve'?(q.source_type==='ai_draft'&&['draft','review'].includes(q.review_status)?'AI draft approved and kept inactive.':'Question approved and published.'):action==='unpublish'?'Question removed from student delivery.':`Question ${q.is_active?'deactivated':'activated'}.`);
+      notify(action==='delete'?'Question deleted.':action==='publish'?'Question published to students.':action==='draft'?'Question saved as an inactive draft.':action==='review'?'Question moved to the review queue.':action==='approve'?(q.source_type==='ai_draft'&&['draft','review'].includes(q.review_status)?'AI draft approved and kept inactive.':'Question approved and published.'):action==='unpublish'?'Question removed from student delivery.':`Question ${q.is_active?'deactivated':'activated'}.`);
     }catch(error){notify(error.message||'Unable to update this question.');}
     finally{button.disabled=false;}
   }
@@ -877,6 +940,9 @@
       $('edu-bank-clear-selection').addEventListener('click',()=>{selectedQuestionIds.clear();renderQuestions();});
       $('edu-bank-publish-selected').addEventListener('click',publishSelectedBankQuestions);
       $('edu-bank-publish-filtered').addEventListener('click',publishAllMatchingBankQuestions);
+      $('edu-bank-select-all-drafts')?.addEventListener('click',selectAllDraftQuestions);
+      $('edu-bank-publish-selected-drafts')?.addEventListener('click',publishSelectedDraftQuestions);
+      $('edu-bank-publish-all-drafts')?.addEventListener('click',publishAllDraftQuestions);
       $('edu-programme-form').addEventListener('submit',saveProgramme);
       $('edu-programme-cancel').addEventListener('click',resetProgrammeForm);
       $('edu-programme-table').addEventListener('click',programmeAction);
