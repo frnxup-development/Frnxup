@@ -162,10 +162,11 @@
       const examNames=(q.exam_codes||[]).map(examLabel).join(', ');
       const status=`<span class="edu-admin-status ${q.review_status==='published'&&q.is_active?'':'is-off'}">${esc((q.review_status||'draft').toUpperCase())}${q.is_active?' · ACTIVE':''}</span>`;
       const isAiDraft=q.source_type==='ai_draft';
+      const needsAiApproval=isAiDraft && ['draft','review'].includes(String(q.review_status||'').toLowerCase());
       const stageAction=isAiDraft
-        ? q.review_status==='review' ? `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Approve (inactive)</button>`
-          : q.review_status==='approved' ? `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Publish</button>`
-          : q.review_status==='published' ? `<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>` : ''
+        ? needsAiApproval ? `<button type="button" class="edu-ai-approve-bank-btn" data-edu-action="approve" data-id="${esc(q.id)}">Approve question</button>`
+          : q.review_status==='approved' ? `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Publish to students</button>`
+          : q.review_status==='published' ? `<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>` : '<span class="edu-admin-status is-off">No action available</span>'
         : q.review_status==='published' ? `<button type="button" data-edu-action="unpublish" data-id="${esc(q.id)}">Unpublish</button>` : `<button type="button" data-edu-action="approve" data-id="${esc(q.id)}">Approve</button>`;
       return `<tr><td class="edu-question-cell"><b>${esc(short)}</b><small>${esc(q.difficulty)} · ${esc(q.question_type==='mcq'?'Multiple choice':'Fill in the gap')} · ${esc(q.source_type||'admin_authored')} ${q.source_year?'· '+esc(q.source_year):''}</small></td><td>${esc(subjectLabel(q.subject_code))}<small>${esc(q.topic_code||'')}</small></td><td>${(q.programme_ids||[]).length?esc((q.programme_ids||[]).map(id=>programmes.find(p=>p.id===id)?.programme_name||'Programme').join(', ')):'General'}</td><td>${esc(examNames)}</td><td>${Number(q.marks).toLocaleString()}</td><td>${status}</td><td><div class="edu-row-actions"><button type="button" data-edu-action="edit" data-id="${esc(q.id)}">Edit</button>${stageAction}${isAiDraft?'':`<button type="button" data-edu-action="toggle" data-id="${esc(q.id)}">${q.is_active?'Deactivate':'Activate'}</button>`}<button type="button" class="is-danger" data-edu-action="delete" data-id="${esc(q.id)}">Delete</button></div></td></tr>`;
     }).join('');
@@ -359,16 +360,19 @@
     try{
       let payload;
       if(action==='toggle') payload={is_active:!q.is_active,updated_at:new Date().toISOString()};
+      else if(action==='approve'&&q.source_type==='ai_draft'&&['draft','review'].includes(String(q.review_status||'').toLowerCase())){
+        if(!confirm('Approve this AI question after checking its wording, options, correct answer and explanation? It will remain inactive until it is separately published.')){button.disabled=false;return;}
+        payload={review_status:'approved',is_active:false,ai_reviewed_by:FX.user.id,ai_reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+      }
       else if(action==='approve'&&q.source_type==='ai_draft'&&q.review_status==='approved'){
         if(!q.ai_syllabus_mapping_id)throw new Error('This AI draft has no linked examination-topic mapping. Re-generate it after mapping the topic.');
         const {data:mapping,error:mappingError}=await FX.client.from('edu_subject_topic_exam_map').select('is_active,verification_status').eq('id',q.ai_syllabus_mapping_id).maybeSingle();
         if(mappingError)throw mappingError;
-        if(!mapping?.is_active||mapping.verification_status==='draft')throw new Error('Publishing is blocked until this topic-to-examination mapping is active and marked Reviewed or Official source verified in the Syllabus Manager.');
+        if(!mapping?.is_active||!['reviewed','official_source_verified'].includes(String(mapping.verification_status||'').toLowerCase()))throw new Error('Publishing is blocked until this topic-to-examination mapping is active and marked Reviewed or Official source verified in the Syllabus Manager.');
+        if(!confirm('Publish this approved question to students? It will become active in the student question bank.')){button.disabled=false;return;}
         payload={review_status:'published',is_active:true,ai_reviewed_by:FX.user.id,ai_reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()};
       }
-      else if(action==='approve') payload=q.source_type==='ai_draft'&&q.review_status==='review'
-        ? {review_status:'approved',is_active:false,ai_reviewed_by:FX.user.id,ai_reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}
-        : {review_status:'published',is_active:true,ai_reviewed_by:q.source_type==='ai_draft'?FX.user.id:undefined,ai_reviewed_at:q.source_type==='ai_draft'?new Date().toISOString():undefined,updated_at:new Date().toISOString()};
+      else if(action==='approve') payload={review_status:'published',is_active:true,updated_at:new Date().toISOString()};
       else if(action==='unpublish') payload={review_status:'approved',is_active:false,updated_at:new Date().toISOString()};
       let result;
       if(action==='delete') result=await FX.client.from('edu_questions').delete().eq('id',q.id);
@@ -376,7 +380,7 @@
       if(result.error)throw result.error;
       await Promise.all([fetchQuestions(),loadStats()]);
       if(q.source_type==='ai_draft') window.dispatchEvent(new CustomEvent('eduAiReviewUpdated'));
-      notify(action==='delete'?'Question deleted.':action==='approve'?(q.source_type==='ai_draft'&&q.review_status==='review'?'AI draft approved and kept inactive.': 'Question approved and published.'):action==='unpublish'?'Question removed from student delivery.':`Question ${q.is_active?'deactivated':'activated'}.`);
+      notify(action==='delete'?'Question deleted.':action==='approve'?(q.source_type==='ai_draft'&&['draft','review'].includes(String(q.review_status||'').toLowerCase())?'AI question approved and kept inactive.':q.source_type==='ai_draft'?'AI question published to students.':'Question approved and published.'):action==='unpublish'?'Question removed from student delivery.':`Question ${q.is_active?'deactivated':'activated'}.`);
     }catch(error){notify(error.message||'Unable to update this question.');}
     finally{button.disabled=false;}
   }

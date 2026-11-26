@@ -8,9 +8,18 @@
   let publishBusy = false;
 
   function setFeedback(id, message, good = false) {
-    const el = $(id); if (!el) return;
-    el.textContent = message || '';
-    el.style.color = good ? '#9cf0b6' : '#ffb8b8';
+    const el = $(id);
+    if (el) {
+      el.textContent = message || '';
+      el.style.color = good ? '#9cf0b6' : '#ffb8b8';
+    }
+    if (id === 'edu-ai-publish-feedback') {
+      const topStatus = $('edu-ai-workflow-status');
+      if (topStatus) {
+        topStatus.textContent = message || '';
+        topStatus.style.color = good ? '#a8f0c2' : '#ffc1a8';
+      }
+    }
   }
   function setButtonBusy(id, state, label) {
     const el = $(id); if (!el) return;
@@ -158,12 +167,18 @@
     return !!mapping?.is_active && ['reviewed', 'official_source_verified'].includes(status);
   }
 
-  function updateBulkPublishButton(hasQueueItems = true) {
-    const button = $('edu-ai-publish-approved');
-    if (!button) return;
-    button.disabled = publishBusy || !hasQueueItems;
-    button.textContent = publishBusy ? 'Publishing…' : 'Publish approved questions to students';
-    button.title = 'Checks all approved, unpublished AI drafts and publishes only those with an active Reviewed or Official source verified syllabus mapping.';
+  function updateBulkPublishButton(hasApprovedItems = true, approvedCount = null) {
+    const buttons = [$('edu-ai-publish-approved'), $('edu-ai-publish-approved-top')].filter(Boolean);
+    const status = $('edu-ai-workflow-status');
+    const label = publishBusy ? 'Publishing…' : `Publish approved to students${Number.isFinite(approvedCount) ? ` (${approvedCount})` : ''}`;
+    buttons.forEach(button => {
+      button.disabled = publishBusy || !hasApprovedItems;
+      button.textContent = label;
+      button.title = 'Publishes only approved, inactive AI questions with an active syllabus mapping marked Reviewed or Official source verified.';
+    });
+    if (status && Number.isFinite(approvedCount)) {
+      status.textContent = approvedCount ? `${approvedCount} approved question(s) waiting for publication` : 'No approved questions waiting for publication';
+    }
   }
 
   async function findPublishableApprovedDrafts() {
@@ -198,7 +213,7 @@
   }
 
   async function publishApprovedDraftsToStudents() {
-    const button = $('edu-ai-publish-approved');
+    const button = $('edu-ai-publish-approved') || $('edu-ai-publish-approved-top');
     const feedbackId = 'edu-ai-publish-feedback';
     if (publishBusy || !button) return;
     publishBusy = true;
@@ -255,13 +270,13 @@
   function renderReviewQueue(rows) {
     const host = $('edu-ai-review-queue');
     if (!host) return;
-    const reviewCount = rows.filter(q => q.review_status === 'review').length;
+    const reviewCount = rows.filter(q => ['draft','review'].includes(String(q.review_status || '').toLowerCase())).length;
     const approvedCount = rows.filter(q => q.review_status === 'approved').length;
-    $('edu-ai-review-count').textContent = `${rows.length} DRAFTS · ${reviewCount} TO REVIEW · ${approvedCount} APPROVED`;
+    $('edu-ai-review-count').textContent = `${rows.length} DRAFTS · ${reviewCount} TO APPROVE · ${approvedCount} APPROVED`;
     if (!rows.length) {
       host.innerHTML = '<p class="edu-admin-empty">No AI drafts are waiting for review or publication.</p>';
       const note = $('edu-ai-review-visible'); if (note) note.textContent = '0 drafts';
-      updateBulkPublishButton(false);
+      updateBulkPublishButton(false, 0);
       return;
     }
     host.innerHTML = rows.map(q => {
@@ -274,13 +289,19 @@
       const syllabusSource = safeSyllabusUrl ? `<a href="${esc(safeSyllabusUrl)}" target="_blank" rel="noopener noreferrer">Open syllabus source ↗</a>` : '<span>No official source URL recorded</span>';
       const exams = (q.exam_codes || []).join(', ');
       const searchable = [q.question_text, q.subject_code, exams, q.topic_code, q.correct_answer, q.ai_provider_code].join(' ').toLowerCase();
-      const actions = q.review_status === 'review'
-        ? `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve (keep inactive)</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`
-        : `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button>${canPublish?`<button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`:'<button type="button" disabled title="Verify the examination mapping first">Verify syllabus mapping to publish</button>'}<button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
-      return `<details class="edu-ai-review-card" data-review-status="${esc(q.review_status || 'review')}" data-search="${esc(searchable)}"><summary class="edu-ai-review-summary"><span class="edu-ai-review-summary-main"><span class="edu-ai-review-summary-meta"><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc((q.review_status || 'review').toUpperCase())}</span><b>${esc(q.subject_code)} · ${esc(exams)}</b><small>${esc(q.topic_code || 'No topic')} · ${esc(q.difficulty || '—')}</small></span><strong>${esc(q.question_text)}</strong></span><small class="edu-ai-review-summary-date">${esc(q.ai_provider_code || 'AI')} · ${esc(q.created_at || '')}</small></summary><div class="edu-ai-review-content"><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-syllabus-verification"><b>Topic-to-examination mapping: ${esc(syllabusStatus)}</b>${syllabusSource}</div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review still required.</span>'}</div><footer class="edu-row-actions">${actions}</footer></div></details>`;
+      const needsApproval = ['draft','review'].includes(String(q.review_status || '').toLowerCase());
+      const quickAction = needsApproval
+        ? `<button type="button" class="edu-ai-quick-action" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve question</button>`
+        : canPublish
+          ? `<button type="button" class="edu-ai-quick-action is-publish" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`
+          : `<button type="button" class="edu-ai-quick-action" disabled title="Verify the examination mapping first">Awaiting syllabus verification</button>`;
+      const actions = needsApproval
+        ? `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button><button type="button" data-ai-review-action="approve" data-id="${esc(q.id)}">Approve question</button><button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`
+        : `<button type="button" data-ai-review-action="edit" data-id="${esc(q.id)}">Edit in question bank</button>${canPublish?`<button type="button" data-ai-review-action="publish" data-id="${esc(q.id)}">Publish to students</button>`:'<button type="button" disabled title="Verify the examination mapping first">Awaiting syllabus verification</button>'}<button type="button" class="is-danger" data-ai-review-action="reject" data-id="${esc(q.id)}">Reject</button>`;
+      return `<details class="edu-ai-review-card" data-review-status="${esc(q.review_status || 'review')}" data-search="${esc(searchable)}"><summary class="edu-ai-review-summary"><span class="edu-ai-review-summary-main"><span class="edu-ai-review-summary-meta"><span class="edu-admin-status ${q.review_status === 'approved' ? '' : 'is-off'}">${esc((q.review_status || 'review').toUpperCase())}</span><b>${esc(q.subject_code)} · ${esc(exams)}</b><small>${esc(q.topic_code || 'No topic')} · ${esc(q.difficulty || '—')}</small></span><strong>${esc(q.question_text)}</strong></span><span class="edu-ai-review-summary-actions">${quickAction}</span><small class="edu-ai-review-summary-date">${esc(q.ai_provider_code || 'AI')} · ${esc(q.created_at || '')}</small></summary><div class="edu-ai-review-content"><p>${esc(options)}</p><div class="edu-ai-review-answer"><b>Proposed answer: ${esc(q.correct_answer)}</b><span>Explanation: ${esc(q.explanation || 'No explanation supplied')}</span><small>Topic: ${esc(q.topic_code || '—')} · Difficulty: ${esc(q.difficulty || '—')} · Marks: ${Number(q.marks || 0)}</small></div><div class="edu-ai-syllabus-verification"><b>Topic-to-examination mapping: ${esc(syllabusStatus)}</b>${syllabusSource}</div><div class="edu-ai-quality-flags"><b>Quality-control flags</b>${flags.length ? flags.map(flag => `<span>${esc(flag)}</span>`).join('') : '<span>No flags recorded; human review still required.</span>'}</div><footer class="edu-row-actions">${actions}</footer></div></details>`;
     }).join('');
     applyReviewFilters();
-    updateBulkPublishButton();
+    updateBulkPublishButton(approvedCount > 0, approvedCount);
   }
 
   async function loadReviewQueue() {
@@ -288,7 +309,7 @@
     host.innerHTML = '<p class="edu-admin-empty">Loading AI question review queue…</p>';
     const { data, error } = await FX.client.from('edu_questions')
       .select('id,question_text,subject_code,exam_codes,question_type,options,correct_answer,explanation,marks,difficulty,topic_code,review_status,is_active,ai_quality_flags,ai_provider_code,ai_model,ai_syllabus_verification_status,ai_syllabus_source_url,ai_syllabus_mapping_id,created_at')
-      .eq('source_type','ai_draft').in('review_status',['review','approved'])
+      .eq('source_type','ai_draft').in('review_status',['draft','review','approved'])
       .order('created_at',{ascending:false}).limit(100);
     if (error) throw error;
     const rows=data||[];
@@ -321,6 +342,8 @@
   async function reviewAction(event) {
     const button = event.target.closest('[data-ai-review-action]');
     if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
     const action = button.dataset.aiReviewAction;
     const id = button.dataset.id;
     const { data: question, error: loadError } = await FX.client.from('edu_questions').select('id,question_text,review_status,ai_syllabus_mapping_id').eq('id',id).single();
@@ -332,7 +355,9 @@
       if(mappingResult.error){window.alert(mappingResult.error.message);return;}
       if(!isVerifiedSyllabusMapping(mappingResult.data)){window.alert('Publishing is blocked until this topic-to-examination mapping is active and marked Reviewed or Official source verified in the Syllabus Manager.');return;}
     }
-    if (action === 'publish' && !window.confirm('Publish this approved question? It will become active and eligible for future student examinations.')) return;
+    if (action === 'approve' && !['draft','review'].includes(String(question.review_status || '').toLowerCase())) { window.alert('Only a draft awaiting review can be approved.'); return; }
+    if (action === 'approve' && !window.confirm('Approve this question after checking its wording, options, answer and explanation? It will remain inactive until published.')) return;
+    if (action === 'publish' && !window.confirm('Publish this approved question to students? It will become active and eligible for future student examinations.')) return;
     if (action === 'reject' && !window.confirm('Reject this AI-generated draft? It will remain in the bank but cannot be delivered to students.')) return;
     button.disabled = true;
     try {
@@ -392,6 +417,8 @@
     });
     $('edu-ai-review-queue')?.addEventListener('click',reviewAction);
     $('edu-ai-publish-approved')?.addEventListener('click',publishApprovedDraftsToStudents);
+    document.addEventListener('click', event => { if (event.target.closest('#edu-ai-publish-approved-top')) publishApprovedDraftsToStudents(); });
+    window.addEventListener('eduAiPublishApprovedRequested', publishApprovedDraftsToStudents);
     $('edu-ai-review-search')?.addEventListener('input',applyReviewFilters);
     $('edu-ai-review-filter')?.addEventListener('change',applyReviewFilters);
     $('edu-ai-review-refresh')?.addEventListener('click',()=>loadReviewQueue().catch(e=>setFeedback('edu-ai-provider-feedback',e.message)));
