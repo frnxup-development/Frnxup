@@ -100,25 +100,43 @@ function extractUsage(payload: any) {
   const output = Number(u.completion_tokens ?? u.output_tokens ?? u.outputTokens ?? u.tokens?.output ?? u.billed_units?.output_tokens ?? 0) || 0;
   return { input, output };
 }
+async function retryTransientFetch(url: string, init: RequestInit, attempts = 3) {
+  let response: Response | null = null;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    response = await fetch(url, init);
+    if (![429, 500, 502, 503, 504].includes(response.status) || attempt === attempts - 1) return response;
+    const retryAfter = Number(response.headers.get('retry-after') || 0);
+    const waitMs = retryAfter > 0 ? Math.min(10000, retryAfter * 1000) : 800 * (2 ** attempt);
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+  }
+  return response as Response;
+}
+function friendlyProviderError(payload: any, status: number) {
+  const detail = String(payload?.error?.message || payload?.message || payload?.detail || '').trim();
+  if ([429, 500, 502, 503, 504].includes(status)) {
+    return `AI provider is temporarily busy or unavailable (HTTP ${status}). EDU-AFRIKA retried the request. Please wait a moment and try again${detail ? ` — ${detail}` : ''}. If this keeps happening, test the configured provider or switch to another enabled provider.`;
+  }
+  return detail || `AI provider returned HTTP ${status}. Check the model ID, API key, region and account quota.`;
+}
 async function providerRequest(provider: Provider, config: any, apiKey: string, messages: any[], maxTokens = 1500) {
   const signal = AbortSignal.timeout(60000);
   if (provider.protocol === 'cloudflare') {
     if (!config.account_id) throw new Error('Enter the Cloudflare Account ID in provider configuration.');
     const modelPath = String(config.model).split('/').map((part:string)=>encodeURIComponent(part)).join('/');
     const url = `${config.api_base_url.replace(/\/$/, '')}/accounts/${encodeURIComponent(config.account_id)}/ai/run/${modelPath}`;
-    const response = await fetch(url, {
+    const response = await retryTransientFetch(url, {
       method: 'POST', signal,
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages, max_tokens: maxTokens, temperature: 0.2 }),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.errors?.[0]?.message || payload?.error?.message || `Cloudflare returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(friendlyProviderError({ error: { message: payload?.errors?.[0]?.message || payload?.error?.message } }, response.status));
     return { text: extractContent(payload), usage: extractUsage(payload), model: config.model };
   }
 
   const url = `${config.api_base_url.replace(/\/$/, '')}/chat/completions`;
   const baseBody = { model: config.model, messages, temperature: 0.2, max_tokens: maxTokens };
-  let response = await fetch(url, {
+  let response = await retryTransientFetch(url, {
     method: 'POST', signal,
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...(provider.code === 'openrouter' ? { 'HTTP-Referer': 'https://frnxup.com', 'X-Title': 'EDU-AFRIKA' } : {}) },
     body: JSON.stringify({ ...baseBody, response_format: { type: 'json_object' } }),
@@ -126,14 +144,14 @@ async function providerRequest(provider: Provider, config: any, apiKey: string, 
   let payload = await response.json().catch(() => ({}));
   // A few OpenAI-compatible endpoints do not implement response_format. Retry without it.
   if (!response.ok && [400, 404, 422].includes(response.status)) {
-    response = await fetch(url, {
+    response = await retryTransientFetch(url, {
       method: 'POST', signal,
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...(provider.code === 'openrouter' ? { 'HTTP-Referer': 'https://frnxup.com', 'X-Title': 'EDU-AFRIKA' } : {}) },
       body: JSON.stringify(baseBody),
     });
     payload = await response.json().catch(() => ({}));
   }
-  if (!response.ok) throw new Error(payload?.error?.message || payload?.message || payload?.detail || `AI provider returned HTTP ${response.status}. Check the model ID, API key, region and account quota.`);
+  if (!response.ok) throw new Error(friendlyProviderError(payload, response.status));
   return { text: extractContent(payload), usage: extractUsage(payload), model: payload?.model || config.model };
 }
 function parseJsonText(text: string) {
