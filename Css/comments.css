@@ -377,3 +377,77 @@ body.fx-comments-open{overflow:hidden}
   border-radius: 3px;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent);
 }
+
+
+/* 2026-11-26: Facebook-style threaded comment sheet across Feed, Rooms, Groups and Pages. */
+.fx-unified-comments{--fx-unified-card:#f0f2f5;border:0;border-radius:0;overflow:visible;background:var(--surface);}
+.dark .fx-unified-comments{--fx-unified-card:#202a38;}
+.fx-unified-comments-head{padding:12px 16px 9px;border-bottom:0;background:var(--surface);}
+.fx-unified-comments-head h2{font-size:17px;font-weight:850;}
+.fx-unified-comments-head small{font-size:13px;line-height:1.35;}
+.fx-unified-sortbar{display:flex;align-items:center;justify-content:flex-start;gap:8px;padding:8px 15px 11px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface);}
+.fx-unified-sortbar label{font-size:16px;font-weight:650;color:var(--text);}
+.fx-unified-sortbar select{max-width:190px;padding:3px 22px 3px 5px;border:0;background:transparent;color:var(--text);font:700 16px 'DM Sans',sans-serif;outline-offset:3px;}
+.fx-unified-thread{gap:17px;max-height:none;min-height:150px;padding:14px 13px 22px;}
+.fx-unified-comment{position:relative;}
+.fx-unified-comment-main{gap:9px;}
+.fx-unified-avatar{width:44px;height:44px;flex-basis:44px;font-size:15px;border:1px solid var(--line);}
+.fx-unified-comment-bubble{display:block;width:fit-content;max-width:100%;min-width:0;padding:10px 14px 11px;border:0;border-radius:20px;background:var(--fx-unified-card);}
+.fx-unified-comment-byline{gap:6px;margin-bottom:4px;}
+.fx-unified-comment-byline b{font-size:16px;line-height:1.35;}
+.fx-unified-comment-byline time{font-size:14px;}
+.fx-unified-comment-byline small{font-size:13px;}
+.fx-unified-comment-text,.fx-unified-children .fx-unified-comment-text{font-size:18px;line-height:1.48;font-weight:500;letter-spacing:0;}
+.fx-unified-comment-actions{position:relative;display:flex;align-items:center;gap:15px;min-height:32px;padding:3px 8px 0;}
+.fx-unified-comment-actions button{min-height:30px;padding:2px 0;font-size:15px;font-weight:800;color:#707781;}
+.fx-unified-comment-actions .fx-unified-reply-action{font-size:15px;}
+.fx-unified-comment-actions .fx-unified-react-action{margin-left:auto;width:34px;min-width:34px;height:32px;padding:0;border-radius:50%;font-size:22px;line-height:1;color:#59616c;}
+.fx-unified-comment-actions .fx-unified-more-toggle{width:28px;min-width:28px;height:28px;padding:0;border-radius:50%;font-size:17px;letter-spacing:1px;}
+.fx-unified-inline-reactions{display:inline-flex;align-items:center;gap:3px;max-width:70%;overflow:hidden;}
+.fx-unified-inline-reactions .fx-unified-reaction-chip{padding:1px 3px;border:0;background:transparent;font-size:13px;white-space:nowrap;}
+.fx-unified-more-menu{position:absolute;z-index:25;right:36px;top:30px;display:grid;gap:2px;min-width:150px;padding:7px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 10px 28px #0003;}
+.fx-unified-more-menu[hidden]{display:none;}
+.fx-unified-more-menu button{width:100%;min-height:36px;padding:7px 10px;text-align:left;border-radius:8px;font-size:14px;}
+.fx-unified-more-menu button:hover{background:var(--surface-2);}
+.fx-unified-load-replies{display:flex;align-items:center;justify-content:flex-start;min-height:30px;margin:2px 0 0 51px;padding:2px 8px;border:0;border-radius:8px;background:transparent;color:#66707b;font-size:15px;font-weight:800;text-align:left;}
+.fx-unified-children{gap:13px;margin:9px 0 0 25px;padding:0 0 0 14px;border-left:2px solid #e0e3e8;}
+.dark .fx-unified-children{border-left-color:var(--line);}
+.fx-unified-children .fx-unified-avatar{width:36px;height:36px;flex-basis:36px;font-size:13px;}
+.fx-unified-children .fx-unified-comment-main{gap:8px;}
+.fx-unified-children .fx-unified-comment-bubble{padding:9px 12px 10px;border-radius:18px;}
+.fx-unified-empty{font-size:15px;line-height:1.5;}
+.fx-unified-composer{padding:11px 12px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--surface);}
+.fx-unified-compose-top textarea{min-height:46px;padding:10px 15px;font-size:16px;line-height:1.45;border-radius:24px;}
+.fx-unified-send{width:44px;height:44px;flex-basis:44px;font-size:21px;}
+.fx-unified-compose-tools{gap:7px;}
+.fx-unified-compose-tools button{min-height:36px;padding:7px 10px;font-size:13px;}
+.fx-unified-composer-note{font-size:13px;}
+/* The reference uses a raised, rounded bottom sheet instead of a full-screen overlay. */
+.fx-unified-comments-modal{align-items:flex-end;justify-content:center;padding:0;background:#0008;}
+.fx-unified-comments-modal .fx-unified-comments-panel{width:min(780px,100%);height:min(88dvh,940px);max-height:88dvh;min-height:0;border:0;border-radius:24px 24px 0 0;box-shadow:0 -10px 34px #0003;padding-bottom:env(safe-area-inset-bottom);}
+.fx-unified-comments-modal .fx-unified-modal-top{height:34px;min-height:34px;flex:0 0 34px;justify-content:center;padding:0;background:var(--surface);border:0;}
+.fx-unified-comments-modal .fx-unified-modal-top>span{display:block;width:54px;height:5px;border-radius:9px;background:#858b92;opacity:.9;}
+.fx-unified-comments-modal .fx-unified-modal-top button{position:absolute;right:12px;top:3px;width:30px;height:30px;display:grid;place-items:center;border:0;background:transparent;font-size:24px;}
+.fx-unified-comments-modal .fx-unified-comments-panel>[data-fx-modal-content]{display:flex;flex:1 1 auto;min-width:0;min-height:0;overflow:hidden;}
+.fx-unified-comments-modal [data-fx-modal-content]>.fx-unified-comments{display:flex;flex:1 1 auto;flex-direction:column;height:100%;min-width:0;min-height:0;border:0;border-radius:0;overflow:hidden;}
+.fx-unified-comments-modal .fx-unified-comments-head{flex:0 0 auto;position:relative;padding:7px 15px 8px;}
+.fx-unified-comments-modal .fx-unified-sortbar{flex:0 0 auto;}
+.fx-unified-comments-modal .fx-unified-thread{display:flex;flex:1 1 auto;width:100%;height:auto;max-height:none!important;min-height:0;overflow-x:hidden;overflow-y:auto;padding:14px 12px 18px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+.fx-unified-comments-modal .fx-unified-composer{position:relative;bottom:auto;flex:0 0 auto;max-height:38dvh;overflow-y:auto;}
+@media(min-width:800px){
+  .fx-unified-comments-modal{align-items:center;padding:3vh 18px;}
+  .fx-unified-comments-modal .fx-unified-comments-panel{width:min(850px,100%);height:90dvh;max-height:90dvh;border:1px solid var(--line);border-radius:22px;}
+  .fx-unified-comments-modal .fx-unified-modal-top{border-radius:22px 22px 0 0;}
+}
+@media(max-width:540px){
+  .fx-unified-comments-modal{align-items:flex-end;padding:0;}
+  .fx-unified-comments-modal .fx-unified-comments-panel{width:100vw;height:88dvh;max-height:88dvh;border-radius:23px 23px 0 0;}
+  .fx-unified-comment-text,.fx-unified-children .fx-unified-comment-text{font-size:18px;line-height:1.48;font-weight:500;}
+  .fx-unified-comment-byline b{font-size:16px;}
+  .fx-unified-comment-byline time{font-size:14px;}
+  .fx-unified-comment-bubble{padding:10px 13px 11px;}
+  .fx-unified-children{margin-left:20px;padding-left:11px;}
+  .fx-unified-load-replies{margin-left:45px;font-size:14px;}
+  .fx-unified-compose-tools button{flex:0 0 auto;font-size:12px;}
+}
+@media(prefers-reduced-motion:reduce){.fx-unified-comments-modal *{scroll-behavior:auto!important;}}
