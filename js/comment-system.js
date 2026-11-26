@@ -115,6 +115,7 @@
   function shellMarkup(title) {
     return `<section class="fx-unified-comments" aria-label="${esc(title)}">
       <header class="fx-unified-comments-head"><div><h2>${esc(title)}</h2><small data-fx-comment-count>Opening discussion…</small></div></header>
+      <div class="fx-unified-sortbar"><label for="fx-comment-sort">Sort comments</label><select id="fx-comment-sort" data-fx-comment-sort aria-label="Sort comments"><option value="relevant">Most relevant</option><option value="newest">Newest</option></select></div>
       <div class="fx-unified-thread" data-fx-comment-list aria-live="polite" aria-busy="true">
         <div class="fx-comment-skeleton" aria-hidden="true"><i></i><span><b></b><em></em></span></div>
         <div class="fx-comment-skeleton" aria-hidden="true"><i></i><span><b></b><em></em></span></div>
@@ -176,6 +177,7 @@
     let rootOffset = 0;
     let rootHasMore = true;
     let rootLoading = false;
+    let sortMode = 'relevant';
     let lazyMediaObserver = null;
     const cacheKey = `${context.type}:${context.id}:${FX.user?.id || 'anon'}`;
     let voiceRecorder = null;
@@ -225,14 +227,16 @@
       const replyState = replyPages.get(comment.id);
       const loadedReplies = replyState?.loaded ?? children.length;
       const canLoadReplies = Number(replyCount || 0) > loadedReplies;
-      const replyControl = canLoadReplies ? `<button type="button" class="fx-unified-load-replies" data-fx-load-replies="${comment.id}" ${replyState?.loading?'disabled':''}>${replyState?.loading?'Loading replies…':loadedReplies ? `Load more replies (${Number(replyCount)-loadedReplies} left)` : `View ${replyCount} ${replyCount===1?'reply':'replies'}`}</button>` : '';
-      const actions = `<div class="fx-unified-comment-actions"><button type="button" data-fx-reply="${comment.id}">Reply</button><button type="button" data-fx-react="${comment.id}">React${ownReaction ? ` · ${REACTIONS.find(x=>x.key===ownReaction)?.emoji||'👍'}` : ''}</button>${mine && !deleted ? `<button type="button" data-fx-edit="${comment.id}">Edit</button><button type="button" data-fx-delete="${comment.id}">Delete</button>` : ''}<button type="button" data-fx-share="${comment.id}">Share</button>${!mine && FX.user && !deleted ? `<button type="button" data-fx-report="${comment.id}">Report</button>` : ''}</div>`;
+      const remainingReplies = Math.max(0, Number(replyCount || 0) - loadedReplies);
+      const replyControl = canLoadReplies ? `<button type="button" class="fx-unified-load-replies" data-fx-load-replies="${comment.id}" ${replyState?.loading?'disabled':''}>${replyState?.loading?'Loading replies…':`View previous ${remainingReplies || Number(replyCount)} ${Number(replyCount)===1?'reply':'replies'}`}</button>` : '';
+      const extraActions = `${mine && !deleted ? `<button type="button" data-fx-edit="${comment.id}">Edit</button><button type="button" data-fx-delete="${comment.id}">Delete</button>` : ''}<button type="button" data-fx-share="${comment.id}">Share</button>${!mine && FX.user && !deleted ? `<button type="button" data-fx-report="${comment.id}">Report</button>` : ''}`;
+      const actions = `<div class="fx-unified-comment-actions"><button type="button" class="fx-unified-reply-action" data-fx-reply="${comment.id}">Reply</button>${summary ? `<span class="fx-unified-inline-reactions">${summary}</span>` : ''}<button type="button" class="fx-unified-react-action" data-fx-react="${comment.id}" aria-label="React to comment" title="React to comment">${ownReaction ? (REACTIONS.find(x=>x.key===ownReaction)?.emoji||'👍') : '👍'}</button><button type="button" class="fx-unified-more-toggle" data-fx-more-toggle="${comment.id}" aria-label="More comment actions" aria-expanded="false">•••</button><div class="fx-unified-more-menu" data-fx-more-menu="${comment.id}" hidden>${extraActions}</div></div>`;
       const reactionTray = `<div class="fx-unified-reaction-tray" data-fx-tray="${comment.id}" hidden>${REACTIONS.map(r=>`<button type="button" title="${r.label}" data-fx-reaction="${r.key}" data-fx-reaction-id="${comment.id}">${r.emoji}</button>`).join('')}</div>`;
       const avatarMarkup = avatarPath ? `<img data-fx-lazy-type="image" data-fx-lazy-path="${esc(avatarPath)}" loading="lazy" alt="">` : esc(name.slice(0,1).toUpperCase());
       return `<article class="fx-unified-comment" id="fx-comment-${comment.id}" data-fx-comment="${comment.id}">
         <div class="fx-unified-comment-main"><div class="fx-unified-avatar">${avatarMarkup}</div>
           <div class="fx-unified-comment-content"><div class="fx-unified-comment-bubble"><div class="fx-unified-comment-byline"><b>${esc(name)}</b><time datetime="${esc(comment.created_at)}">${esc(FX.relative(comment.created_at))}</time>${mine?'<small>You</small>':''}</div><div class="fx-unified-comment-text ${deleted?'deleted':''}">${deleted?'This comment was deleted.':bodyMarkup(comment.body, comment.mentions)}</div>${attachments ? `<div class="fx-unified-attachments">${attachments}</div>` : ''}</div>
-            ${summary ? `<div class="fx-unified-reactions">${summary}</div>` : '<div class="fx-unified-reactions" hidden></div>'}${actions}${replyControl}${reactionTray}
+            ${actions}${replyControl}${reactionTray}
           </div></div>
         ${children.length ? `<div class="fx-unified-children">${children.map(renderComment).join('')}</div>` : ''}
       </article>`;
@@ -242,6 +246,13 @@
       const previousHeight = list.scrollHeight;
       const wasAtBottom = previousTop + list.clientHeight >= previousHeight - 28;
       const tree = buildTree(rows);
+      const relevance = row => {
+        const reactionTotal = (reactions.get(row.id) || []).reduce((sum, item) => sum + (Number(item.reaction_count) || 0), 0);
+        return reactionTotal + (Number(replyCounts.get(row.id)) || 0) * 2;
+      };
+      tree.sort((a,b) => sortMode === 'newest'
+        ? (new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        : (relevance(b) - relevance(a)) || (new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
       const pager = rootHasMore ? `<button type="button" class="fx-unified-load-earlier" data-fx-load-earlier ${rootLoading?'disabled':''}>${rootLoading?'Loading earlier comments…':'Load earlier comments'}</button>` : '';
       list.setAttribute('aria-busy', String(rootLoading));
       list.innerHTML = `${pager}${tree.length ? tree.map(renderComment).join('') : (rootLoading ? '<div class="fx-unified-empty">Loading comments…</div>' : '<div class="fx-unified-empty">No comments yet. Start the conversation.</div>')}`;
@@ -701,6 +712,8 @@
       }
     }
     form.addEventListener('submit',submit);
+    const sortControl = $('[data-fx-comment-sort]', root);
+    sortControl?.addEventListener('change', () => { sortMode = sortControl.value === 'newest' ? 'newest' : 'relevant'; renderList({preserveScroll:true}); });
     input.addEventListener('input',()=>{
       const match=input.value.slice(0,input.selectionStart).match(/(?:^|[^A-Za-z0-9_@])@([A-Za-z0-9_]{0,24})$/);
       if(match) findMentions(match[1]); else mentionBox.hidden=true;
@@ -714,6 +727,8 @@
         if(profileId){event.preventDefault();location.assign(target);}
         return;
       }
+      const moreToggle=event.target.closest('[data-fx-more-toggle]');
+      if(moreToggle){const menu=$(`[data-fx-more-menu="${CSS.escape(moreToggle.dataset.fxMoreToggle)}"]`,root);if(menu){menu.hidden=!menu.hidden;moreToggle.setAttribute('aria-expanded',String(!menu.hidden));}return;}
       const earlier=event.target.closest('[data-fx-load-earlier]');
       if(earlier){await loadEarlierRoots();return;}
       const replies=event.target.closest('[data-fx-load-replies]');

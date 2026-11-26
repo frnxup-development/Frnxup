@@ -6,6 +6,7 @@
   let chatKind = 'dm';
   let replyTo = null;
   let realtimeChannel = null;
+  let isGroupChat = false;
 
   const avatar = (name, url, extra = '') => url
     ? `<div class="avatar ${extra}"><img src="${FX.esc(url)}" alt=""></div>`
@@ -341,6 +342,7 @@
       return;
     }
     const members = conversation.conversation_members || [];
+    isGroupChat = conversation.kind === 'group';
     const peers = members.filter(member => member.user_id !== FX.user.id);
     const names = peers.map(member => member.profiles?.display_name || member.profiles?.username).filter(Boolean);
     $('#chat-title').textContent = conversation.title || names.join(', ') || 'Private chat';
@@ -350,9 +352,11 @@
     if (conversation.kind === 'group') {
       $('#group-tools').hidden = false;
       $('#group-add-member').hidden = !manager;
+      $('#group-open-comments').hidden = false;
       $('#group-members').innerHTML = members.map(member => `<span class="tag">${FX.esc(member.profiles?.display_name || member.profiles?.username || 'Member')}${manager && member.user_id !== conversation.created_by ? ` <button data-group-remove="${member.user_id}" aria-label="Remove member">×</button>` : ''}</span>`).join('');
     } else {
       $('#group-tools').hidden = true;
+      $('#group-open-comments').hidden = true;
     }
     await loadMessages();
     if (!realtimeChannel) {
@@ -509,6 +513,11 @@
       if (!cid) return FX.toast('Conversation not specified.');
       await loadChat();
       $('#send-message').addEventListener('click', () => sendMessage());
+      $('#group-open-comments')?.addEventListener('click', () => {
+        if (!isGroupChat) return;
+        if (!window.FrnxupComments) return FX.toast('Comments are unavailable. Refresh and try again.');
+        window.FrnxupComments.openModal({ type: 'group', contextId: cid, title: 'Group chat comments' });
+      });
       $('#group-add-member')?.addEventListener('click', async () => {
         const username = prompt('Enter the exact username of your Frnxup friend to add');
         if (!username) return;
