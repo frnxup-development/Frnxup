@@ -271,3 +271,98 @@ body .pages-chip, body .frnx-page-media-open {
   border-color: var(--frnxup-purple-line) !important;
   color: var(--frnxup-purple-dark) !important;
 }
+
+
+/* FRNXUP OPTION 2 — purple outline controls with consistently visible labels.
+   Override prior filled-purple rules and any page-local white-on-transparent text styles. */
+:root {
+  --frnxup-control-text: #6d28d9;
+  --frnxup-control-border: #7c3aed;
+  --frnxup-control-hover: #f3e8ff;
+  --frnxup-control-focus: rgba(124, 58, 237, .24);
+}
+.dark {
+  --frnxup-control-text: #c4b5fd;
+  --frnxup-control-border: #a78bfa;
+  --frnxup-control-hover: rgba(167, 139, 250, .14);
+  --frnxup-control-focus: rgba(167, 139, 250, .30);
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"]
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--frnxup-control-text) !important;
+  -webkit-text-fill-color: currentColor !important;
+  border: 1.5px solid var(--frnxup-control-border) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 1;
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"]
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]) :is(span, strong, b, em, i) {
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"]
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]):hover {
+  background: var(--frnxup-control-hover) !important;
+  background-color: var(--frnxup-control-hover) !important;
+  color: var(--frnxup-control-text) !important;
+  border-color: var(--frnxup-control-border) !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"]
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]):focus-visible {
+  outline: 3px solid var(--frnxup-control-focus) !important;
+  outline-offset: 2px !important;
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"]
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]):disabled,
+body :is(button, .button, a.button, a.btn, .btn, [role="button"])[aria-disabled="true"] {
+  color: var(--frnxup-control-text) !important;
+  -webkit-text-fill-color: currentColor !important;
+  opacity: .58 !important;
+  cursor: not-allowed !important;
+}
+
+body :is(button, .button, a.button, a.btn, .btn, [role="button"]) svg {
+  color: inherit !important;
+}
+body :is(button, .button, a.button, a.btn, .btn, [role="button"]) svg [fill]:not([fill="none"]) {
+  fill: currentColor !important;
+}
+body :is(button, .button, a.button, a.btn, .btn, [role="button"]) svg [stroke]:not([stroke="none"]) {
+  stroke: currentColor !important;
+}
+
+/* Text links and icon-navigation links use the same purple accent. */
+body a[href]:not(.brand):not(.fx-notification-card):not(.row-card):not(.post-card):not(.pa-action-card):not(.pages-quick-card):not(.fx-home-suggestion):not(.fx-person-suggestion):not(.fx-friends-hub-card) {
+  color: var(--frnxup-control-text) !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+body .action-link, body .action-link.selected, body .dashboard-icon,
+body .menu-button, body .menu-popover a, body .menu-popover button {
+  color: var(--frnxup-control-text) !important;
+}
+body .action-link.selected:after { background: var(--frnxup-control-border) !important; }
