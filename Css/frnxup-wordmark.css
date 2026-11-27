@@ -1,8 +1,9 @@
+@import url('purple-theme.css');
 /* FRNXUP Option 7 — text wordmark only. The existing logo image is intentionally untouched. */
 :root {
   --frnxup-wordmark-navy: #111a39;
   --frnxup-wordmark-purple: #8537ef;
-  --frnxup-wordmark-blue: #248cff;
+  --frnxup-wordmark-blue: #7c3aed;
 }
 .frnxup-wordmark-text {
   display: inline-flex;
@@ -28,7 +29,7 @@
   display: inline-block;
   margin-inline: 0.025em;
   color: #7450f4; /* legible fallback when text clipping gradients are unsupported */
-  background: linear-gradient(125deg, var(--frnxup-wordmark-purple) 0%, #6352f3 48%, var(--frnxup-wordmark-blue) 100%);
+  background: linear-gradient(125deg, var(--frnxup-wordmark-purple) 0%, #8b5cf6 48%, var(--frnxup-wordmark-blue) 100%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;

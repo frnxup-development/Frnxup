@@ -1,0 +1,273 @@
+/* FRNXUP GLOBAL PURPLE THEME — overrides blue interactive accents consistently. */
+:root {
+  --frnxup-purple: #7c3aed;
+  --frnxup-purple-dark: #6828c8;
+  --frnxup-purple-soft: #f2eaff;
+  --frnxup-purple-line: #d8b4fe;
+  --blue: #7c3aed !important;
+  --blue-2: #6828c8 !important;
+  --message-link: #8b5cf6 !important;
+  --message-selected-bg: #f2eaff !important;
+  --message-selected-text: #6828c8 !important;
+  --fx-blue: #7c3aed !important;
+  --fx-page-blue: #7c3aed !important;
+  --fx-unified-accent: #7c3aed !important;
+  --accent: #7c3aed !important;
+  --frnxup-wordmark-blue: #7c3aed !important;
+  accent-color: #7c3aed;
+}
+.dark {
+  --frnxup-purple: #a78bfa;
+  --frnxup-purple-dark: #8b5cf6;
+  --frnxup-purple-soft: #2a1b42;
+  --frnxup-purple-line: #60408a;
+  --blue: #a78bfa !important;
+  --blue-2: #8b5cf6 !important;
+  --message-link: #c4b5fd !important;
+  --message-selected-bg: #34234d !important;
+  --message-selected-text: #e9ddff !important;
+  --fx-blue: #a78bfa !important;
+  --fx-page-blue: #a78bfa !important;
+  --fx-unified-accent: #a78bfa !important;
+  --accent: #a78bfa !important;
+  --frnxup-wordmark-blue: #a78bfa !important;
+  accent-color: #a78bfa;
+}
+html, body { accent-color: var(--frnxup-purple) !important; }
+
+/* Links: purple across public pages, settings, admin, rooms, groups and EDU pages. */
+body a[href]:not(.brand):not(.fx-notification-card):not(.row-card):not(.post-card):not(.pa-action-card):not(.pages-quick-card):not(.fx-home-suggestion):not(.fx-person-suggestion):not(.fx-friends-hub-card) {
+  color: var(--frnxup-purple) !important;
+}
+body a[href]:not(.brand):not(.fx-notification-card):not(.row-card):not(.post-card):not(.pa-action-card):not(.pages-quick-card):not(.fx-home-suggestion):not(.fx-person-suggestion):not(.fx-friends-hub-card):hover {
+  color: var(--frnxup-purple-dark) !important;
+}
+body a.brand, body .brand a, body a.fx-notification-card,
+body a.row-card, body a.post-card, body a.pa-action-card,
+body a.pages-quick-card, body a.fx-home-suggestion,
+body a.fx-person-suggestion, body a.fx-friends-hub-card {
+  color: inherit !important;
+}
+
+/* Primary calls to action and formerly-blue action controls. */
+.button.primary, .primary, .btn-primary, button.primary, a.primary,
+button[type="submit"], input[type="submit"],
+button[class*="primary"], a[class*="primary"],
+button[class*="publish"], button[class*="submit"],
+button[class*="create"], button[class*="follow"],
+button[class*="save"], button[class*="send"], button[class*="add-friend"],
+button[class*="retry"], a[role="button"].primary,
+.fx-state-retry, .fx-state-link,
+.fx-camera-preview-actions [data-camera-use],
+.fx-profile-reels-upload, .fx-profile-reels-follow,
+.fx-profile-reels-state button, #profile-reel-publish,
+.fx-reels-create-link, .fx-reels-create-fab,
+.fx-reels-empty button, .fx-reel-publish, .fx-reel-comment-form button,
+.pa-primary, .pa-public-cta, .pa-tabs button.active,
+.admin-main header button, .admin-main .filter-bar button,
+.admin-main .admin-action:not(.danger-button):not(.action-red),
+.admin-main .dashboard-quicklink a,
+.admin-side nav a.active, .content-tabs button.active,
+.fx-feed-filters button[aria-pressed="true"],
+.fx-profile-reels-tabs button.active,
+.edu-button:not(.edu-button-secondary):not(.edu-button-quiet),
+.edu-submit-row button, .edu-result-actions button {
+  background: var(--frnxup-purple) !important;
+  background-image: none !important;
+  border-color: var(--frnxup-purple-dark) !important;
+  color: #fff !important;
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--frnxup-purple) 22%, transparent) !important;
+}
+.button.primary:hover, .primary:hover, button[type="submit"]:hover,
+.fx-state-retry:hover, .fx-state-link:hover,
+.admin-main header button:hover, .admin-main .admin-action:hover {
+  background: var(--frnxup-purple-dark) !important;
+  border-color: var(--frnxup-purple-dark) !important;
+  color: #fff !important;
+}
+
+/* Secondary, outline and quiet controls retain their surfaces but use purple accents. */
+.button.secondary, .secondary, .subtle,
+button.secondary, a.button.secondary,
+.menu-button, .icon-button, .close,
+.action-link, .dashboard-icon,
+.menu-popover a, .menu-popover button,
+.composer-tools button, .post-actions button,
+.comment-actions button, .reply-context button,
+.fx-mark-all-read, .fx-mark-all-read:hover {
+  color: var(--frnxup-purple) !important;
+  border-color: var(--frnxup-purple-line) !important;
+}
+.button.secondary, .secondary, button.secondary, a.button.secondary {
+  background: var(--frnxup-purple-soft) !important;
+}
+.dashboard-icon { background: var(--frnxup-purple-soft) !important; }
+.action-link.selected { color: var(--frnxup-purple) !important; }
+.action-link.selected:after { background: var(--frnxup-purple) !important; }
+.eyebrow, .pages-eyebrow, .pa-heading > span,
+.panel-head a, .fx-profile-reels-back,
+.fx-profile-reels-tabs button.active,
+.auth-state-notice a { color: var(--frnxup-purple) !important; }
+
+/* Selected states, focus rings and form controls. */
+:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline-color: var(--frnxup-purple) !important;
+}
+.field input:focus, .field textarea:focus, .field select:focus,
+.searchbar input:focus, .fx-discover-search input:focus {
+  border-color: var(--frnxup-purple) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--frnxup-purple) 18%, transparent) !important;
+}
+input[type="checkbox"], input[type="radio"], progress, meter { accent-color: var(--frnxup-purple) !important; }
+
+/* Components with hard-coded blue in their page-specific stylesheets. */
+.fx-notification-avatar { background: linear-gradient(135deg, #a855f7, #6d28d9) !important; }
+.fx-notification-type-icon,
+.fx-notification-type-icon.is-friend,
+.fx-notification-type-icon.is-message { background: var(--frnxup-purple) !important; }
+.fx-notification-unread-dot { background: var(--frnxup-purple) !important; }
+.fx-notification-card.is-unread {
+  background: linear-gradient(105deg, color-mix(in srgb, var(--frnxup-purple) 14%, var(--surface)), color-mix(in srgb, var(--frnxup-purple) 4%, var(--surface)) 62%, var(--surface)) !important;
+  border-color: color-mix(in srgb, var(--frnxup-purple) 38%, var(--line)) !important;
+}
+.fx-mark-all-read, .dark .fx-mark-all-read { color: var(--frnxup-purple) !important; }
+.fx-mark-all-read:hover, .dark .fx-mark-all-read:hover { color: var(--frnxup-purple-dark) !important; }
+.fx-mark-all-read:focus-visible { outline-color: var(--frnxup-purple) !important; }
+
+.fx-profile-reels-tabs button.active { border-bottom-color: var(--frnxup-purple) !important; }
+.fx-profile-reels-spinner { border-top-color: var(--frnxup-purple) !important; }
+.fx-profile-reel-picker span { background: var(--frnxup-purple-soft) !important; color: var(--frnxup-purple) !important; }
+.fx-post-gallery-pick { background: var(--frnxup-purple-soft) !important; border-color: var(--frnxup-purple-line) !important; color: var(--frnxup-purple-dark) !important; }
+.dark .fx-post-gallery-pick { background: var(--frnxup-purple-soft) !important; border-color: var(--frnxup-purple-line) !important; color: var(--frnxup-purple) !important; }
+.fx-home-suggestion-actions .button.primary,
+.fx-person-suggestion-actions .button.primary { background: var(--frnxup-purple) !important; }
+.fx-friends-hub-icon { color: var(--frnxup-purple) !important; }
+.pa-back, .pa-heading > span, .pa-action-card strong { color: var(--frnxup-purple) !important; }
+.pa-check input { accent-color: var(--frnxup-purple) !important; }
+.admin-main header small, .panel-head a { color: var(--frnxup-purple) !important; }
+.admin-side nav a.active { background: color-mix(in srgb, var(--frnxup-purple) 28%, #101a2a) !important; color: #eadcff !important; }
+.admin-side nav a:hover { border-color: var(--frnxup-purple-line) !important; }
+.badge { background: color-mix(in srgb, var(--frnxup-purple) 24%, #111a29) !important; color: #e9ddff !important; }
+.switch-card input { accent-color: var(--frnxup-purple) !important; }
+
+/* Replace blue-only SVG/icon fills while leaving photos and user media untouched. */
+svg [fill="#1877f2"], svg [fill="#287cf0"], svg [fill="#3b8dff"],
+svg [fill="#1765dc"], svg [fill="#1769e8"],
+svg [stroke="#1877f2"], svg [stroke="#287cf0"], svg [stroke="#3b8dff"],
+svg [stroke="#1765dc"], svg [stroke="#1769e8"] {
+  fill: var(--frnxup-purple) !important;
+  stroke: var(--frnxup-purple) !important;
+}
+
+/* Keep destructive actions and explicit success/warning states semantically distinct. */
+button.danger, .danger-button, button.action-red, .action-red,
+[ data-variant="danger" ] { color: #fff !important; }
+
+/* Final pass for page-specific palettes and component-level accents. */
+body button:not(.danger):not(.danger-button):not(.action-red),
+body input[type="button"], body input[type="reset"] {
+  color: var(--frnxup-purple) !important;
+  border-color: var(--frnxup-purple-line) !important;
+}
+body button.primary, body button[type="submit"], body .button.primary,
+body a.button.primary, body a.primary, body a.btn-primary,
+body .pa-primary, body .pa-public-cta, body .fx-complete-button,
+body .fx-publish-button, body .fx-post-button, body .fx-reels-create-link,
+body .fx-reels-create-fab, body .fx-profile-reels-upload,
+body .fx-profile-reels-follow, body .fx-profile-reels-state button,
+body #profile-reel-publish, body .fx-reel-publish,
+body .fx-reel-comment-form button, body .fx-camera-preview-actions [data-camera-use],
+body .fx-state-retry, body .fx-state-link, body .frnx-page-follow-btn,
+body .pages-button.primary, body .admin-main header button,
+body .admin-main .filter-bar button, body .admin-main .admin-action,
+body .edu-button, body .edu-submit-row button, body .edu-result-actions button {
+  color: #fff !important;
+}
+body .button.secondary, body .secondary, body button.secondary,
+body .pages-button.secondary, body .pages-tabs button,
+body .pages-chip, body .frnx-page-media-open {
+  background: var(--frnxup-purple-soft) !important;
+  border-color: var(--frnxup-purple-line) !important;
+  color: var(--frnxup-purple-dark) !important;
+}
+
+/* Pages, dashboard and Reels had independent hard-coded blue accents. */
+.pages-tabs button.active, .pages-button.primary,
+.frnx-page-follow-btn, .frnx-page-media-open,
+.frnx-page-tabs button.active, .frnx-page-pagebadge,
+.fx-action-card.action-blue, .fx-action-card.action-purple,
+.fx-action-card.action-green, .fx-action-card.action-orange,
+.fx-action-card.action-pink, .fx-complete-button,
+.fx-dashboard-app .fx-post-button,
+.fx-feed-filters button[aria-pressed="true"],
+.fx-profile-reels-tabs button.active {
+  background: var(--frnxup-purple) !important;
+  background-image: none !important;
+  border-color: var(--frnxup-purple-dark) !important;
+  color: #fff !important;
+}
+.pages-eyebrow, .pages-tabs button.active, .pages-pagebadge,
+.frnx-page-tabs button.active, .frnx-page-media-open,
+.frnx-page-pagebadge, .fx-composer-tools button:first-child,
+.fx-section-heading > a, .fx-widget-heading > a,
+.fx-activity-icon, .fx-quick-links a span,
+.fx-quick-links a b, .fx-quote-mark {
+  color: var(--frnxup-purple) !important;
+}
+.fx-activity-icon { background: var(--frnxup-purple-soft) !important; }
+.fx-topic { background: var(--frnxup-purple-soft) !important; color: var(--frnxup-purple-dark) !important; }
+.fx-profile-reel-picker span { background: var(--frnxup-purple-soft) !important; color: var(--frnxup-purple) !important; }
+.fx-home-suggestion-actions .button.primary,
+.fx-person-suggestion-actions .button.primary { background: var(--frnxup-purple) !important; }
+.fx-dashboard-app, .user-dashboard { --fx-blue: var(--frnxup-purple) !important; }
+
+/* Admin and education links/actions use the same purple accent. */
+.admin-side nav a.active, .admin-side nav a:hover,
+.admin-main .panel-head a, .admin-main header small,
+.admin-main .dashboard-quicklink a, .admin-main .action-cell button:not(.danger),
+.admin-main .filter-bar button, .admin-main .admin-action:not(.danger-button),
+.content-tabs button.active, .admin-side nav a:focus-visible {
+  border-color: var(--frnxup-purple-line) !important;
+}
+.admin-side nav a.active { background: color-mix(in srgb, var(--frnxup-purple) 30%, #101a2a) !important; color: #f2eaff !important; }
+.admin-main .badge { background: color-mix(in srgb, var(--frnxup-purple) 25%, #111a29) !important; color: #eadcff !important; }
+.edu-button, .edu-submit-row button, .edu-result-actions button {
+  background: var(--frnxup-purple) !important;
+  border-color: var(--frnxup-purple-dark) !important;
+  color: #fff !important;
+}
+.edu-footer a, .edu-save-note, .edu-share-feedback { color: var(--frnxup-purple) !important; }
+
+/* Purple logo/avatar fallbacks; uploaded user photos and videos are untouched. */
+.avatar:not(:has(img)), .fx-notification-avatar:not(:has(img)) {
+  background: linear-gradient(135deg, #a855f7, #6421c7) !important;
+}
+.page-switch, .pages-button.secondary, .frnx-page-media-open {
+  background: var(--frnxup-purple-soft) !important;
+  border-color: var(--frnxup-purple-line) !important;
+  color: var(--frnxup-purple-dark) !important;
+}
+.admin-main .action-cell button.action-green,
+.admin-main .action-cell button.action-yellow,
+.admin-main button.action-green,
+.admin-main button.action-yellow {
+  background: var(--frnxup-purple) !important;
+  border-color: var(--frnxup-purple-dark) !important;
+  color: #fff !important;
+}
+.fx-action-card.action-blue, .fx-action-card.action-purple,
+.fx-action-card.action-green, .fx-action-card.action-orange,
+.fx-action-card.action-pink { background: var(--frnxup-purple) !important; }
+.avatar, .fx-notification-avatar {
+  background: linear-gradient(135deg, #a855f7, #6421c7) !important;
+}
+.fx-home-suggestion-profile:not(:has(img)),
+.fx-person-suggestion-profile:not(:has(img)) {
+  background: linear-gradient(145deg, #a855f7, #6421c7) !important;
+  color: #fff !important;
+}
+.frnx-page-pagebadge {
+  background: var(--frnxup-purple-soft) !important;
+  border-color: var(--frnxup-purple-line) !important;
+  color: var(--frnxup-purple-dark) !important;
+}
