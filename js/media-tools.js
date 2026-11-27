@@ -4,24 +4,55 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const prettySize = bytes => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
+  function cleanDownloadName(value, mimeType = '') {
+    let name = String(value || 'frnxup-media').split(/[\\/]/).pop().replace(/[^a-z0-9._-]/gi, '_');
+    if (!name || name === '.') name = 'frnxup-media';
+    if (!/\.[a-z0-9]{2,5}$/i.test(name)) {
+      const extension = ({
+        'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+        'image/gif': 'gif', 'image/avif': 'avif', 'video/mp4': 'mp4',
+        'video/webm': 'webm'
+      })[String(mimeType || '').split(';')[0].toLowerCase()] || 'jpg';
+      name += `.${extension}`;
+    }
+    return name;
+  }
+
+  // Start a browser download directly from the user's Save action. Frnxup does
+  // not show its own file-picker/confirmation dialog; Android/Chrome may still
+  // display its native download-location chooser according to browser settings.
   async function save(url, filename = 'frnxup-media') {
-    if (!url) return;
+    if (!url) return false;
     try {
-      const response = await fetch(url, {mode: 'cors'});
-      if (!response.ok) throw new Error('Could not download this media.');
+      const response = await fetch(url, {mode: 'cors', credentials: 'omit', cache: 'force-cache'});
+      if (!response.ok) throw new Error(`Download failed (${response.status}).`);
       const blob = await response.blob();
+      if (!blob.size) throw new Error('The downloaded file was empty.');
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = objectUrl;
-      anchor.download = filename.replace(/[^a-z0-9._-]/gi, '_');
+      anchor.download = cleanDownloadName(filename, blob.type);
+      anchor.hidden = true;
+      anchor.rel = 'noopener';
       document.body.append(anchor);
       anchor.click();
       anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      window.FX?.toast?.('Download started. Check your Downloads folder.');
       return true;
     } catch (error) {
-      window.open(url, '_blank', 'noopener');
-      window.FX?.toast?.('Your browser opened the media. Use its menu to save it to your device.');
+      // Keep the operation as a direct link download attempt. Do not open a
+      // custom preview tab or display an app-controlled save dialog.
+      const fallback = document.createElement('a');
+      fallback.href = url;
+      fallback.download = cleanDownloadName(filename);
+      fallback.rel = 'noopener';
+      fallback.target = '_blank';
+      fallback.hidden = true;
+      document.body.append(fallback);
+      fallback.click();
+      fallback.remove();
+      window.FX?.toast?.('Download requested. Your browser may ask where to save the file.');
       return false;
     }
   }
@@ -56,7 +87,7 @@
       <header><b class="fx-lightbox-title"></b><span class="fx-lightbox-count"></span><button type="button" class="fx-lightbox-close" aria-label="Close gallery">×</button></header>
       <div class="fx-lightbox-stage" tabindex="0"></div>
       <nav class="fx-lightbox-thumbs" aria-label="Gallery photos"></nav>
-      <footer><button type="button" class="fx-lightbox-prev" aria-label="Previous photo">‹</button><button type="button" class="fx-lightbox-next" aria-label="Next photo">›</button><button type="button" class="fx-lightbox-save">↓ Save photo</button></footer>
+      <footer><button type="button" class="fx-lightbox-prev" aria-label="Previous photo">‹</button><button type="button" class="fx-lightbox-next" aria-label="Next photo">›</button><button type="button" class="fx-lightbox-save">↓ Download photo</button></footer>
     </div>`;
     document.body.append(lightboxLayer);
     lightboxLayer.addEventListener('click', event => {
@@ -68,7 +99,7 @@
       if (event.target.closest('.fx-lightbox-next') && index < items.length - 1) { lightboxState.index++; renderLightbox(); return; }
       if (event.target.closest('.fx-lightbox-save')) {
         const item = items[lightboxState.index];
-        if (item) save(item.url, item.name || `frnxup-${index + 1}.${item.type === 'video' ? 'mp4' : 'jpg'}`);
+        if (item) save(item.url, item.name || `frnxup-${lightboxState.index + 1}.${item.type === 'video' ? 'mp4' : 'jpg'}`);
       }
     });
     const stage = lightboxLayer.querySelector('.fx-lightbox-stage');
@@ -152,7 +183,7 @@
       const more = index === 3 && clean.length > 4 ? `<span class="fx-collage-more">+${clean.length - 4}</span>` : '';
       if (item.type === 'video') return `<div class="fx-collage-tile fx-video-tile" data-fx-gallery="${esc(key)}" data-fx-index="${index}">${media}${more}</div>`;
       return `<button type="button" class="fx-collage-tile" data-fx-gallery="${esc(key)}" data-fx-index="${index}" aria-label="Preview media ${index + 1}">${media}${more}</button>`;
-    }).join('')}</div><div class="fx-media-save-row"><button type="button" class="fx-save-gallery" data-fx-save-gallery="${esc(key)}">↓ Preview & save photos</button><small>${clean.length} ${clean.length === 1 ? 'item' : 'items'} · Tap to preview</small></div>`;
+    }).join('')}</div><div class="fx-media-save-row"><button type="button" class="fx-save-gallery" data-fx-save-gallery="${esc(key)}">↓ Preview & download photos</button><small>${clean.length} ${clean.length === 1 ? 'item' : 'items'} · Tap to preview</small></div>`;
   }
 
   function buildPreview(input) {
