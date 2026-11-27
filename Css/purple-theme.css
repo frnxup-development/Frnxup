@@ -366,3 +366,122 @@ body .menu-button, body .menu-popover a, body .menu-popover button {
   color: var(--frnxup-control-text) !important;
 }
 body .action-link.selected:after { background: var(--frnxup-control-border) !important; }
+
+
+/* FRNXUP OPTION 5 — translucent purple glass buttons with readable labels.
+   Keeps the global purple palette and replaces Option 2's flat outline treatment. */
+:root {
+  --frnxup-control-text: #ffffff;
+  --frnxup-control-border: rgba(192, 132, 252, .96);
+  --frnxup-control-bg: linear-gradient(135deg, rgba(126, 34, 206, .96), rgba(76, 29, 149, .92));
+  --frnxup-control-bg-hover: linear-gradient(135deg, rgba(147, 51, 234, .98), rgba(91, 33, 182, .96));
+  --frnxup-control-focus: rgba(168, 85, 247, .36);
+  --frnxup-control-glow: 0 7px 22px rgba(109, 40, 217, .24), inset 0 1px 0 rgba(255, 255, 255, .32);
+}
+.dark {
+  --frnxup-control-text: #ffffff;
+  --frnxup-control-border: rgba(192, 132, 252, .82);
+  --frnxup-control-bg: linear-gradient(135deg, rgba(147, 51, 234, .66), rgba(76, 29, 149, .62));
+  --frnxup-control-bg-hover: linear-gradient(135deg, rgba(168, 85, 247, .78), rgba(109, 40, 217, .76));
+  --frnxup-control-focus: rgba(192, 132, 252, .42);
+  --frnxup-control-glow: 0 0 0 1px rgba(192, 132, 252, .12), 0 7px 24px rgba(109, 40, 217, .30), inset 0 1px 0 rgba(255, 255, 255, .22);
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"],
+  .pages-button, .pages-create-link, .exam-btn, .edu-button,
+  .pa-primary, .pa-public-cta, .fx-complete-button, .fx-publish-button,
+  .fx-post-button, .fx-reels-create-link, .fx-reels-create-fab,
+  .fx-profile-reels-upload, .fx-profile-reels-follow, .fx-reel-publish,
+  .fx-camera-preview-actions [data-camera-use], .fx-state-retry, .fx-state-link
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]) {
+  background: var(--frnxup-control-bg) !important;
+  background-color: rgba(91, 33, 182, .82) !important;
+  background-image: var(--frnxup-control-bg) !important;
+  color: var(--frnxup-control-text) !important;
+  -webkit-text-fill-color: var(--frnxup-control-text) !important;
+  border: 1px solid var(--frnxup-control-border) !important;
+  box-shadow: var(--frnxup-control-glow) !important;
+  text-shadow: 0 1px 2px rgba(25, 7, 48, .42) !important;
+  backdrop-filter: blur(12px) saturate(145%);
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"],
+  .pages-button, .pages-create-link, .exam-btn, .edu-button,
+  .pa-primary, .pa-public-cta, .fx-complete-button, .fx-publish-button,
+  .fx-post-button, .fx-reels-create-link, .fx-reels-create-fab,
+  .fx-profile-reels-upload, .fx-profile-reels-follow, .fx-reel-publish,
+  .fx-camera-preview-actions [data-camera-use], .fx-state-retry, .fx-state-link
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]):hover {
+  background: var(--frnxup-control-bg-hover) !important;
+  background-color: rgba(109, 40, 217, .92) !important;
+  background-image: var(--frnxup-control-bg-hover) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border-color: #d8b4fe !important;
+  box-shadow: 0 0 0 1px rgba(216, 180, 254, .20), 0 9px 28px rgba(124, 58, 237, .34), inset 0 1px 0 rgba(255, 255, 255, .36) !important;
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"],
+  .pages-button, .pages-create-link, .exam-btn, .edu-button,
+  .pa-primary, .pa-public-cta, .fx-complete-button, .fx-publish-button,
+  .fx-post-button, .fx-reels-create-link, .fx-reels-create-fab,
+  .fx-profile-reels-upload, .fx-profile-reels-follow, .fx-reel-publish,
+  .fx-camera-preview-actions [data-camera-use], .fx-state-retry, .fx-state-link
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]):focus-visible {
+  outline: 3px solid var(--frnxup-control-focus) !important;
+  outline-offset: 3px !important;
+}
+
+body :is(
+  button,
+  input[type="button"], input[type="submit"], input[type="reset"],
+  .button, a.button, a.btn, .btn, a[role="button"], [role="button"],
+  .pages-button, .pages-create-link, .exam-btn, .edu-button,
+  .pa-primary, .pa-public-cta, .fx-complete-button, .fx-publish-button,
+  .fx-post-button, .fx-reels-create-link, .fx-reels-create-fab,
+  .fx-profile-reels-upload, .fx-profile-reels-follow, .fx-reel-publish,
+  .fx-camera-preview-actions [data-camera-use], .fx-state-retry, .fx-state-link
+):not(.danger):not(.danger-button):not(.action-red):not([class*="danger"]):disabled,
+body :is(button, .button, a.button, a.btn, .btn, [role="button"])[aria-disabled="true"] {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  opacity: .62 !important;
+  cursor: not-allowed !important;
+  filter: saturate(.72);
+}
+
+/* Keep nested labels and icons bright even when component styles set their own colors. */
+body :is(button, .button, a.button, a.btn, .btn, a[role="button"], [role="button"]) :is(span, strong, b, em, i) {
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+body :is(button, .button, a.button, a.btn, .btn, a[role="button"], [role="button"]) svg {
+  color: inherit !important;
+}
+body :is(button, .button, a.button, a.btn, .btn, a[role="button"], [role="button"]) svg [fill]:not([fill="none"]) {
+  fill: currentColor !important;
+}
+body :is(button, .button, a.button, a.btn, .btn, a[role="button"], [role="button"]) svg [stroke]:not([stroke="none"]) {
+  stroke: currentColor !important;
+}
+
+/* Plain text links remain purple; button-like anchors keep white labels on the glass surface. */
+body a[href]:not(.brand):not(.fx-notification-card):not(.row-card):not(.post-card):not(.pa-action-card):not(.pages-quick-card):not(.fx-home-suggestion):not(.fx-person-suggestion):not(.fx-friends-hub-card):not(.button):not(.btn):not([role="button"]):not(.pages-create-link):not(.exam-btn):not(.edu-button):not(.pa-primary):not(.pa-public-cta):not(.fx-reels-create-link):not(.fx-profile-reels-upload):not(.fx-profile-reels-follow):not(.fx-state-link) {
+  color: var(--frnxup-purple) !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+body a[href]:not(.brand):not(.fx-notification-card):not(.row-card):not(.post-card):not(.pa-action-card):not(.pages-quick-card):not(.fx-home-suggestion):not(.fx-person-suggestion):not(.fx-friends-hub-card):is(.button, .btn, [role="button"], .pages-create-link, .exam-btn, .edu-button, .pa-primary, .pa-public-cta, .fx-reels-create-link, .fx-profile-reels-upload, .fx-profile-reels-follow, .fx-state-link) {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
