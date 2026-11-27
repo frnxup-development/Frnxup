@@ -11,12 +11,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       .eq('id', postId).eq('status', 'published').maybeSingle();
     if (error) { FXStates.fail(postHost,error,{retry:loadPost}); return; }
     if (!post) { FXStates.render(postHost,'unavailable',{title:'This post is unavailable',message:'It may have been removed, made private or is no longer accessible.'}); return; }
-    const {data: mediaRows,error:mediaError} = await FX.client.from('post_media').select('media_path,media_type,sort_order').eq('post_id', post.id).order('sort_order', {ascending: true});
-    if(mediaError){FXStates.fail(postHost,mediaError,{retry:loadPost,title:'Post photos and videos could not be loaded'});return;}
-    const mediaItems = mediaRows?.length ? mediaRows : (post.media_path ? [{media_path:post.media_path,media_type:post.media_type||'image',sort_order:1}] : []);
+    const [mediaResult, commentsResult] = await Promise.all([
+      FX.client.from('post_media').select('media_path,media_type,sort_order').eq('post_id', post.id).order('sort_order', {ascending: true}),
+      FX.client.from('post_comments').select('post_id').eq('post_id', post.id).eq('status','published')
+    ]);
+    if(mediaResult.error){FXStates.fail(postHost,mediaResult.error,{retry:loadPost,title:'Post photos and videos could not be loaded'});return;}
+    if(commentsResult.error){FXStates.fail(postHost,commentsResult.error,{retry:loadPost,title:'Post comment information could not be loaded'});return;}
+    const mediaItems = mediaResult.data?.length ? mediaResult.data : (post.media_path ? [{media_path:post.media_path,media_type:post.media_type||'image',sort_order:1}] : []);
     const mediaUrls = await Promise.all(mediaItems.map(item => FX.mediaUrl(item.media_path)));
-    const gallery = window.FXMediaTools?.collage(mediaItems.map((item,index)=>({url:mediaUrls[index],type:item.media_type,name:`frnxup-${post.id}-${item.sort_order}.${(item.media_path?.split('.').pop()||(item.media_type==='video'?'mp4':'jpg')).toLowerCase()}`})).filter(item=>item.url),`post-detail-${post.id}`,'Post media') || '';
-    const mine = !!FX.user && post.post_reactions?.some(reaction => reaction.user_id === FX.user.id);
+    const media = mediaItems.map((item,index)=>({url:mediaUrls[index],type:item.media_type,name:`frnxup-${post.id}-${item.sort_order}.${(item.media_path?.split('.').pop()||(item.media_type==='video'?'mp4':'jpg')).toLowerCase()}`})).filter(item=>item.url);
+    const galleryKey=`post-detail-${post.id}`;
+    const gallery = media.length>1&&media.every(item=>item.type==='image')
+      ? (window.FXMediaTools?.carousel(media,galleryKey,'Photos in post')||'')
+      : (window.FXMediaTools?.collage(media,galleryKey,'Post media') || '');
+    const myReaction = post.post_reactions?.find(reaction => reaction.user_id === FX.user?.id)?.reaction || '';
     const name = post.profiles?.display_name || post.profiles?.username || 'Frnxup member';
     let authorPage=null;
     if(post.page_id){const {data,error:pageError}=await FX.client.from('frnxup_pages').select('name,slug,avatar_path').eq('id',post.page_id).maybeSingle();if(pageError){FXStates.fail(postHost,pageError,{retry:loadPost,title:'Page author information could not be loaded'});return;}authorPage=data||null;}
@@ -24,7 +32,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shownName=post.page_id?(authorPage?.name||name):name;
     const authorHref=authorPage?`/Pages/view.html?slug=${encodeURIComponent(authorPage.slug)}`:`/Dashboard/profile.html?id=${encodeURIComponent(post.user_id)}`;
     const authorAvatar=authorPage?.avatar_path?await FX.mediaUrl(authorPage.avatar_path):'';
-    postHost.innerHTML = `<article class="card post-card" data-post="${post.id}" data-owner="${post.user_id}">
+    const engagement=window.FXPostReactions?.markup(post.id,post.post_reactions||[],commentsResult.data?.length||0)||`<div class="post-actions"><button data-comment="${post.id}">Comments</button></div>`;
+    postHost.innerHTML = `<article class="card post-card" data-post="${post.id}" data-owner="${post.user_id}" data-my-reaction="${FX.esc(myReaction)}">
       <div class="post-header">
         <a class="avatar" href="${authorHref}">${authorAvatar?`<img src="${FX.esc(authorAvatar)}" alt="">`:FX.esc(shownName.slice(0, 2).toUpperCase())}</a>
         <div class="post-head-copy"><b><a href="${authorHref}">${FX.esc(shownName)}</a></b><small>${post.page_id?'Frnxup Page':`@${FX.esc(post.profiles?.username || 'member')}`} · ${FX.esc(FX.relative(post.created_at))} · ${FX.esc(post.visibility)}</small>${authorPage?`<a class="fx-post-page-badge" href="${authorHref}">▣ ${FX.esc(authorPage.name)} · Frnxup Page</a>`:''}</div>
@@ -33,37 +42,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       ${post.body ? `<div class="post-text">${FX.esc(post.body)}</div>` : ''}
       ${gallery}
       ${post.location_label ? `<small class="muted">⌖ ${FX.esc(post.location_label)}</small>` : ''}
-      <div class="post-actions">${FX.user ? `<button id="like-post" class="${mine ? 'active' : ''}">♡ ${post.post_reactions?.length || 0} Like</button><button id="bookmark-post">▣ Save</button>` : `<a class="small" href="/Auth/index.html?next=${encodeURIComponent(location.pathname + location.search)}">Log in to react or save</a>`}<button id="open-post-comments" type="button" aria-haspopup="dialog">💬 Comments</button><button id="share-post">↗ Share</button></div>
+      ${engagement}
     </article>`;
     FXStates.loaded(postHost);
-    if (FX.user) $('#like-post').onclick = async () => {
-      const { error: reactionError } = await FX.client.from('post_reactions').insert({ post_id: postId, user_id: FX.user.id, reaction: 'like' });
-      if (reactionError && reactionError.code !== '23505') FX.toast(reactionError.message);
-      loadPost();
-    };
-    $('#open-post-comments').onclick = () => {
-      if (!window.FrnxupComments) return FX.toast('Comments are unavailable. Refresh and try again.');
-      window.FrnxupComments.openModal({ type: 'post', contextId: postId, title: 'Comments' });
-    };
-    $('#share-post').onclick = async () => {
-      const url = location.href;
-      if (navigator.share) {
-        try { await navigator.share({ title: 'Frnxup post', url }); return; }
-        catch (error) { if (error?.name === 'AbortError') return; }
+    postHost.addEventListener('click', async event => {
+      const comment = event.target.closest('[data-comment]');
+      if (comment) {
+        if (!window.FrnxupComments) return FX.toast('Comments are unavailable. Refresh and try again.');
+        window.FrnxupComments.openModal({ type: 'post', contextId: postId, title: 'Comments' });
+        return;
       }
-      await navigator.clipboard.writeText(url);
-      FX.toast('Post link copied.');
-    };
-    if (FX.user) $('#bookmark-post').onclick = async () => {
-      const { error: saveError } = await FX.client.from('bookmarks').insert({ user_id: FX.user.id, post_id: postId });
-      FX.toast(saveError?.code === '23505' ? 'This post is already saved.' : saveError ? saveError.message : 'Post saved.');
-    };
+      const share = event.target.closest('[data-share]');
+      const send = event.target.closest('[data-send]');
+      if (!share && !send) return;
+      const url = `${location.origin}/Posts/view.html?id=${encodeURIComponent(postId)}`;
+      if (send && navigator.share) {
+        try { await navigator.share({title:'Frnxup post',text:'Check out this post on Frnxup',url}); }
+        catch(error) { if(error?.name!=='AbortError')FX.toast(error.message); }
+      } else {
+        try { if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(url);else throw new Error('Clipboard unavailable'); FX.toast('Post link copied.'); }
+        catch (_) { FX.toast(url); }
+      }
+    });
   }
 
-
   await loadPost();
-  // Backward-compatible direct links can open a comments-only sheet using
-  // /Posts/view.html?id=<post-id>&comments=1. The post remains outside the sheet.
   if (new URLSearchParams(location.search).get('comments') === '1' &&
       $('#post-detail')?.dataset.fxHasContent === 'true' && window.FrnxupComments) {
     window.FrnxupComments.openModal({ type: 'post', contextId: postId, title: 'Comments' });
